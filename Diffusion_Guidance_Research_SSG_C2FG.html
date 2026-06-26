@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>擴散模型引導機制研究：SSG 與 C²FG</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  /* Sidebar */
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  /* Main */
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  /* Headings */
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  /* Paper header card */
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  /* Info table */
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  /* Callout */
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  /* Lists */
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  /* Code */
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  /* Math blocks */
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  /* Comparison table */
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 680px;
+  }
+  table.compare th, table.compare td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--code-bg);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child {
+    font-weight: 600;
+    background: var(--surface);
+    width: 150px;
+  }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) {
+    background: var(--surface);
+  }
+  /* Badge */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  /* Footer */
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  /* Mobile */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">論文一：SSG — Token Swapping</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與應用</a></li>
+        </ol>
+      </li>
+      <li><a href="#paper2">論文二：C²FG — Score Discrepancy</a>
+        <ol>
+          <li><a href="#p2-idea">核心思想</a></li>
+          <li><a href="#p2-method">方法與演算法</a></li>
+          <li><a href="#p2-math">數學推導</a></li>
+          <li><a href="#p2-exp">實驗結果</a></li>
+          <li><a href="#p2-contrib">貢獻與應用</a></li>
+        </ol>
+      </li>
+      <li><a href="#compare">兩篇論文對比</a></li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion Model</span>
+  <h1>擴散模型引導機制研究<br>SSG 與 C²FG 兩篇論文</h1>
+  <p class="subtitle">從 Token 內部擾動到 Score 差異理論邊界 —— 兩種創新的 Diffusion Guidance 路徑</p>
+  <div class="meta">
+    <span>📅 2026-06-26</span>
+    <span>🏷️ diffusion · guidance · CFG · CVPR 2026</span>
+    <span>🔬 SJTU × vivo</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> Guiding a Diffusion Model by Swapping Its Tokens</h2>
+  <p class="tagline">Self-Swap Guidance（SSG）— 無需外部條件，以內部 Token 交換構造引導訊號</p>
+  <table class="info">
+    <tr><td>作者</td><td>Weijia Zhang, Yuehao Liu, Chao Ma 等（上海交通大學）；Shanyan Guan, Yanhao Ge, Wei Li 等（vivo）</td></tr>
+    <tr><td>發表</td><td>2026 arXiv 預印本</td></tr>
+    <tr><td>代碼</td><td><code>github.com/VISION-SJTU/SSG</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">零訓練</span> <span class="badge blue">即插即用</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>傳統 <strong>Classifier-Free Guidance（CFG）</strong>依賴文字條件（Prompt）構造「有條件 vs 無條件」的噪聲預測差值。但在<strong>無條件生成</strong>或缺乏高品質文字描述的場景下，CFG 無法直接應用。</p>
+<p>SSG 提出：<strong>無需外部條件</strong>，僅對模型內部 Latent Token 進行可控的「自交換」擾動，構造偽條件與偽無條件的預測差異，從而提取高保真引導方向。這將 CFG 的引導範式從「依賴外部文字」擴展到「依賴內部表徵擾動」。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>CFG 的本質是「差值引導」。SSG 證明這個差值不一定要來自外部條件 —— 內部表徵的結構性擾動同樣能產生有效的引導梯度。
+</div>
+
+<h3 id="p1-method">方法與演算法流程</h3>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>Classifier Guidance（CG）</strong>：需額外訓練分類器，計算 $\nabla_{x_t} \log p(y|x_t)$，成本高且依賴標籤。</li>
+  <li><strong>Classifier-Free Guidance（CFG）</strong>：聯合訓練條件/無條件分支，利用 $w(\epsilon_\theta(x_t, c) - \epsilon_\theta(x_t, \emptyset))$ 引導，但強依賴 Prompt。</li>
+  <li><strong>Self-Swap Guidance（SSG）</strong>：零訓練、即插即用。不依賴 $c$，而是交換 Latent 特徵圖中的 Token，生成「結構被破壞但分佈一致」的擾動輸入。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>去噪預測</strong>：在時間步 $t$，用原始 Latent $z_t$ 輸入去噪網路，得到 $\hat{\epsilon}_{\text{clean}} = \epsilon_\theta(z_t)$。</li>
+  <li><strong>Token 交換</strong>：在 $z_t$ 的空間或通道維度上，計算 Token 間語意相似度，<strong>交換差異最大的 Token 對</strong>，得到擾動 Latent $z_t^{\text{swap}}$。</li>
+  <li><strong>擾動預測</strong>：將 $z_t^{\text{swap}}$ 輸入同一網路，得到 $\hat{\epsilon}_{\text{swap}} = \epsilon_\theta(z_t^{\text{swap}})$。</li>
+  <li><strong>引導合成</strong>：計算引導方向 $v_{\text{guide}} = \hat{\epsilon}_{\text{clean}} - \hat{\epsilon}_{\text{swap}}$，按強度 $\lambda$ 疊加：
+    <br><code>ε̃ = ε_clean + λ · v_guide</code></li>
+  <li><strong>採樣更新</strong>：用 $\tilde{\epsilon}$ 執行標準 DDIM/DDPM 反向採樣，更新 $z_{t-1}$，循環至 $t=0$。</li>
+</ol>
+
+<h3 id="p1-math">數學公式與理論推導</h3>
+
+<h4>Token 交換操作</h4>
+<p>設 Latent 特徵圖 $Z \in \mathbb{R}^{H \times W \times C}$，展平為 Token 序列 $\{z^{(i)}\}_{i=1}^{N}$。定義相似度矩陣：</p>
+<div class="math-block">
+$$ S_{ij} = \text{sim}(z^{(i)}, z^{(j)}) $$
+</div>
+<p>選擇 $\arg\min_{i,j} S_{ij}$（最不相似的 Token 對）進行交換，得到 $Z^{\text{swap}}$。</p>
+
+<h4>引導向量構造</h4>
+<div class="math-block">
+$$ \Delta \epsilon_t = \epsilon_\theta(Z_t) - \epsilon_\theta(Z_t^{\text{swap}}) $$
+</div>
+<p>該差值近似於模型對「結構合理性」的梯度響應。由於交換的是最不相似 Token，$\Delta \epsilon_t$ 放大了模型對高頻細節和語意一致性的敏感度。</p>
+
+<h4>採樣更新（DDIM 為例）</h4>
+<div class="math-block">
+$$ Z_{t-1} = \sqrt{\alpha_{t-1}} \left( \frac{Z_t - \sqrt{1-\alpha_t}\,\tilde{\epsilon}}{\sqrt{\alpha_t}} \right) + \sqrt{1-\alpha_{t-1}}\,\tilde{\epsilon} $$
+</div>
+<p>其中 $\tilde{\epsilon} = \epsilon_\theta(Z_t) + \lambda\, \Delta \epsilon_t$。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>資料集</td><td>MS-COCO 2014 / 2017, ImageNet</td></tr>
+  <tr><td>基線</td><td>多種 Condition-Free Guidance 方法（CFG 無條件變體、其他擾動式引導）</td></tr>
+  <tr><td>指標</td><td>FID 與 CLIP Score 均顯著提升</td></tr>
+</table>
+<div class="callout green">
+  <strong>關鍵發現：</strong>SSG 的細粒度擾動策略（選擇性交換）相比全局噪聲注入或隨機 Mask，具有更強魯棒性。在較寬的 $\lambda$ 範圍內均能穩定提升品質，且不易引發圖像崩壞。
+</div>
+
+<h3 id="p1-contrib">貢獻、創新與應用</h3>
+<ol>
+  <li><strong>範式突破</strong>：首次將 CFG「差值引導」解耦於外部文字條件，證明內部 Token 擾動即可構造有效引導訊號。</li>
+  <li><strong>細粒度控制</strong>：基於語意相似度排序的 Token 交換策略，實現擾動強度精細調控。</li>
+  <li><strong>即插即用</strong>：無需重新訓練，可直接整合到任何預訓練 Diffusion Model 推理管線。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>無條件高品質圖像生成（缺乏/低品質 Prompt 時）</li>
+  <li>多模態/跨模態生成輔助（與文字 CFG、ControlNet 結合提升細節）</li>
+  <li>3D/視頻生成（Token 交換可沿時間軸或空間軸進行）</li>
+</ul>
+</section>
+
+<!-- ============ PAPER 2 ============ -->
+<section id="paper2">
+<div class="paper-card p2">
+  <h2><span class="num">2.</span> C²FG: Control CFG via Score Discrepancy Analysis</h2>
+  <p class="tagline">以 Score 差異的嚴格理論上界，動態調度 CFG 權重 — CVPR 2026 錄用</p>
+  <table class="info">
+    <tr><td>作者</td><td>高佳陽, 鄭天翊, 鄒嘉陽 等（上海交通大學 & vivo BlueImage Lab）</td></tr>
+    <tr><td>發表</td><td><span class="badge amber">CVPR 2026 錄用</span>（入選最佳論文候選）</td></tr>
+    <tr><td>代碼</td><td>訓練免費，純推理期數學插件</td></tr>
+    <tr><td>特性</td><td><span class="badge green">零訓練</span> <span class="badge blue">零額外前向</span> <span class="badge amber">正交相容</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p2-idea">核心思想</h3>
+<p>當前 CFG 通常採用<strong>固定權重 $w$</strong>或<strong>啟發式動態權重</strong>，但這些策略大多是經驗性的，忽略了擴散過程內在動力學特性。</p>
+<p>本文對 CFG 進行了<strong>嚴格理論分析</strong>，發現條件分佈 $p(z_t|c)$ 與無條件分佈 $p(z_t)$ 之間的 <strong>Score Discrepancy</strong> 在擴散過程中動態變化，且存在嚴格數學上界。基於此提出 <strong>C²FG</strong>：通過<strong>指數衰減控制函數</strong>動態調整 CFG 權重，使其與理論邊界完美對齊。</p>
+
+<div class="callout purple">
+  <strong>理論動機：</strong>在 VP-SDE 框架下，隨時間步推進（噪聲增加），條件與無條件資訊的區分度逐漸降低 —— <strong>Score Discrepancy 隨時間衰減</strong>。反向採樣時（$t \to 0$）差異急劇放大。若仍用固定大權重 $w$，低噪聲階段會過飽和；用小權重，則細節丟失。
+</div>
+
+<h3 id="p2-method">方法與演算法流程</h3>
+<ol>
+  <li><strong>理論邊界計算</strong>：基於 VP-SDE 的漂移係數 $\alpha_t$ 與擴散係數 $\sigma_t$，推導 Score MSE 上界 $\mathcal{B}(t)$。</li>
+  <li><strong>動態權重設計</strong>：設計指數衰減控制函數 $w_{\text{C²FG}}(t)$，使其形狀與 $\mathcal{B}(t)$ 匹配。</li>
+  <li><strong>推理期替換</strong>：在標準 CFG 採樣循環中，將固定 $w$ 替換為 $w_{\text{C²FG}}(t)$：</li>
+</ol>
+<div class="math-block">
+$$ \tilde{\epsilon}_t = \epsilon_\theta(z_t, \emptyset) + w_{\text{C²FG}}(t) \cdot \big(\epsilon_\theta(z_t, c) - \epsilon_\theta(z_t, \emptyset)\big) $$
+</div>
+<ol start="4">
+  <li><strong>正交相容性</strong>：C²FG 僅修改權重調度，不改變網路結構或損失函數，可與 Dynamic Thresholding、Rescale CFG 等任何現有變體正交結合。</li>
+</ol>
+
+<h3 id="p2-math">數學公式與理論推導</h3>
+
+<h4>Score Discrepancy 定義</h4>
+<p>Score 函數 $s_t(z) = \nabla_z \log p_t(z)$。條件與無條件的 Score 差異：</p>
+<div class="math-block">
+$$ \Delta_t(z) = \nabla_z \log p_t(z|c) - \nabla_z \log p_t(z) $$
+</div>
+
+<h4>VP-SDE 下的嚴格上界（Theorem 1）</h4>
+<p>論文證明在 VP-SDE 前向過程中，$\|\Delta_t(z)\|_2$ 的均方誤差存在嚴格上界：</p>
+<div class="math-block">
+$$ \mathbb{E}\!\left[\|\Delta_t(z)\|_2^2\right] \leq \mathcal{B}(t) $$
+</div>
+<p>在標準 DDPM/VP-SDE 設置下，$\mathcal{B}(t)$ 隨 $t$ 增大而<strong>指數級衰減</strong>。這從數學上解釋了：高噪聲階段需較弱條件引導，低噪聲階段（接近資料流形）需極強精細引導。</p>
+
+<h4>C²FG 控制公式</h4>
+<div class="math-block">
+$$ w_{\text{C²FG}}(t) = w_{\text{base}} \cdot \exp\!\left(-\kappa \cdot \frac{\sigma_t^2}{\alpha_t^2}\right) $$
+</div>
+<p>其中 $\kappa$ 為調節超參數。該函數確保 $t$ 較大時 $w \to 0$（避免噪聲階段過度引導），$t \to 0$ 時 $w \to w_{\text{base}}$（保證細節的條件對齊）。</p>
+
+<h3 id="p2-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>任務</td><td>Text-to-Image、條件圖像修復、多模態生成</td></tr>
+  <tr><td>基線</td><td>Fixed-CFG ($w=7.5$)、Dynamic-CFG（啟發式）、Rescale-CFG</td></tr>
+  <tr><td>FID/CLIP</td><td>保持/提升 FID 的同時顯著改善 CLIP Score，更好平衡真實性與對齊度</td></tr>
+  <tr><td>過飽和</td><td>有效緩解高 $w$ 下的顏色過飽和與偽影</td></tr>
+</table>
+<div class="callout green">
+  <strong>消融實驗：</strong>指數衰減函數優於線性、階梯調度；C²FG 與現有動態引導策略正交疊加可帶來進一步增益。
+</div>
+
+<h3 id="p2-contrib">貢獻、創新與應用</h3>
+<ol>
+  <li><strong>理論奠基</strong>：首次為 CFG 權重調度提供基於 Score Discrepancy 的嚴格數學上界，將經驗調參轉化為理論驅動控制問題。</li>
+  <li><strong>訓練免費</strong>：純推理期演算法，無需微調，計算開銷幾乎為零（僅一個指數函數）。</li>
+  <li><strong>廣泛適用性</strong>：適用於圖像、語音、3D 等多種條件擴散模型，與現有 Guidance 改進正交。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>大模型推理引擎優化（SD WebUI、ComfyUI、商業 AIGC 平台後端）</li>
+  <li>專業影像處理（vivo 計算攝影：人像修復、夜景增強，避免皮膚過銳化/色彩失真）</li>
+  <li>自動化生成流水線（批量場景的「開箱即用」最優權重調度）</li>
+</ul>
+</section>
+
+<!-- ============ COMPARISON ============ -->
+<section id="compare">
+<h2><span class="num">3.</span> 兩篇論文對比總結</h2>
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>特性</th>
+      <th>SSG（Token Swapping）</th>
+      <th>C²FG（Score Discrepancy）</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>解決的問題</td>
+      <td>無文字條件時的引導缺失；傳統 CFG 強依賴 Prompt</td>
+      <td>固定 CFG 權重在不同時間步的引導失衡（過飽和/細節丟失）</td>
+    </tr>
+    <tr>
+      <td>核心機制</td>
+      <td><strong>內部擾動</strong>：交換 Latent Token 構造引導差值</td>
+      <td><strong>動態調度</strong>：基於 Score 差異理論邊界動態調整 $w(t)$</td>
+    </tr>
+    <tr>
+      <td>數學貢獻</td>
+      <td>Token 相似度排序與擾動方向近似梯度</td>
+      <td>證明 VP-SDE 下 Score Discrepancy 的嚴格 MSE 上界</td>
+    </tr>
+    <tr>
+      <td>計算開銷</td>
+      <td>需多一次前向傳播（計算 $\epsilon_\theta(z^{\text{swap}})$）</td>
+      <td>零額外前向傳播，僅修改權重調度公式</td>
+    </tr>
+    <tr>
+      <td>適用場景</td>
+      <td>無條件生成、弱 Prompt 生成、多模態輔助引導</td>
+      <td>所有條件擴散模型推理、工業級 AIGC 管線預設配置</td>
+    </tr>
+    <tr>
+      <td>開源狀態</td>
+      <td><span class="badge green">GitHub 已開源</span> <code>VISION-SJTU/SSG</code></td>
+      <td><span class="badge amber">CVPR 2026 錄用</span> 數學插件，易自行實現</td>
+    </tr>
+    <tr>
+      <td>訓練需求</td>
+      <td>零訓練，即插即用</td>
+      <td>零訓練，即插即用</td>
+    </tr>
+    <tr>
+      <td>理論基礎</td>
+      <td>經驗性（擾動近似梯度）</td>
+      <td>嚴格理論（Theorem 1 上界證明）</td>
+    </tr>
+    <tr>
+      <td>與 CFG 關係</td>
+      <td>CFG 的推廣（去除外部條件依賴）</td>
+      <td>CFG 的改進（優化權重調度）</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout">
+  <strong>互補性：</strong>兩篇論文解決 CFG 的不同痛點 —— SSG 解決「無條件時如何引導」，C²FG 解決「有條件時如何調權重」。理論上兩者可組合：在無條件場景用 SSG 構造差值，並借鑑 C²FG 的動態調度思想控制 $\lambda(t)$。
+</div>
+</section>
+
+<!-- ============ REFS ============ -->
+<section id="refs">
+<h2><span class="num">4.</span> 參考資料</h2>
+<ul>
+  <li><strong>SSG arXiv</strong>：以標題 "Guiding a Diffusion Model by Swapping Its Tokens" 檢索</li>
+  <li><strong>SSG GitHub</strong>：<code>https://github.com/VISION-SJTU/SSG</code></li>
+  <li><strong>C²FG</strong>：CVPR 2026 錄用，以標題 "C²FG: Control Classifier-Free Guidance via Score Discrepancy Analysis" 檢索預印本</li>
+  <li><strong>相關筆記</strong>：[[DDPM Note]]、[[DDIM 與 DDPM 差別]]（Obsidian vault 內）</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-06-26 ｜ 研究來源：arXiv 預印本、GitHub、CVPR 2026 錄用資訊<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。如需原始論文完整證明步驟，請參閱 arXiv 原文。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>
