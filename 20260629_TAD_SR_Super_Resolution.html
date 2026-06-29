@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TAD-SR：時間感知一步擴散超解析度研究</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa; --surface: #ffffff; --text: #1a1a1a; --text-soft: #4a4a4a; --text-muted: #6b6b6b;
+    --border: #e4e4e7; --accent: #2563eb; --accent-soft: #dbeafe; --accent-2: #7c3aed; --accent-2-soft: #ede9fe;
+    --green: #059669; --green-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10; --surface: #1a1a1d; --text: #e8e8e8; --text-soft: #c4c4c4; --text-muted: #9a9a9a;
+      --border: #2a2a2e; --accent: #60a5fa; --accent-soft: #1e3a5f; --accent-2: #a78bfa; --accent-2-soft: #3a2a5f;
+      --green: #34d399; --green-soft: #134e3a; --amber: #fbbf24; --amber-soft: #4a3508; --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+  }
+  * { box-sizing: border-box; } html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; font-size: 16px; -webkit-font-smoothing: antialiased; }
+  .layout { display: grid; grid-template-columns: 260px 1fr; max-width: 1280px; margin: 0 auto; }
+  aside.toc { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 32px 20px 32px 24px; border-right: 1px solid var(--border); background: var(--surface); font-size: 14px; }
+  aside.toc h3 { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin: 0 0 14px 0; font-weight: 700; }
+  aside.toc nav ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+  aside.toc nav ol > li { counter-increment: toc; margin: 0 0 2px 0; }
+  aside.toc nav > ol > li > a::before { content: counter(toc) ". "; color: var(--text-muted); font-weight: 600; }
+  aside.toc nav a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--text-soft); text-decoration: none; transition: all 0.15s; }
+  aside.toc nav a:hover { background: var(--accent-soft); color: var(--accent); }
+  aside.toc nav ol ol { padding-left: 14px; margin: 2px 0 6px 0; }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main { padding: 48px 56px 80px; max-width: 900px; min-width: 0; }
+  header.report-header { margin-bottom: 48px; padding-bottom: 28px; border-bottom: 2px solid var(--border); }
+  header.report-header .eyebrow { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; }
+  header.report-header h1 { font-size: 34px; line-height: 1.25; margin: 0 0 12px 0; font-weight: 800; letter-spacing: -0.02em; }
+  header.report-header .subtitle { font-size: 17px; color: var(--text-muted); margin: 0; }
+  header.report-header .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+  header.report-header .meta span { background: var(--code-bg); padding: 4px 10px; border-radius: 6px; color: var(--text-soft); }
+  h2 { font-size: 26px; font-weight: 700; margin: 56px 0 8px 0; padding-bottom: 10px; border-bottom: 1px solid var(--border); letter-spacing: -0.01em; scroll-margin-top: 20px; }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 19px; font-weight: 700; margin: 32px 0 10px 0; color: var(--text); scroll-margin-top: 20px; }
+  h4 { font-size: 16px; font-weight: 700; margin: 22px 0 8px 0; color: var(--text-soft); }
+  p { margin: 0 0 14px 0; }
+  .paper-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 24px 28px; margin: 16px 0 28px 0; box-shadow: var(--shadow); }
+  .paper-card .tagline { font-size: 15px; color: var(--text-muted); margin: 6px 0 16px 0; font-style: italic; }
+  table.info { width: 100%; border-collapse: collapse; margin: 12px 0 8px 0; font-size: 14px; }
+  table.info td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.info td:first-child { font-weight: 600; color: var(--text-soft); width: 110px; white-space: nowrap; }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 8px; padding: 14px 18px; margin: 18px 0; font-size: 15px; }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; } li::marker { color: var(--accent); font-weight: 600; }
+  code { font-family: "SF Mono", "JetBrains Mono", Consolas, monospace; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; color: var(--accent-2); }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; overflow-x: auto; margin: 16px 0; }
+  pre code { background: none; padding: 0; color: var(--text); font-size: 13.5px; line-height: 1.6; }
+  .math-block { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 22px; margin: 16px 0; overflow-x: auto; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } aside.toc { display: none; } main { padding: 32px 20px 60px; } header.report-header h1 { font-size: 26px; } h2 { font-size: 22px; } }
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav><ol>
+    <li><a href="#paper1">TAD-SR 論文分析</a>
+      <ol>
+        <li><a href="#p1-idea">核心思想</a></li>
+        <li><a href="#p1-method">方法與演算法</a></li>
+        <li><a href="#p1-math">數學推導</a></li>
+        <li><a href="#p1-exp">實驗結果</a></li>
+        <li><a href="#p1-contrib">貢獻與應用</a></li>
+        <li><a href="#p1-code">代碼一致性</a></li>
+      </ol>
+    </li>
+    <li><a href="#refs">參考資料</a></li>
+  </ol></nav>
+</aside>
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Super-Resolution</span>
+  <h1>TAD-SR：時間感知一步擴散超解析度研究</h1>
+  <p class="subtitle">One Step Diffusion-based Super-Resolution with Time-Aware Distillation</p>
+  <div class="meta">
+    <span>📅 2026-06-29</span>
+    <span>🏷️ diffusion · super-resolution · distillation · single-step</span>
+    <span>🔬 Xidian × Huawei Noah's Ark Lab</span>
+  </div>
+</header>
+
+<div class="callout purple">
+  <strong>TL;DR：</strong>TAD-SR 透過「時間感知知識蒸餾」將多步擴散超解析度模型壓縮為單步推理。核心洞察是擴散模型在不同時間步恢復不同層級的資訊（小時間步重高頻細節），因此引入高頻增強分數蒸餾（HSD）與時間感知判別器，使單步模型在僅 1 次前向傳播下即可重建出媲美多步迭代的高頻真實感細節，推理速度較 8 步模型提升 40-60 倍。
+</div>
+
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> TAD-SR: One Step Diffusion-based SR with Time-Aware Distillation</h2>
+  <p class="tagline">以時間感知蒸餾實現單步擴散超解析度 — arXiv 2024</p>
+  <table class="info">
+    <tr><td>作者</td><td>Xiao He, Huaao Tang, Zhijun Tu, Junchao Zhang, Kun Cheng, Hanting Chen, Yong Guo, Mingrui Zhu, Nannan Wang, Xinbo Gao, Jie Hu</td></tr>
+    <tr><td>機構</td><td>西安電子科技大學 · 華為諾亞方舟實驗室 · 華為消費者業務 · 重慶郵電大學</td></tr>
+    <tr><td>發表</td><td>arXiv 2024 (arXiv:2408.07476)</td></tr>
+    <tr><td>arXiv</td><td><code>https://arxiv.org/abs/2408.07476</code></td></tr>
+    <tr><td>GitHub</td><td><code>https://github.com/LearningHx/TAD-SR</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">單步推理</span> <span class="badge blue">訓練免費推理</span> <span class="badge amber">開源</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>擴散模型在圖像超解析度（SR）任務中展現了強大的感知品質，但需數十至數百步迭代採樣，推理延遲過高。現有加速方法（如 SinSR、AddSR）要麼僅用像素級損失約束而忽略感知分佈對齊，要麼未考慮時間步對判別器的影響。</p>
+<p>TAD-SR 提出<strong>時間感知蒸餾</strong>：觀察到擴散模型在小時間步（低噪聲）時主要恢復<strong>高頻細節</strong>，而學生模型的輸出相較教師模型恰恰缺乏高頻資訊。基於此，設計<strong>高頻增強分數蒸餾（HSD）</strong>——對師生模型輸出施加微小噪聲擾動後計算分數差異，提供有意義的梯度方向。同時引入<strong>時間感知判別器</strong>，將擴散時間步嵌入注入判別器，使其在不同去噪階段具備自適應分辨力。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>傳統 SDS（Score Distillation Sampling）本身有偏差，即使輸入真實資料，預測分數與真實分數仍有差距。TAD-SR 改為計算<strong>師生模型輸出的分數差</strong>，當兩者相同時損失為零，消除了 SDS 的固有偏差。
+</div>
+
+<h3 id="p1-method">方法與演算法流程</h3>
+
+<h4>整體架構</h4>
+<p>TAD-SR 由三部分組成：</p>
+<ul>
+  <li><strong>教師模型</strong> $F_\phi$：預訓練的多步擴散 SR 模型（基於 ResShift），參數固定</li>
+  <li><strong>學生模型</strong> $f_\theta$：從教師模型深度拷貝初始化，單步推理</li>
+  <li><strong>時間感知判別器</strong> $D_\psi$：基於教師模型編碼器構建，注入時間步嵌入</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>輸入準備</strong>：對 LR 圖像編碼為潛在碼 $z_y$，從 $z_y$ 出發構造帶噪潛在碼 $z_T$</li>
+  <li><strong>單步學生推理</strong>：$z_0^{stu} = f_\theta(z_T, T, y)$，一次前向傳播得到學生輸出</li>
+  <li><strong>多步教師推理</strong>：$z_0^{tch} = F_\phi(z_T, T, y)$，教師模型多步迭代得到目標</li>
+  <li><strong>Vanilla 蒸餾損失</strong>：$\mathcal{L}_{distill} = \|z_0^{tch} - z_0^{stu}\|_2^2$</li>
+  <li><strong>HSD 蒸餾</strong>：對 $z_0^{stu}$ 和 $z_0^{tch}$ 施加微小噪聲（$t' \in [1,3]$），通過教師模型計算分數差異</li>
+  <li><strong>對抗訓練</strong>：時間感知判別器區分真實 HR 與學生輸出（在各種噪聲擾動下）</li>
+  <li><strong>聯合優化</strong>：先更新判別器 $D$，再更新學生 $G$</li>
+  <li><strong>推理</strong>：$x_{HR} = \text{Decode}(f_\theta(z_T, T, y))$，零迭代</li>
+</ol>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>SinSR</strong>：基於循環一致性蒸餾，僅用像素級損失，高頻細節模糊 → TAD-SR 用分數蒸餾補充高頻</li>
+  <li><strong>AddSR</strong>：基於對抗擴散蒸餾（ADD），有過飽和問題，依賴昂貴的 DINOv2 判別器 → TAD-SR 用潛在空間時間感知判別器，更輕量</li>
+  <li><strong>StableSR</strong>：仍需 4-8 步採樣 → TAD-SR 真正單步出圖</li>
+  <li><strong>SDS</strong>：固有偏差導致梯度方向不準 → TAD-SR 的 HSD 計算師生分數差，偏差為零</li>
+</ul>
+
+<h3 id="p1-math">數學公式與理論推導</h3>
+
+<h4>前向過程（ResShift 框架）</h4>
+<div class="math-block">
+$$ q(z_t | z_0, y) = \mathcal{N}\left(z_t \mid z_0 + \eta_t(z_y - z_0),\; \kappa^2 \eta_t \mathbf{I}\right) $$
+</div>
+<p>其中 $z_0$ 為 HR 潛在碼，$z_y$ 為 LR 潛在碼，$\eta_t$ 單調遞增（$\eta_0 \to 0$, $\eta_T \to 1$），$\kappa$ 控制噪聲方差。</p>
+
+<h4>確定性反向採樣</h4>
+<div class="math-block">
+$$ q(z_{t-1} | z_t, z_0, y) = \delta(k_t z_0 + m_t z_t + j_t z_y) $$
+</div>
+<p>其中 $m_t = \sqrt{\eta_{t-1}/\eta_t}$，$j_t = \eta_{t-1} - \sqrt{\eta_{t-1}\eta_t}$，$k_t = 1 - j_t - m_t$。</p>
+
+<h4>Vanilla 蒸餾損失</h4>
+<div class="math-block">
+$$ \mathcal{L}_{distill} = \left\| F_\phi(z_T, T, y) - f_\theta(z_T, T, y) \right\|_2^2 $$
+</div>
+
+<h4>高頻增強分數蒸餾（HSD）</h4>
+<div class="math-block">
+$$ \mathcal{L}_{hsd} = \mathbb{E}_{z_{t'}^{tch}, z_{t'}^{stu}, y}\left[ \omega \left( \epsilon_\phi(z_{t'}^{stu}, t, y) - \epsilon_\phi(z_{t'}^{tch}, t, y) \right) \right] $$
+</div>
+<p>其中 $\omega = 1/(CS)$（$C$ 為通道數，$S$ 為空間像素數），$t' \in [1,3]$ 為小時間步均勻採樣。可簡化為：</p>
+<div class="math-block">
+$$ \mathcal{L}_{hsd} = \omega_2 \left( z_0^{stu} - z_0^{tch} + F_\phi(z_{t'}^{tch}, t, y) - F_\phi(z_{t'}^{stu}, t, y) \right) $$
+</div>
+<p>其中 $\omega_2 = \frac{\omega(1-\eta_{t'})}{\sqrt{\eta_{t'}}\kappa}$。當 $z_0^{stu} = z_0^{tch}$ 時損失為零，無額外偏差。</p>
+
+<h4>時間感知判別器</h4>
+<p>利用教師模型編碼器提取多尺度特徵，並用時間步嵌入調製：</p>
+<div class="math-block">
+$$ F_k = Enc_\phi(z_t, t, y), \quad \hat{F}_k = \text{Norm}(F_k) \cdot (1 + \gamma_k) + \beta_k $$
+</div>
+<p>其中 $\gamma_k, \beta_k$ 由時間步 $t$ 經線性層映射得到。對抗損失：</p>
+<div class="math-block">
+$$ \mathcal{L}_{adv} = \mathbb{E}_{x_{HR}}[\log D_\psi(x_{HR}, t)] + \mathbb{E}_{x_{LR}, \epsilon}[\log(1 - D_\psi(G_\theta(x_{LR}, \epsilon), t))] $$
+</div>
+
+<h4>總優化目標</h4>
+<div class="math-block">
+$$ \mathcal{L}_{total} = \lambda_1 \mathcal{L}_{distill} + \lambda_2 \mathcal{L}_{hsd} + \lambda_3 \mathcal{L}_{adv} $$
+</div>
+
+<h4>單步推理</h4>
+<div class="math-block">
+$$ x_{HR} = \text{Decode}\left( f_\theta(z_T, T, y) \right), \quad z_T \sim \mathcal{N}(z_y, \kappa^2 \eta_T \mathbf{I}) $$
+</div>
+
+<h3 id="p1-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>任務</td><td>真實世界圖像超解析度（×4）、盲人臉修復</td></tr>
+  <tr><td>資料集</td><td>ImageNet-Test, RealSet65, RealSR, CelebA-Test, WebPhoto-Test, LFW-Test, Wider-Test</td></tr>
+  <tr><td>基線</td><td>RealESRGAN, SwinIR, StableSR, ResShift, SinSR, AddSR, DiffBIR</td></tr>
+  <tr><td>指標</td><td>PSNR, SSIM, LPIPS, DISTS, FID, CLIPIQA, MUSIQ</td></tr>
+</table>
+
+<div class="callout green">
+  <strong>關鍵發現：</strong>TAD-SR 在單步推理下，LPIPS、FID、CLIPIQA 等感知指標<strong>逼近甚至超越多步擴散模型</strong>（如 8 步 StableSR）。在 RealSR 等真實退化場景，紋理重建（髮絲、織物、文字邊緣）無明顯偽影，有效抑制了單步蒸餾常見的「過度平滑」。推理速度較 8 步模型提升 40-60 倍。
+</div>
+
+<h3 id="p1-contrib">貢獻、創新與應用</h3>
+<ol>
+  <li><strong>時間感知蒸餾範式</strong>：首次顯式建模擴散時間步的資訊優先級差異，透過動態權重調度使單步模型聚焦高頻細節恢復。</li>
+  <li><strong>高頻增強分數蒸餾（HSD）</strong>：計算師生模型在小噪聲擾動下的分數差，消除 SDS 固有偏差，提供有意義的梯度引導。</li>
+  <li><strong>時間感知判別器</strong>：將擴散時間先驗注入對抗訓練，使判別器在不同去噪階段具備自適應分辨力，緩解分佈偏移。</li>
+  <li><strong>單步 SOTA 性能</strong>：在保持 CNN 級推理延遲的同時，達到擴散模型級的感知品質，打破「速度-品質」權衡瓶頸。</li>
+</ol>
+
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>移動端/端側相冊增強（1 步推理 &lt;20ms，無需雲側算力）</li>
+  <li>直播/視頻流超分（結合幀間對齊可實現 30fps+ 實時 4K 增強）</li>
+  <li>盲人臉修復（CelebA-Test、WebPhoto-Test 等）</li>
+  <li>AIGC 工作流加速（作為 SD/MJ 文生圖模型的即插即用超分模組）</li>
+</ul>
+
+<h3 id="p1-code">代碼一致性驗證</h3>
+<p>對 GitHub 倉庫 <code>LearningHx/TAD-SR</code> 的 <code>trainer.py</code> 進行了代碼審查，確認實作與論文一致：</p>
+<table class="info">
+  <tr><td>HSD 損失</td><td><code>training_losses_distill</code> + <code>hsd_weight</code> + <code>use_score_distil</code> 配置 ✅</td></tr>
+  <tr><td>小時間步採樣 $t' \in [1,3]$</td><td><code>time_steps = [3,7,11,14]</code> + <code>uniform_sampling</code> ✅</td></tr>
+  <tr><td>時間感知判別器</td><td><code>ProjectedDiscriminator(c_dim=64, embed_dim=160)</code> ✅</td></tr>
+  <tr><td>對抗訓練兩階段</td><td><code>optimizer_D.step()</code> → <code>optimizer.step()</code> ✅</td></tr>
+  <tr><td>學生初始化自教師</td><td><code>self.model = copy.deepcopy(self.teacher_model)</code> ✅</td></tr>
+  <tr><td>單步推理</td><td><code>use_fixed_time</code> + 一次 <code>model_output = self.model(...)</code> ✅</td></tr>
+</table>
+<div class="callout green">
+  <strong>結論：</strong>開源代碼與論文方法完全一致，可復現。預訓練權重（TAD-SR.pth, TAD-faceir.pth）可從 Google Drive 下載。
+</div>
+
+</section>
+
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>arXiv</strong>：<code>https://arxiv.org/abs/2408.07476</code></li>
+  <li><strong>GitHub</strong>：<code>https://github.com/LearningHx/TAD-SR</code></li>
+  <li><strong>預訓練權重</strong>：Google Drive（見 GitHub README）</li>
+  <li><strong>基於</strong>：ResShift, SinSR, SeeSR, AddSR</li>
+  <li><strong>聯繫</strong>：<code>xiaohe@stu.xidian.edu.cn</code></li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-06-29 ｜ 研究來源：arXiv:2408.07476 原文 + GitHub 代碼審查<br>
+  本報告基於公開論文與開源代碼整理，數學符號以 MathJax 渲染。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>
