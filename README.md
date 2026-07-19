@@ -8,3 +8,4 @@ A gallery of research notes and reports.
 - [TAD-SR: Time-Aware One Step Diffusion SR](https://ew66.github.io/notes-gallery/20260629_TAD_SR_Super_Resolution.html) — 時間感知一步擴散超解析度，含代碼一致性驗證 (2026-06-29)
 - [TADSR (CVPR 2026): Time-Aware One Step Diffusion Network](https://ew66.github.io/notes-gallery/20260629_TADSR_CVPR2026_Time_Aware_Diffusion_SR.html) — SD 各時間步生成先驗挖掘 + 可控 fidelity/realism 權衡 (2026-06-29)
 - [Diffusion PTQ Research — APQ-DM vs SegQuant](https://ew66.github.io/notes-gallery/20260719_Diffusion_PTQ_APQDM_SegQuant.html) — 擴散模型後訓練量化：時間步分組感知 vs 語意分割+極性保留 (2026-07-19)
+- [Diffusion PTQ Survey — Top 3 Papers (2023-2026)](https://ew66.github.io/notes-gallery/20260719_Diffusion_PTQ_Survey_Top3.html) — 12 篇 PTQ 代表作問題全景 + TOP 3 評選（SegQuant/SVDQuant/Q-VDiT）(2026-07-19)

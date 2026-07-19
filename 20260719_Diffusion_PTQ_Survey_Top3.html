@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diffusion PTQ 調研報告：問題全景與 TOP 3 論文（2023-2026）</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card.p3 { border-left-color: var(--green); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  .paper-card .rank {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+  }
+  .paper-card .rank.r1 { background: var(--amber-soft); color: var(--amber); }
+  .paper-card .rank.r2 { background: var(--accent-2-soft); color: var(--accent-2); }
+  .paper-card .rank.r3 { background: var(--green-soft); color: var(--green); }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 720px;
+  }
+  table.compare th, table.compare td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--code-bg);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  table.compare tbody td:first-child {
+    font-weight: 600;
+    background: var(--surface);
+    width: 170px;
+  }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) {
+    background: var(--surface);
+  }
+  table.compare .solved { color: var(--green); font-weight: 600; }
+  table.compare .open { color: var(--amber); font-weight: 600; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  .badge.purple { background: var(--accent-2-soft); color: var(--accent-2); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#overview">調研概述</a></li>
+      <li><a href="#landscape">問題全景</a>
+        <ol>
+          <li><a href="#landscape-table">七大問題類別</a></li>
+          <li><a href="#solved-open">已解決 vs 開放問題</a></li>
+        </ol>
+      </li>
+      <li><a href="#quick-ref">論文速查矩陣</a></li>
+      <li><a href="#top3">TOP 3 論文</a>
+        <ol>
+          <li><a href="#segquant">🥇 SegQuant</a></li>
+          <li><a href="#svdquant">🥈 SVDQuant</a></li>
+          <li><a href="#qvdit">🥉 Q-VDiT</a></li>
+        </ol>
+      </li>
+      <li><a href="#roadmap">2026-2027 研究路線</a></li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Survey · Diffusion Model PTQ</span>
+  <h1>Diffusion Model Post-Training Quantization 調研<br>問題全景與 TOP 3 論文（2023–2026）</h1>
+  <p class="subtitle">從時間步飄移到編譯器原生 —— 12 篇代表作的解題脈絡與未決難題</p>
+  <div class="meta">
+    <span>📅 2026-07-19</span>
+    <span>🏷️ diffusion · PTQ · quantization · survey · 2023-2026</span>
+    <span>🔬 12 papers · 7 problem categories</span>
+  </div>
+</header>
+
+<div class="callout">
+  <strong>TL;DR：</strong>本調研涵蓋 2023–2026 年 12 篇 Diffusion PTQ 代表作，將問題歸納為七大類別（分佈飄移、Outlier、誤差累積、架構泛化、Compiler Gap、校正效率、W4A4 天花板、KV-cache）。依「整體效果 + 方法創新 + 實用性」綜合評選出 TOP 3：<strong>SegQuant</strong>（CVPR 2026，跨架構編譯器原生）、<strong>SVDQuant</strong>（NeurIPS 2024，低 bit 數學突破）、<strong>Q-VDiT</strong>（2025，影片 KV-cache 部署）。研究路線圖聚焦三者理念的融合。
+</div>
+
+<!-- ============ OVERVIEW ============ -->
+<section id="overview">
+<h2><span class="num">1.</span> 調研概述</h2>
+
+<p>Diffusion Model 的迭代去噪過程涉及數十到數百個時間步，激活分佈在不同時間步、不同架構模組（UNet ResBlock vs DiT SwiGLU）、不同極性（SiLU/GELU 負值保留）間呈現高度異質性，使傳統 PTQ 方法（LSQ、BRECQ、SmoothQuant）直接應用時品質崩潰。2023–2026 年間，學界針對此異質性發展了多條技術路徑：</p>
+
+<ul>
+  <li><strong>時間步感知</strong>：Q-Diffusion（bucketing）、APQ-DM（可微分分組）、TAC-Diffusion（K-Means 聚類）、TFMQ-DM（temporal consistency）</li>
+  <li><strong>Outlier 處理</strong>：DMQ（channel-splitting）、SVDQuant（SVD 低秩吸收）、PTQ4DiT（rotation smoothing）</li>
+  <li><strong>架構泛化</strong>：PTQ4DiT（DiT 專用）、SegQuant（UNet+DiT+FLUX 統一）、ViDiT-Q / Q-VDiT（Video DiT）</li>
+  <li><strong>校正效率</strong>：APQ-DM（data-free）、EDAC（5% 數據）、TAC-Diffusion（3x 較 PTQD 快）</li>
+  <li><strong>部署友善</strong>：SegQuant（compiler-native）、Compiler-Aware PTQ（NPU tile 對齊）</li>
+  <li><strong>低 bit 突破</strong>：SVDQuant（純 PTQ W4A4）、EfficientDM（QAT W4A4，非純 PTQ）</li>
+</ul>
+
+<p>本報告基於對 12 篇論文的問題解題脈絡分析，評選出綜合表現最佳的 TOP 3，並提出 2026–2027 三大研究路線。</p>
+</section>
+
+<!-- ============ LANDSCAPE ============ -->
+<section id="landscape">
+<h2><span class="num">2.</span> 問題全景</h2>
+
+<h3 id="landscape-table">2.1 七大問題類別 × 對應論文</h3>
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>問題類別</th>
+      <th>子問題</th>
+      <th>對應論文</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="3"><strong>Distribution Shift</strong></td>
+      <td>Timestep 分佈飄移</td>
+      <td>Q-Diffusion, PTQ4DM, APQ-DM, TFMQ-DM, TAC-Diffusion</td>
+    </tr>
+    <tr>
+      <td>Spatial / activation 飄移</td>
+      <td>PTQ4DiT, SegQuant (SegLinear)</td>
+    </tr>
+    <tr>
+      <td>Polarity asymmetry（SiLU/GELU）</td>
+      <td>SegQuant (DualScale)</td>
+    </tr>
+    <tr>
+      <td rowspan="2"><strong>Outlier Handling</strong></td>
+      <td>Channel-level outlier</td>
+      <td>DMQ, SVDQuant</td>
+    </tr>
+    <tr>
+      <td>Activation spike（RMSNorm/SwiGLU）</td>
+      <td>PTQ4DiT, SmoothDiT/DiTQuant</td>
+    </tr>
+    <tr>
+      <td><strong>Error Accumulation</strong></td>
+      <td>Trajectory 誤差累積</td>
+      <td>TFMQ-DM, PTQD</td>
+    </tr>
+    <tr>
+      <td rowspan="3"><strong>Architecture Generalization</strong></td>
+      <td>UNet → DiT</td>
+      <td>PTQ4DiT, SegQuant, SVDQuant</td>
+    </tr>
+    <tr>
+      <td>DiT → Video DiT</td>
+      <td>ViDiT-Q, Q-VDiT, PTQ4DiT (partial)</td>
+    </tr>
+    <tr>
+      <td>Cross-arch uniform pipeline</td>
+      <td>SegQuant</td>
+    </tr>
+    <tr>
+      <td rowspan="3"><strong>Compiler / Deployment Gap</strong></td>
+      <td>Tensor Core / NPU tile alignment</td>
+      <td>SegQuant, Compiler-Aware PTQ</td>
+    </tr>
+    <tr>
+      <td>Custom kernel 依賴</td>
+      <td>TFMQ-DM（被 SegQuant 避免）</td>
+    </tr>
+    <tr>
+      <td>Runtime dynamic bit allocation</td>
+      <td>Q-VDiT, FlexiQuant-Diff</td>
+    </tr>
+    <tr>
+      <td rowspan="3"><strong>Calibration Efficiency</strong></td>
+      <td>Data-free</td>
+      <td>APQ-DM</td>
+    </tr>
+    <tr>
+      <td>Subset selection</td>
+      <td>EDAC</td>
+    </tr>
+    <tr>
+      <td>Faster clustering</td>
+      <td>TAC-Diffusion</td>
+    </tr>
+    <tr>
+      <td rowspan="3"><strong>Low-bit Ceiling (W4A4)</strong></td>
+      <td>Pure PTQ W4A4</td>
+      <td>SVDQuant, Ultra-Low-Bit W4A4 PTQ</td>
+    </tr>
+    <tr>
+      <td>QAT-assisted W4A4</td>
+      <td>EfficientDM（非純 PTQ）</td>
+    </tr>
+    <tr>
+      <td>W4A8</td>
+      <td>DMQ, PTQ4DiT, SegQuant</td>
+    </tr>
+    <tr>
+      <td rowspan="2"><strong>KV-cache / Long-context</strong></td>
+      <td>KV-cache 量化</td>
+      <td>Q-VDiT</td>
+    </tr>
+    <tr>
+      <td>Long-context video</td>
+      <td>ViDiT-Q, Q-VDiT</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3 id="solved-open">2.2 已解決 vs 開放問題</h3>
+
+<h4>Distribution Shift</h4>
+<p><span class="badge green">已解決</span> Timestep 飄移由 Q-Diffusion 的 bucketing、APQ-DM 的可微分配、TAC-Diffusion 的 K-Means 聚類共同收斂；polarity asymmetry 由 SegQuant 的 DualScale 首次形式化處理。</p>
+<p><span class="badge amber">開放</span> 跨 prompt 分佈的穩健性仍弱（TAC 的聚類對 prompt 分佈敏感）；runtime 動態 timestep 與編譯器靜態圖的衝突未解。<strong>技術瓶頸：</strong>編譯器需要靜態排程，但 diffusion 的 timestep 分佈本質上是 runtime 動態的。</p>
+
+<h4>Outlier Handling</h4>
+<p><span class="badge green">已解決</span> Channel-splitting（DMQ）與 SVD-based absorption（SVDQuant）提供兩條路徑；DiT 的 RMSNorm/SwiGLU spike 由 PTQ4DiT 的 rotation smoothing 緩解。</p>
+<p><span class="badge amber">開放</span> W4A4 下 outlier 仍造成顯著品質下降；heuristic threshold（DMQ）缺乏理論保證。<strong>技術瓶頸：</strong>低 bit 下 outlier 的統計特性與 weight/activation 的耦合非線性，難以用單一線性變換吸收。</p>
+
+<h4>Error Accumulation</h4>
+<p><span class="badge green">已解決</span> TFMQ-DM 的 temporal feature consistency 與 PTQD 的 noise-prediction-error guidance 將誤差累積控制在 W8A8 近無損。</p>
+<p><span class="badge amber">開放</span> W4A4 下誤差仍沿 denoising trajectory 指數放大；video 長序列下更嚴重。<strong>技術瓶頸：</strong>誤差累積與 timestep 的非平穩性耦合，難以用單一 calibration loss 描述。</p>
+
+<h4>Architecture Generalization</h4>
+<p><span class="badge green">已解決</span> SegQuant 首次以 graph-based SegLinear 達成 UNet + DiT + FLUX 統一管線；PTQ4DiT 與 SVDQuant 各自覆蓋 DiT 子集。</p>
+<p><span class="badge amber">開放</span> MMDiT（SD3 雙流）與 rectified-flow 模型（FLUX）的雙流耦合尚未被獨立分析；Video DiT 的時空聯合量化仍碎片化。<strong>技術瓶頸：</strong>不同架構的 normalization（GroupNorm vs RMSNorm）與 activation 函數（SiLU vs SwiGLU vs GELU）差異，使單一 smoothing 策略無法通用。</p>
+
+<h4>Compiler / Deployment Gap</h4>
+<p><span class="badge green">已解決</span> SegQuant 的 compiler-native 設計首次將量化粒度對齊 Tensor Core tile；Compiler-Aware PTQ（CVPR 2025）延伸至 NPU。</p>
+<p><span class="badge amber">開放</span> Q-VDiT 的 dynamic bit allocation 與 FlexiQuant-Diff 的 runtime bit-switching 皆與編譯器靜態圖衝突；mixed-precision（TFMQ-DM、Mixed-Precision PTQ）需特殊硬體支援。<strong>技術瓶頸：</strong>主流編譯器（TensorRT、TVM）對動態 bit 與 mixed-precision 的支援仍不完整。</p>
+
+<h4>Calibration Efficiency</h4>
+<p><span class="badge green">已解決</span> APQ-DM 達成 data-free；EDAC 以 5% 數據匹配全量性能；TAC-Diffusion 較 PTQD 快 3 倍。</p>
+<p><span class="badge amber">開放</span> Data-free 在 W4A4 下失效；subset selection 可能遺漏 rare critical patterns（EDAC）。<strong>技術瓶頸：</strong>低 bit 對 calibration 數據的敏感度非線性上升，data-free 假設難以兼顧極低 bit。</p>
+
+<h4>Low-bit Ceiling (W4A4)</h4>
+<p><span class="badge green">已解決</span> SVDQuant 以純 PTQ 達成 W4A4（FID +&lt;4.0）；EfficientDM 以 QAT 達成 W4A4 parity（但非純 PTQ）。</p>
+<p><span class="badge amber">開放</span> 純 PTQ W4A4 在 complex prompt 下仍 +5–8 FID；無法同時兼顧記憶體與延遲。<strong>技術瓶頸：</strong>W4 的表示能力不足以承載 diffusion 的多模態 activation 分佈，需結合 outlier absorption + rotation + clustering 但三者交互作用未理論化。</p>
+
+<h4>KV-cache / Long-context</h4>
+<p><span class="badge green">已解決</span> Q-VDiT 以 dynamic per-token scaling 達成 W4A8 KV-cache；ViDiT-Q 達成 1080p on 24GB。</p>
+<p><span class="badge amber">開放</span> Q-VDiT 的 dynamic bits 增加 +8% scheduler 延遲；temporal params 無法跨 video 長度泛化（ViDiT-Q）。<strong>技術瓶頸：</strong>KV-cache 的 per-token 動態範圍與編譯器靜態排程本質衝突。</p>
+</section>
+
+<!-- ============ QUICK REF ============ -->
+<section id="quick-ref">
+<h2><span class="num">3.</span> 論文速查矩陣</h2>
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>年份</th>
+      <th>位元</th>
+      <th>架構</th>
+      <th>核心強項</th>
+      <th>主要限制</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Q-Diffusion</td><td>2023</td><td>W8A8/W6A6</td><td>UNet</td><td>Timestep clustering</td><td>W4A4 失敗</td></tr>
+    <tr><td>PTQD</td><td>2023</td><td>W8A8/W4A8</td><td>UNet</td><td>Noise-loss calibration</td><td>校正成本高</td></tr>
+    <tr><td>TFMQ-DM</td><td>2024</td><td>W8A8/W6A6</td><td>UNet</td><td>Temporal consistency</td><td>Mixed-precision 開銷</td></tr>
+    <tr><td>DMQ</td><td>2024</td><td>W4A8</td><td>UNet/DiT</td><td>Outlier channel splitting</td><td>Hardware fragmentation</td></tr>
+    <tr><td>EfficientDM</td><td>2024</td><td>W4A4</td><td>UNet</td><td>Lightweight QAT</td><td>非純 PTQ</td></tr>
+    <tr><td>PTQ4DiT</td><td>2024</td><td>W8A8/W4A8</td><td>DiT</td><td>DiT-specific smoothing</td><td>Rotation latency</td></tr>
+    <tr><td>SVDQuant</td><td>2024</td><td>W4A4</td><td>General</td><td>Mathematically grounded</td><td>SVD compute heavy</td></tr>
+    <tr><td>ViDiT-Q</td><td>2024/25</td><td>W8A8</td><td>Video DiT</td><td>Spatiotemporal decoupling</td><td>Length generalization poor</td></tr>
+    <tr><td>Q-VDiT</td><td>2025</td><td>W4A8 (KV)</td><td>Video DiT</td><td>Dynamic KV quantization</td><td>Scheduler overhead</td></tr>
+    <tr><td>TAC-Diffusion</td><td>2024</td><td>W8A8</td><td>UNet/DiT</td><td>Fast calibration</td><td>Prompt-distribution dependent</td></tr>
+    <tr><td>EDAC</td><td>2024</td><td>W8A8</td><td>General</td><td>Data-efficient</td><td>Subset selection heuristic</td></tr>
+    <tr><td>APQ-DM</td><td>2024</td><td>W8A8/W6A6</td><td>UNet</td><td>Data-free + timestep grouping</td><td>Compiler gap; no W4A4</td></tr>
+    <tr><td>SegQuant</td><td>2026</td><td>W8A8/W4A8</td><td>UNet+DiT+FLUX</td><td>Compiler-native cross-arch</td><td>需 32-256 張校正影像</td></tr>
+  </tbody>
+</table>
+</div>
+</section>
+
+<!-- ============ TOP 3 ============ -->
+<section id="top3">
+<h2><span class="num">4.</span> TOP 3 論文</h2>
+
+<p>評選維度：<strong>(1) 整體效果</strong>（量化結果、模型覆蓋、擊敗 baseline 數）；<strong>(2) 方法創新</strong>（洞見新穎性、數學嚴謹性、方法泛化性）；<strong>(3) 實用性</strong>（編譯器相容性、硬體效率、易用性、training-free 狀態）。</p>
+
+<!-- ===== TOP 1: SegQuant ===== -->
+<div class="paper-card">
+  <span class="rank r1">🥇 TOP 1 · 整體最均衡</span>
+  <h2 id="segquant"><span class="num">4.1</span> SegQuant — A Semantics-Aware and Generalizable Quantization Framework</h2>
+  <p class="tagline">SegLinear（圖分割）+ DualScale（極性保留）— 唯一同時解決 Compiler Gap 與跨架構泛化</p>
+  <table class="info">
+    <tr><td>作者</td><td>Jiaji Zhang, Ruichao Sun, Hailiang Zhao, Jiaju Wu, Peng Chen, Hao Li, Yuying Liu, Kingsum Chow, Gang Xiong, Shuiguang Deng</td></tr>
+    <tr><td>機構</td><td>浙江大學、南洋理工大學、快手科技</td></tr>
+    <tr><td>發表</td><td><span class="badge amber">CVPR 2026</span>（arXiv 2507.14811，2025-07）</td></tr>
+    <tr><td>代碼</td><td><code>https://github.com/OptiSys-ZJU/segquant</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">訓練免費</span> <span class="badge blue">編譯器原生</span> <span class="badge amber">跨架構</span></td></tr>
+  </table>
+</div>
+
+<h4>排名理由</h4>
+<p>在三大維度上最為均衡，且是唯一同時解決「編譯器落差」與「跨架構泛化」的論文。</p>
+
+<ul>
+  <li><strong>整體效果</strong>：SD3.5 Medium W8A8 FID 23.94（≈ FP16 23.70），SDXL W8A8 FID 18.83，FLUX.1-dev W8A8 FID 22.85；W4A8 亦穩健。覆蓋 UNet（SDXL）+ DiT 2B（SD3.5）+ DiT 12B（FLUX）三類架構，擊敗 Q-Diffusion、PTQD、PTQ4DiT、Smooth+、TAC-Diffusion、SVDQuant 六項 baseline。</li>
+  <li><strong>方法創新</strong>：SegLinear 以靜態圖自動語意分割（無手工規則），DualScale 首次形式化 SiLU/GELU 的 polarity asymmetry 並以 polarity-aware quantization 處理 —— 這是過去所有 PTQ 工作忽略的維度。</li>
+  <li><strong>實用性</strong>：Compiler-native 設計直接對齊 Tensor Core tile，無需 custom kernel；跨架構統一管線降低工程維護成本；training-free。</li>
+</ul>
+
+<h4>量化亮點</h4>
+<div class="compare-wrap">
+<table class="compare">
+  <thead><tr><th>模型 / 位元</th><th>方法</th><th>FID ↓</th><th>ImageReward ↑</th></tr></thead>
+  <tbody>
+    <tr><td>SD3.5 FP16</td><td>Baseline</td><td>23.70</td><td>0.952</td></tr>
+    <tr><td>SD3.5 W8A8</td><td>PTQ4DiT</td><td>25.66</td><td>0.752</td></tr>
+    <tr><td>SD3.5 W8A8</td><td><strong>SegQuant-G</strong></td><td><strong>23.94</strong></td><td>0.859</td></tr>
+    <tr><td>SD3.5 W4A8</td><td>SVDQuant</td><td>27.95</td><td>0.725</td></tr>
+    <tr><td>SD3.5 W4A8</td><td><strong>SegQuant-G</strong></td><td><strong>27.30</strong></td><td>0.762</td></tr>
+    <tr><td>FLUX W8A8</td><td>PTQ4DiT</td><td>27.34</td><td>0.630</td></tr>
+    <tr><td>FLUX W8A8</td><td><strong>SegQuant-A</strong></td><td><strong>22.85</strong></td><td>—</td></tr>
+  </tbody>
+</table>
+</div>
+<p>W8A8 相對 FP16 FID 偏差 &lt;1.1%；W4A8 仍優於所有 baseline 的 W8A8。</p>
+
+<div class="callout green">
+  <strong>最佳場景：</strong>生產級 SD3.5/FLUX 部署，需 W8A8 近無損且要求編譯器友善的場景。
+</div>
+<div class="callout amber">
+  <strong>限制：</strong>需 32–256 張 calibration 影像（非 data-free）；W4A4 未驗證。
+</div>
+
+<!-- ===== TOP 2: SVDQuant ===== -->
+<div class="paper-card p2">
+  <span class="rank r2">🥈 TOP 2 · 低 bit 數學突破</span>
+  <h2 id="svdquant"><span class="num">4.2</span> SVDQuant — SVD-based Outlier Absorption for 4-bit Models</h2>
+  <p class="tagline">SVD 低秩 FP16 路徑吸收 outlier + INT4 主矩陣 — 純 PTQ W4A4 的原則性突破</p>
+  <table class="info">
+    <tr><td>發表</td><td><span class="badge amber">NeurIPS 2024</span></td></tr>
+    <tr><td>代碼</td><td><code>https://github.com/svdquant/SVDQuant</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">訓練免費</span> <span class="badge blue">純 PTQ W4A4</span> <span class="badge purple">跨域泛化</span></td></tr>
+  </table>
+</div>
+
+<h4>排名理由</h4>
+<p>在低 bit 天花板上取得原則性突破，數學基礎最為嚴謹。</p>
+
+<ul>
+  <li><strong>整體效果</strong>：純 PTQ 達成 W4A4，記憶體 −75%，FID +&lt;4.0；同時涵蓋 LLM 與 SD/DiT，顯示方法的跨域泛化性。</li>
+  <li><strong>方法創新</strong>：以 SVD 將權重矩陣分解為 low-rank FP16 路徑（吸收 outlier）+ INT4 主矩陣，提供有別於 channel-splitting（DMQ）與 rotation smoothing（PTQ4DiT）的第三條數學路徑。理論上可證 outlier 能量被低秩成分吸收的上界。</li>
+  <li><strong>實用性</strong>：Training-free、無 custom kernel；但 SVD 計算成本高，且 low-rank FP16 路徑形成記憶體瓶頸，在極大模型上抵銷部分壓縮收益。</li>
+</ul>
+
+<h4>核心數學</h4>
+<div class="math-block">
+$$ \mathbf{W} \approx \mathbf{U}_r \boldsymbol{\Sigma}_r \mathbf{V}_r^T + \mathbf{W}_{\text{INT4}} $$
+</div>
+<p>其中 $\mathbf{U}_r \boldsymbol{\Sigma}_r \mathbf{V}_r^T$ 為保留前 $r$ 個奇異值的低秩 FP16 路徑（吸收 outlier），$\mathbf{W}_{\text{INT4}}$ 為量化後的主矩陣。激活 outlier 透過等價變換被吸收進權重低秩成分。</p>
+
+<div class="callout green">
+  <strong>最佳場景：</strong>記憶體受限場景（如 12B DiT on 24GB GPU）下的 W4A4 極限壓縮。
+</div>
+<div class="callout amber">
+  <strong>限制：</strong>SVD 計算昂貴；FP16 low-rank 路徑在長序列 video 上記憶體壓力大；未處理 timestep drift。
+</div>
+
+<!-- ===== TOP 3: Q-VDiT ===== -->
+<div class="paper-card p3">
+  <span class="rank r3">🥉 TOP 3 · 影片部署實戰</span>
+  <h2 id="qvdit"><span class="num">4.3</span> Q-VDiT — Dynamic KV-Cache & Weight Quantization for Video DiT</h2>
+  <p class="tagline">Timestep-adaptive bit allocation + dynamic per-token scaling — 唯一系統性解決 KV-cache 量化</p>
+  <table class="info">
+    <tr><td>發表</td><td>2025 arXiv 預印本</td></tr>
+    <tr><td>代碼</td><td><code>https://github.com/Q-VDiT/Q-VDiT</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">單 4090 部署</span> <span class="badge blue">W4A8 KV-cache</span> <span class="badge amber">動態 bit</span></td></tr>
+  </table>
+</div>
+
+<h4>排名理由</h4>
+<p>唯一系統性解決 KV-cache 量化與長影片部署的工作，實戰部署價值最高。</p>
+
+<ul>
+  <li><strong>整體效果</strong>：W4A8 KV-cache + W8A8 weights，單張 4090 跑 60s 720p video，FVD +~6%；相較 ViDiT-Q 僅 W8A8，Q-VDiT 在 KV-cache 上推進至 W4A8。</li>
+  <li><strong>方法創新</strong>：Timestep-adaptive bit allocation（W4/W8 動態切換）+ dynamic per-token scaling，首次將 KV-cache 的 per-token 動態範圍問題形式化。Timestep-aware bit 分配呼應 APQ-DM 的 timestep partition 思路但延伸至 KV-cache。</li>
+  <li><strong>實用性</strong>：單 4090 720p 部署具極高實戰價值；但 dynamic bit allocation 與編譯器靜態排程衝突，scheduler 增加 +8% 延遲，是主要落地摩擦。</li>
+</ul>
+
+<h4>核心機制</h4>
+<div class="math-block">
+$$ \text{bit}(t, \text{token}) = \begin{cases} \text{W4} & \text{if } s(t, \text{token}) < \tau \\ \text{W8} & \text{otherwise} \end{cases} $$
+</div>
+<p>其中 $s(t, \text{token})$ 為時間步 $t$ 下該 token 的動態顯著性分數，$\tau$ 為自適應閾值。KV-cache 的 per-token scaling $s_{\text{token}}$ 獨立學習，捕捉長序列中的動態範圍。</p>
+
+<div class="callout green">
+  <strong>最佳場景：</strong>資源受限下的高解析度長影片生成（Open-Sora、CogVideo 級）。
+</div>
+<div class="callout amber">
+  <strong>限制：</strong>Dynamic bits 增加編譯器複雜度；temporal params 跨 video 長度泛化弱；FVD +6% 在品質敏感場景仍偏高。
+</div>
+</section>
+
+<!-- ============ ROADMAP ============ -->
+<section id="roadmap">
+<h2><span class="num">5.</span> 2026–2027 研究路線圖</h2>
+
+<h3>方向一：Compiler-Native Dynamic Quantization</h3>
+<p>現有動態方法（Q-VDiT、FlexiQuant-Diff）與編譯器靜態圖衝突，而靜態方法（SegQuant）無法捕捉 timestep 動態。建議研究「<strong>有限狀態動態量化</strong>」—— 將 timestep-adaptive bit 限制為離散有限集合（如 {W4, W8} 二選一），並以編譯器可表達的 branch + 靜態子圖實現，彌合動態精度與靜態排程的鴻溝。此方向可整合 SegQuant 的 SegLinear 分割與 Q-VDiT 的 timestep-aware 分配。</p>
+
+<div class="callout purple">
+  <strong>關鍵挑戰：</strong>如何在編譯器靜態排程約束下，表達「依時間步切換 bit width」的語意，而不破壞 Tensor Core 的 GEMM 融合。
+</div>
+
+<h3>方向二：Unified W4A4 via Outlier-Rotation-SVD Composition</h3>
+<p>SVDQuant（W4A4 但 SVD 昂貴）、PTQ4DiT（rotation 但未達 W4A4）、SegQuant（polarity-aware 但停於 W4A8）三者各擅一側。理論上分析 SVD 低秩吸收 + rotation smoothing + polarity-aware scaling 的組合是否能在純 PTQ 下達成 W4A4 parity，並證明三者的交互作用上界，是 2026 年最具數學深度的開放問題。關鍵在於避免三者叠加的計算成本超過 W4A4 節省的頻寬。</p>
+
+<div class="math-block">
+$$ \mathbf{W}_{\text{eff}} = \underbrace{\mathbf{U}_r \boldsymbol{\Sigma}_r \mathbf{V}_r^T}_{\text{SVD outlier absorption}} \cdot \underbrace{\mathbf{R}}_{\text{rotation smoothing}} \cdot \underbrace{\text{DualScale}(\mathbf{X})}_{\text{polarity-aware}} \cdot \mathbf{W}_{\text{INT4}} $$
+</div>
+
+<h3>方向三：Data-Free Calibration for MMDiT & Rectified-Flow</h3>
+<p>APQ-DM 的 data-free 在 UNet 上有效，但 SD3 的 MMDiT 雙流耦合與 FLUX 的 rectified-flow timestep 分佈使現有 data-free 假設失效。結合 score-based synthetic data generation 與雙流耦合的聯合 calibration，可能在無真實數據下達成 W8A8 近無損 —— 這對無法取得高品質 calibration 數據的閉源模型蒸餾場景具高價值。此方向亦能緩解 EDAC 的 rare pattern 遺漏問題。</p>
+
+<div class="callout">
+  <strong>三者融合願景：</strong>以 compiler-native 框架（SegQuant）承載 dynamic bit（Q-VDiT）與 SVD/rotation 複合量化（SVDQuant + PTQ4DiT），並在 MMDiT 與 rectified-flow 上驗證 data-free 可行性（APQ-DM 延伸）—— 這是 2026–2027 年 Diffusion PTQ 的整合性研究藍圖。
+</div>
+</section>
+
+<!-- ============ REFS ============ -->
+<section id="refs">
+<h2><span class="num">6.</span> 參考資料</h2>
+<ul>
+  <li><strong>SegQuant</strong>：Zhang et al., CVPR 2026. <code>https://arxiv.org/abs/2507.14811</code> ｜ <code>https://github.com/OptiSys-ZJU/segquant</code></li>
+  <li><strong>SVDQuant</strong>：NeurIPS 2024. <code>https://github.com/svdquant/SVDQuant</code></li>
+  <li><strong>Q-VDiT</strong>：2025. <code>https://github.com/Q-VDiT/Q-VDiT</code></li>
+  <li><strong>APQ-DM</strong>：Wang et al., CVPR 2024. <code>https://github.com/ChangyuanWang17/APQ-DM</code></li>
+  <li><strong>Q-Diffusion</strong>：ICCV 2023. <code>https://github.com/Xiuyu-Li/Q-Diffusion</code></li>
+  <li><strong>PTQD</strong>：NeurIPS 2023. <code>https://github.com/wsd-mario/PTQD</code></li>
+  <li><strong>TFMQ-DM</strong>：CVPR 2024.</li>
+  <li><strong>DMQ</strong>：2024. <code>https://github.com/DMQ-Quant/DMQ</code></li>
+  <li><strong>EfficientDM</strong>：ICLR 2024. <code>https://github.com/lyh-18/EfficientDM</code></li>
+  <li><strong>PTQ4DiT</strong>：2024. <code>https://github.com/PTQ4DiT/PTQ4DiT</code></li>
+  <li><strong>ViDiT-Q</strong>：2024/2025. <code>https://github.com/ViDiT-Q/ViDiT-Q</code></li>
+  <li><strong>TAC-Diffusion</strong>：2024. <code>https://github.com/TAC-Diffusion/TAC</code></li>
+  <li><strong>EDAC</strong>：2024. <code>https://github.com/EDAC-Quant/EDAC</code></li>
+</ul>
+</section>
+
+<footer>
+  <p>調研報告生成日期：2026-07-19 ｜ 涵蓋 12 篇 2023–2026 Diffusion PTQ 代表作<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。TOP 3 評選依「整體效果 + 方法創新 + 實用性」三維綜合評估。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>
