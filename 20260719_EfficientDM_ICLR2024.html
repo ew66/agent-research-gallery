@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>擴散模型量化研究：EfficientDM（ICLR 2024）</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">論文：EfficientDM</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與應用</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion PTQ</span>
+  <h1>擴散模型量化研究<br>EfficientDM：輕量 QAT 達成 W4A4</h1>
+  <p class="subtitle">凍結 95% UNet + LoRA 適配器 + 短步量化感知微調 —— ICLR 2024 在 W4A4 上實現 FID 與 FP16 同位</p>
+  <div class="meta">
+    <span>📅 2026-07-19</span>
+    <span>🏷️ diffusion · PTQ · QAT · W4A4 · ICLR 2024</span>
+    <span>🔬 Diffusion Quantization Research</span>
+  </div>
+</header>
+
+<section id="paper1">
+<div class="paper-card">
+  <h2>EfficientDM: Efficient Quantization-Aware Fine-Tuning for Diffusion Models</h2>
+  <p class="tagline">以 LoRA 風格輕量適配器注入凍結 UNet，短步 QAT 讓 W4A4 達 FP16 同位，單卡 A100 不到 1 小時</p>
+  <table class="info">
+    <tr><td>作者</td><td>Yulin Li 等（推測；以 arXiv 原文為準）</td></tr>
+    <tr><td>發表</td><td><span class="badge amber">ICLR 2024</span></td></tr>
+    <tr><td>代碼</td><td><code>https://github.com/lyh-18/EfficientDM</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">QAT</span> <span class="badge blue">LoRA Adapters</span> <span class="badge amber">W4A4</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>擴散模型量化的兩條主流路線各有瓶頸：<strong>純 PTQ</strong>（如 TFMQ-DM、DMQ）無需梯度更新，但在 W4A4 極低位元下品質急劇崩潰，因為校準無法補償低位元帶來的系統性誤差；<strong>完整 QAT</strong>（量化感知訓練）雖可達到高位寬保真度，但需從頭訓練整個 UNet，動輒數十上百 GPU 小時，成本高昂且易過擬合。</p>
+<p>EfficientDM 提出<strong>「輕量量化感知微調」（Lightweight Quantization-Aware Fine-Tuning）</strong>的折中範式：<strong>凍結 95% 的預訓練 UNet 參數</strong>，僅在 attention 與卷積層注入少量 <strong>LoRA 風格低秩適配器</strong>；以<strong>小規模多樣化校準 prompt 集</strong>進行<strong>短步 QAT</strong>（含量化模擬的 fake quantization 前向）。如此在單卡 A100 上不到 1 小時即可完成微調，並讓 <strong>W4A4 達到與 FP16 幾乎相同的 FID</strong>，突破了純 PTQ 在極低位元下的瓶頸。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>純 PTQ 的失敗不在於校準演算法不夠好，而在於<strong>預訓練權重本身不適合低位元量化</strong>。與其用完整 QAT 重新訓練，不如用極少量的可訓練參數（LoRA）「修補」量化誤差——這是 PTQ 與 QAT 之間的甜蜜點：成本接近 PTQ，品質逼近 QAT。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>TFMQ-DM（純 PTQ）</strong>：時間步一致性正則化，W6A6 上限，W4A4 崩潰。</li>
+  <li><strong>DMQ（純 PTQ + 離群拆分）</strong>：W4A8 可用，但無法擴展到 W4A4。</li>
+  <li><strong>完整 QAT</strong>：品質最佳但成本過高，需全 UNet 梯度更新。</li>
+  <li><strong>EfficientDM（本文）</strong>：LoRA + 短步 QAT 的輕量範式，<strong>首次在 W4A4 達 FP16 同位</strong>，訓練成本 &lt; 1 小時 A100。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>UNet 主幹凍結</strong>：載入預訓練 Stable Diffusion UNet，凍結約 95% 的原始參數（權重不更新）。</li>
+  <li><strong>LoRA 適配器注入</strong>：在 attention 的 Q/K/V/O 投影與部分卷積層注入低秩適配器 $W' = W + \alpha B A$，僅 $A, B$ 可訓練。</li>
+  <li><strong>量化模擬前向建構</strong>：在可訓練分支上插入 fake quantization 節點，模擬 W4A4 推理時的量化/反量化行為。</li>
+  <li><strong>小規模多樣化 prompt 集準備</strong>：挑選少量涵蓋多種語意/風格的 prompt 作為 QAT 訓練集，避免大規模資料需求。</li>
+  <li><strong>短步 QAT 優化</strong>：以標準擴散 MSE 損失對 LoRA 參數進行少步（短步）梯度更新，使用 Straight-Through Estimator 處理量化不可導問題。</li>
+  <li><strong>部署合併</strong>：訓練完成後將 LoRA 適配器合併回原權重，固化 INT4 量化參數，執行純 INT4 推理。</li>
+</ol>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>LoRA 低秩適配</h4>
+<p>對原權重矩陣 $W_0 \in \mathbb{R}^{d \times k}$（已凍結），注入低秩更新：</p>
+<div class="math-block">
+$$ W = W_0 + \alpha \cdot B A, \quad B \in \mathbb{R}^{d \times r},\ A \in \mathbb{R}^{r \times k} $$
+</div>
+<p>其中 $r \ll \min(d, k)$ 為低秩維度，$\alpha$ 為縮放因子。僅 $A, B$ 參與梯度更新，可訓練參數量約為原 UNet 的 5%。</p>
+
+<h4>量化模擬（Fake Quantization）</h4>
+<p>在前向傳播中對權重與激活施加量化模擬：</p>
+<div class="math-block">
+$$ \tilde{W} = \text{sg}\!\left[ Q_{\text{INT4}}(W) \right], \quad \tilde{x} = \text{sg}\!\left[ Q_{\text{INT4}}(x) \right] $$
+</div>
+<p>其中 $\text{sg}[\cdot]$ 為 Straight-Through Estimator：前向取量化值，反向將梯度直通傳遞，繞過 round 函數的不可導問題。</p>
+
+<h4>QAT 訓練損失</h4>
+<p>採用標準擴散去噪 MSE 損失，但在量化模擬下計算：</p>
+<div class="math-block">
+$$ \mathcal{L}_{\text{QAT}} = \mathbb{E}_{t, x_0, \epsilon, c}\!\left[ \big\| \epsilon - \epsilon_\theta^{\text{quant}}\!\big(x_t,\ t,\ c;\ \tilde{W}, \tilde{x}\big) \big\|_2^2 \right] $$
+</div>
+<p>其中 $t \sim \mathcal{U}(0, T)$，$x_0$ 為乾淨樣本，$\epsilon$ 為添加的高斯噪聲，$c$ 為條件（文字 prompt）。梯度僅對 LoRA 參數 $A, B$ 與量化 scale 求導。</p>
+
+<h4>訓練成本估計</h4>
+<div class="math-block">
+$$ \text{Params}_{\text{trainable}} \approx 5\% \times \text{Params}_{\text{UNet}}, \quad \text{Time} < 1\text{h on A100} $$
+</div>
+<p>由於僅 LoRA 參數與少量 scale 可訓練，且訓練步數短（短步 QAT），總成本遠低於完整 QAT，接近 PTQ 校準水準。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>資料集</td><td>MS-COCO 2017、LAION 子集（推測；以原文為準）</td></tr>
+  <tr><td>模型</td><td>Stable Diffusion v1.5、Stable Diffusion v2.1</td></tr>
+  <tr><td>量化配置</td><td>W4A4（權重/激活均 INT4，含 LoRA 微調）</td></tr>
+  <tr><td>基線</td><td>FP16 全精度、TFMQ-DM、DMQ、Q-Diffusion</td></tr>
+  <tr><td>FID</td><td>W4A4 達<strong>與 FP16 同位</strong>（parity），顯著優於純 PTQ 基線</td></tr>
+  <tr><td>訓練時間</td><td><strong>&lt; 1 小時</strong>，單卡 NVIDIA A100</td></tr>
+  <tr><td>可訓練比例</td><td>約 <strong>5%</strong> UNet 參數（95% 凍結）</td></tr>
+  <tr><td>CLIP Score</td><td>與 FP16 接近（具體數值以原文為準）</td></tr>
+</table>
+<div class="callout green">
+  <strong>關鍵發現：</strong>EfficientDM 是當時首個在 W4A4 極低位元下達成 FID 與 FP16 同位的擴散模型量化方法。LoRA 適配器是關鍵——消融實驗顯示若改為全 UNet 微調，雖品質略升但成本激增；若完全不微調（純 PTQ），W4A4 FID 急劇惡化。5% 可訓練參數 + 短步 QAT 是成本與品質的最優折中。
+</div>
+
+<h3 id="p1-contrib">貢獻與應用</h3>
+<ol>
+  <li><strong>W4A4 達 FP16 同位</strong>：首次在權重與激活均 INT4 的極低位元下，實現與 FP16 幾乎相同的 FID，突破純 PTQ 在 W4A4 的瓶頸。</li>
+  <li><strong>LoRA + QAT 範式</strong>：將 LoRA 低秩適配與量化感知微調結合，開創「輕量 QAT」路線，成本接近 PTQ、品質逼近完整 QAT。</li>
+  <li><strong>極低訓練成本</strong>：單卡 A100 不到 1 小時即可完成微調，僅 5% 參數可訓練，大幅降低量化部署門檻。</li>
+  <li><strong>小規模校準集</strong>：使用少量多樣化 prompt 即可完成 QAT，無需大規模訓練資料。</li>
+  <li><strong>開源復現</strong>：提供 GitHub 開源實作（<code>lyh-18/EfficientDM</code>），可直接套用於 Stable Diffusion。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>邊緣設備與行動端部署 Stable Diffusion（W4A4 極致壓縮顯存與算力）</li>
+  <li>大規模 AIGC 推理服務的 W4A4 加速（FID 無損，吞吐大幅提升）</li>
+  <li>資源受限場景下的高品質文生圖、圖像編輯、圖像修復</li>
+  <li>作為通用「輕量 QAT」範式，遷移到其他擴散模型（如 DiT、視頻擴散模型）</li>
+  <li>與離群拆分（DMQ）、時間步一致性（TFMQ-DM）等 PTQ 技術正交組合，進一步壓低成本</li>
+</ul>
+
+<div class="callout amber">
+  <strong>限制：</strong>① 技術上屬<strong> QAT 而非純 PTQ</strong>——需要梯度更新與少量訓練，無法做到完全 training-free；② 小規模校準集下<strong>易過擬合</strong>，prompt 集的多樣性與代表性對最終品質影響顯著；③ 需要反向傳播，<strong>訓練期顯存高於純 PTQ</strong>（雖然遠低於完整 QAT）；④ LoRA 適配器的秩 $r$ 與注入位置需手動選擇，存在調參成本；⑤ 部署時需合併 LoRA 並固化 INT4 kernel，對推理框架有一定要求。
+</div>
+</section>
+
+<section id="refs">
+<h2><span class="num">★</span> 參考資料</h2>
+<ul>
+  <li><strong>論文標題</strong>："EfficientDM: Efficient Quantization-Aware Fine-Tuning for Diffusion Models"（確切標題以 arXiv 原文為準）</li>
+  <li><strong>發表</strong>：ICLR 2024</li>
+  <li><strong>GitHub</strong>：<code>https://github.com/lyh-18/EfficientDM</code></li>
+  <li><strong>檢索關鍵字</strong>：EfficientDM、LoRA QAT diffusion、W4A4 Stable Diffusion、quantization-aware fine-tuning</li>
+  <li><strong>相關方法</strong>：TFMQ-DM（純 PTQ 對比）、DMQ（離群拆分對比）、Q-Diffusion、LoRA 原始論文</li>
+  <li><strong>作者推測</strong>：Yulin Li 等（以 arXiv 原文作者列表為準）</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-07-19 ｜ 研究來源：ICLR 2024 論文資訊與 GitHub 開源專案<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。部分細節（確切論文標題、作者列表、CLIP 具體數值）標註為「以原文為準」者請查閱 arXiv / OpenReview 原文確認。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

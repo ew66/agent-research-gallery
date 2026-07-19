@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SVDQuant：以低秩分支吸收 Outliers 的 4-bit 擴散模型量化</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">SVDQuant：4-bit 擴散模型量化</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與應用</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion Model PTQ</span>
+  <h1>SVDQuant：以低秩分支吸收 Outliers<br>實現 4-bit 擴散模型量化</h1>
+  <p class="subtitle">將 SVD 分解引入 PTQ 範式 —— 用 FP16 低秩路徑吸收 Outliers，主矩陣 INT4 並透過 Nunchaku 引擎融合 Kernel 加速</p>
+  <div class="meta">
+    <span>📅 2026-07-19</span>
+    <span>🏷️ diffusion · PTQ · W4A4 · SVD · ICLR 2025</span>
+    <span>🔬 MIT Han Lab</span>
+  </div>
+</header>
+
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> SVDQuant: Absorbing Outliers by Low-Rank Components for 4-Bit Diffusion Models</h2>
+  <p class="tagline">以奇異值分解（SVD）拆出低秩 FP16 分支吸收 Outliers，主路徑 INT4 量化 —— 並透過 Nunchaku 引擎融合 Kernel 消除額外訪存開銷</p>
+  <table class="info">
+    <tr><td>作者</td><td>Muyang Li, Yujun Lin, Zhekai Zhang, Tianle Cai, Xiuyu Li, Junxian Guo, Enze Xie, Chenlin Meng, Jun-Yan Zhu, Song Han（MIT Han Lab）</td></tr>
+    <tr><td>發表</td><td><span class="badge amber">ICLR 2025 Spotlight</span>（arXiv 2411.05007，2024-11）</td></tr>
+    <tr><td>代碼</td><td><code>github.com/mit-han-lab/nunchaku</code>（引擎）<br><code>github.com/mit-han-lab/deepcompressor</code>（量化庫）</td></tr>
+    <tr><td>特性</td><td><span class="badge green">W4A4</span> <span class="badge blue">跨領域</span> <span class="badge amber">LoRA 兼容</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>擴散模型（Diffusion Models）在生成高品質圖像方面表現卓越，但隨模型規模放大，<strong>記憶體需求與延遲</strong>成為部署的重大瓶頸。將權重與激活同時量化至 4-bit（W4A4）是極具吸引力的加速方向，然而在如此激進的位寬下，權重與激活都<strong>高度敏感</strong>，既有以 Smoothing 為主的 PTQ 方法已不足以應付。</p>
+<p>SVDQuant 提出根本性不同的思路：<strong>不再用 Smoothing 在權重與激活間重新分配 Outliers，而是用一個低秩分支（low-rank branch）直接吸收這些 Outliers</strong>。流程上先將激活中的 Outliers 遷移到權重端，再對權重做 SVD 分解，以高精度低秩分支承接權重 Outliers，剩餘殘差由低位寬分支處理。這從兩側同時緩解了量化難度。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>Smoothing 是「在權重與激活之間搬移 Outliers」，而 SVDQuant 是「用低秩 FP16 路徑吸收 Outliers」。前者仍須在位寬限制下妥協，後者則將 Outliers 完全抽離量化範圍，使主矩陣可安全壓至 INT4。
+</div>
+
+<h3 id="p1-method">方法與演算法流程</h3>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>Smoothing-based PTQ（如 SmoothQuant）</strong>：透過縮放因子在權重與激活間重新分配 Outliers，但在 4-bit 下兩側均逼近量化極限，效果有限。</li>
+  <li><strong>W4A16（僅權重量化）</strong>：權重 4-bit、激活保持 16-bit，記憶體有節省但計算仍受激活精度限制，速度提升有限。</li>
+  <li><strong>SVDQuant（W4A4）</strong>：權重與激活同時 4-bit，並以低秩 FP16 分支吸收 Outliers；搭配 Nunchaku 引擎將低秩分支 Kernel 融合進低 bit 分支，消除額外資料搬移開銷。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>Outliers 遷移</strong>：先將激活中的 Outliers 透過縮放遷移至權重端，使激活分佈更平滑、易於量化。</li>
+  <li><strong>SVD 分解</strong>：對合併 Outliers 後的權重矩陣 $W$ 進行奇異值分解，截斷保留前 $r$ 個奇異值，得到低秩近似 $W_{\text{lr}} = U_r \Sigma_r V_r^T$（以 FP16 高精度保存）。</li>
+  <li><strong>殘差量化</strong>：計算殘差 $W_{\text{res}} = W - W_{\text{lr}}$，對殘差做 INT4 量化，得到 $W_{\text{int4}}$。</li>
+  <li><strong>雙分支前向</strong>：激活同時餵入低秩 FP16 分支與 INT4 主分支，輸出相加：$y = W_{\text{lr}} x + W_{\text{int4}} x$。</li>
+  <li><strong>Kernel 融合（Nunchaku）</strong>：將低秩分支的 Kernel 融合進低 bit 分支的 Kernel，避免獨立執行低秩分支帶來的額外激活資料搬移，否則會抵消量化帶來的加速。</li>
+  <li><strong>LoRA 無縫支援</strong>：低秩分支的設計天然兼容現有 LoRA 適配器，無需重新量化即可載入。</li>
+</ol>
+
+<h3 id="p1-math">數學公式與理論推導</h3>
+
+<h4>權重分解</h4>
+<p>設原始權重 $W \in \mathbb{R}^{m \times n}$，SVD 分解後截斷為兩部分：</p>
+<div class="math-block">
+$$ W \approx \underbrace{U_r \Sigma_r V_r^T}_{W_{\text{lr}}:\, \text{FP16 低秩}} + \underbrace{(W - U_r \Sigma_r V_r^T)}_{W_{\text{res}} \to W_{\text{int4}}:\, \text{INT4 量化}} $$
+</div>
+<p>其中 $U_r \in \mathbb{R}^{m \times r}$、$\Sigma_r \in \mathbb{R}^{r \times r}$、$V_r \in \mathbb{R}^{n \times r}$，$r \ll \min(m, n)$。低秩分支以 FP16 保存，承接主要 Outliers 能量；殘差分佈更集中，可安全壓至 INT4。</p>
+
+<h4>雙分支前向傳播</h4>
+<div class="math-block">
+$$ y = W x \approx W_{\text{lr}} x + \text{Quant}_{\text{INT4}}(W_{\text{res}}) \cdot \text{Quant}_{\text{INT4}}(x) $$
+</div>
+<p>低秩分支以 FP16 計算 $W_{\text{lr}} x$ 吸收主要變異，INT4 分支處理殘差與量化後的激活，兩路輸出相加得到最終結果。</p>
+
+<h4>Outliers 遷移（Smoothing 前置）</h4>
+<p>令激活 $x$ 的通道縮放因子為 $s$，權重對應縮放為 $1/s$：</p>
+<div class="math-block">
+$$ \hat{x} = x / s, \quad \hat{W} = W \cdot \text{diag}(s) $$
+</div>
+<p>選擇 $s$ 使 $\hat{x}$ 的 Outliers 被吸收進 $\hat{W}$，再對 $\hat{W}$ 做 SVD 分解。這樣激活側分佈平滑、量化誤差降低，而權重側的 Outliers 由低秩分支承接。</p>
+
+<h4>量化誤差上界</h4>
+<p>INT4 量化誤差 $\|W_{\text{res}} - W_{\text{int4}}\|$ 受殘差能量控制。由於 SVD 截斷保留了能量最大的 $r$ 個分量，殘差 Frobenius 範數滿足：</p>
+<div class="math-block">
+$$ \|W_{\text{res}}\|_F^2 = \sum_{i>r} \sigma_i^2 $$
+</div>
+<p>當奇異值譜衰減較快時（擴散模型權重常具此特性），殘差能量很小，INT4 量化誤差被有效控制。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>驗證模型</td><td>SDXL、PixArt-$\Sigma$、FLUX.1（12B）</td></tr>
+  <tr><td>量化配置</td><td>W4A4（INT4）+ FP16 低秩分支；另支援 NVFP4（Blackwell 架構）</td></tr>
+  <tr><td>記憶體</td><td>FLUX.1（12B）記憶體用量降低 <strong>3.5×</strong></td></tr>
+  <tr><td>加速（4090）</td><td>16GB laptop 4090 上較 W4A16 基線加速 <strong>3.0×</strong>（INT4 精度）</td></tr>
+  <tr><td>加速（5090）</td><td>RTX 5090（Blackwell）上較 W4A16 加速 <strong>3.1×</strong>（NVFP4 精度）</td></tr>
+  <tr><td>畫質</td><td>在 SDXL、PixArt-$\Sigma$、FLUX.1 上影像品質得以良好保留</td></tr>
+  <tr><td>跨領域</td><td>方法亦適用於大型語言模型（LLM），具跨領域泛化能力</td></tr>
+</table>
+<div class="callout green">
+  <strong>關鍵發現：</strong>SVDQuant 在 12B FLUX.1 上實現 3.5× 記憶體縮減與 3.0× 推理加速，且影像品質幾乎無損。Nunchaku 的 Kernel 融合是關鍵 —— 若不融合，低秩分支的額外資料搬移會抵消量化加速。
+</div>
+
+<h3 id="p1-contrib">貢獻、創新與應用</h3>
+<ol>
+  <li><strong>新範式</strong>：首創以 SVD 低秩分支「吸收」Outliers 的 PTQ 思路，有別於傳統 Smoothing 的「搬移」策略，從根本上緩解 4-bit 量化壓力。</li>
+  <li><strong>硬體協同設計</strong>：共同設計 Nunchaku 推理引擎，將低秩分支 Kernel 融合進低 bit 分支，消除額外訪存開銷，使理論加速得以真正兌現。</li>
+  <li><strong>LoRA 無縫兼容</strong>：低秩分支結構天然支援現有 LoRA 適配器，無需重新量化即可載入，極大提升實用性。</li>
+  <li><strong>跨領域適用</strong>：方法同時適用於擴散模型（SDXL、PixArt-$\Sigma$、FLUX.1）與大型語言模型，展現廣泛泛化能力。</li>
+  <li><strong>新一代硬體支援</strong>：支援 Blackwell 架構的 NVFP4 精度，在 RTX 5090 上進一步提升加速比。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>消費級 GPU（16GB 4090 筆電）部署 12B 級擴散模型（如 FLUX.1）</li>
+  <li>邊緣裝置與本地推理（降低記憶體與延遲門檻）</li>
+  <li>LoRA 適配器生態（風格化、角色定制等）的無縫量化部署</li>
+  <li>大型語言模型的 4-bit 量化加速（跨領域遷移）</li>
+  <li>新一代 Blackwell GPU（RTX 5090）上的 NVFP4 高效推理</li>
+</ul>
+</section>
+
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>arXiv 論文</strong>：<code>arxiv.org/abs/2411.05007</code>（SVDQuant: Absorbing Outliers by Low-Rank Components for 4-Bit Diffusion Models）</li>
+  <li><strong>ICLR 2025 Spotlight</strong>（錄用會議）</li>
+  <li><strong>推論引擎 Nunchaku</strong>：<code>github.com/mit-han-lab/nunchaku</code></li>
+  <li><strong>量化庫 DeepCompressor</strong>：<code>github.com/mit-han-lab/deepcompressor</code></li>
+  <li><strong>專案首頁</strong>：<code>hanlab.mit.edu/projects/svdquant</code></li>
+  <li><strong>線上 Demo</strong>：<code>demo.nunchaku.tech</code></li>
+  <li><strong>技術 Blog</strong>：<code>hanlab.mit.edu/blog/svdquant</code></li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-07-19 ｜ 研究來源：arXiv 2411.05007、ICLR 2025 Spotlight、MIT Han Lab GitHub<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。如需原始論文完整證明步驟，請參閱 arXiv 原文。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

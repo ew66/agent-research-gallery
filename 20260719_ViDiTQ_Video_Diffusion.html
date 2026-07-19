@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ViDiT-Q：圖像與視頻生成擴散 Transformer 的高效量化</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">ViDiT-Q：圖像與視頻 DiT 量化</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與應用</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion Transformer PTQ</span>
+  <h1>ViDiT-Q：圖像與視頻生成<br>擴散 Transformer 的高效量化</h1>
+  <p class="subtitle">系統化分析 DiT 量化誤差來源 —— 針對 T2I 與視頻任務設計改進量化方案，搭配高效 GPU Kernel 實現實用加速</p>
+  <div class="meta">
+    <span>📅 2026-07-19</span>
+    <span>🏷️ diffusion · PTQ · video · DiT · ICLR 2025</span>
+    <span>🔬 Tsinghua University</span>
+  </div>
+</header>
+
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> ViDiT-Q: Efficient and Accurate Quantization of Diffusion Transformers for Image and Video Generation</h2>
+  <p class="tagline">系統性剖析 DiT 量化誤差來源，針對圖像與視頻任務設計改進量化方案 —— W8A8/W4A8 達近乎無損品質，GPU Kernel 實現 2-2.5× 記憶體節省</p>
+  <table class="info">
+    <tr><td>作者</td><td>Tianchen Zhao, Tongcheng Fang, Haofeng Huang, Enshu Liu, Rui Wan, Widyadewi Soedarmadji, Shiyao Li, Zinan Lin, Guohao Dai, Shengen Yan, Huazhong Yang, Xuefei Ning, Yu Wang（清華大學）</td></tr>
+    <tr><td>發表</td><td><span class="badge amber">ICLR 2025 錄用</span>（arXiv 2406.02540，2024-06，v3 2025-02）</td></tr>
+    <tr><td>代碼</td><td><code>a-suozhang.xyz/viditq.github.io</code>（專案首頁）</td></tr>
+    <tr><td>特性</td><td><span class="badge green">W8A8</span> <span class="badge blue">W4A8</span> <span class="badge amber">GPU Kernel 優化</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>擴散 Transformer（DiT）在視覺生成任務（如根據文字指令生成逼真圖像或視頻）上表現卓越，但<strong>龐大模型尺寸與視頻生成的多幀處理</strong>導致計算與記憶體成本劇增，對邊緣裝置部署構成挑戰。Post-Training Quantization（PTQ）是降低記憶體與計算複雜度的有效手段。</p>
+<p>然而作者發現，既有量化方法直接應用於 DiT 時，在<strong>文生圖（T2I）與視頻任務</strong>上均面臨挑戰。ViDiT-Q 從<strong>系統化分析量化誤差來源</strong>出發，歸納出 DiT 量化的獨特挑戰，並據此設計改進的量化方案。該方案同時適用於圖像與視頻 DiT 模型，在多種 T2I 與視頻模型上驗證有效性，實現 W8A8 與 W4A8 配置下近乎無損的視覺品質與指標。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>DiT 量化的核心挑戰與傳統 CNN 或 LLM 不同 —— 源於擴散過程的時間步動態特性、注意力機制的啟動分佈，以及視頻任務的多幀時序結構。唯有先系統性定位誤差來源，才能對症下藥設計量化方案。
+</div>
+
+<h3 id="p1-method">方法與演算法流程</h3>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>通用 PTQ 方法</strong>（如 SmoothQuant、OMQ）：針對 LLM 或 CNN 設計，未考慮擴散過程的時間步動態與 DiT 注意力分佈特性。</li>
+  <li><strong>圖像擴散量化</strong>：多針對 UNet 架構，對 DiT 的注意力與歸一化層適配不足。</li>
+  <li><strong>ViDiT-Q</strong>：從誤差源頭出發，針對 DiT 的時間步敏感層、注意力啟動、視頻多幀結構分別設計量化策略，並實作高效 GPU Kernel 將理論加速落地為實際收益。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>誤差源分析</strong>：系統性分析 DiT 前向各環節的量化誤差來源，歸納出時間步動態、注意力啟動、多幀時序等獨特挑戰。</li>
+  <li><strong>挑戰歸納</strong>：總結 DiT 量化的關鍵挑戰 —— 不同時間步對量化敏感度差異大、注意力層啟動存在 Outliers、視頻任務的長序列與時序相關性。</li>
+  <li><strong>量化方案設計</strong>：針對上述挑戰設計改進量化方案，包括自適應的縮放策略、對敏感層的特殊處理、以及視頻多幀場景的校正機制。</li>
+  <li><strong>多模型驗證</strong>：跨多種 T2I 與視頻 DiT 模型驗證方案有效性，實現 W8A8 與 W4A8 配置。</li>
+  <li><strong>GPU Kernel 實作</strong>：實作高效 GPU Kernel，將量化帶來的理論記憶體與計算節省轉化為實際的延遲加速。</li>
+</ol>
+
+<h3 id="p1-math">數學公式與理論推導</h3>
+
+<h4>量化誤差來源分析</h4>
+<p>設 DiT 第 $l$ 層權重 $W_l$ 與激活 $x_l$，量化後 $\hat{W}_l$、$\hat{x}_l$。逐層量化誤差可分解為權重誤差與激活誤差：</p>
+<div class="math-block">
+$$ \epsilon_l = \underbrace{(W_l - \hat{W}_l) x_l}_{\text{權重誤差}} + \underbrace{\hat{W}_l (x_l - \hat{x}_l)}_{\text{激活誤差}} + \underbrace{(W_l - \hat{W}_l)(x_l - \hat{x}_l)}_{\text{交叉誤差}} $$
+</div>
+<p>ViDiT-Q 的核心貢獻在於系統分析不同層、不同時間步下三項誤差的相對大小，據此決定量化策略（如對敏感層保留較高位寬、對 Outliers 通道做縮放校正）。</p>
+
+<h4>時間步動態敏感度</h4>
+<p>擴散過程中，去噪網路在時間步 $t$ 的輸入 $z_t$ 噪聲水平差異極大，導致激活分佈隨 $t$ 劇烈變化。不同時間步對量化的敏感度 $S(t)$ 可表為：</p>
+<div class="math-block">
+$$ S(t) = \mathbb{E}_{z_t} \big[ \| \epsilon_l(t) \|^2 \big] $$
+</div>
+<p>ViDiT-Q 根據 $S(t)$ 的分析，對高敏感度時間步對應的層採用更保守的量化策略，避免在關鍵去噪階段累積過大誤差。</p>
+
+<h4>注意力啟動 Outliers 處理</h4>
+<p>DiT 的注意力層啟動 $x_{\text{attn}}$ 存在通道方向 Outliers，直接量化會放大誤差。引入通道縮放因子 $s$：</p>
+<div class="math-block">
+$$ \hat{x}_{\text{attn}} = \text{Quant}\!\left( \frac{x_{\text{attn}}}{s} \right) \cdot s, \quad \hat{W}_{\text{attn}} = \text{Quant}\!\left( W_{\text{attn}} \cdot \text{diag}(s) \right) $$
+</div>
+<p>透過 $s$ 將激活 Outliers 遷移至權重側，使兩側分佈更適合量化。$s$ 的選取基於校準集上各通道的啟動統計量。</p>
+
+<h4>W8A8 與 W4A8 配置</h4>
+<p>權重與激活的量化函數 $\text{Quant}_b(\cdot)$ 將張量映射至 $b$-bit 整數：</p>
+<div class="math-block">
+$$ \text{Quant}_b(x) = \text{round}\!\left( \frac{\text{clamp}(x, x_{\min}, x_{\max})}{\Delta} \right) \cdot \Delta, \quad \Delta = \frac{x_{\max} - x_{\min}}{2^b - 1} $$
+</div>
+<p>W8A8（權重 8-bit、激活 8-bit）下誤差極小，視覺品質近乎無損；W4A8（權重 4-bit、激活 8-bit）進一步壓縮權重儲存，需配合更精細的權重校正策略以控制誤差。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>驗證模型</td><td>多種 Text-to-Image 與視頻 DiT 模型</td></tr>
+  <tr><td>量化配置</td><td>W8A8、W4A8</td></tr>
+  <tr><td>視覺品質</td><td>W8A8 與 W4A8 下視覺品質與指標<strong>近乎無損</strong>（negligible degradation）</td></tr>
+  <tr><td>記憶體節省</td><td>實作高效 GPU Kernel，實現 <strong>2-2.5×</strong> 記憶體節省</td></tr>
+  <tr><td>延遲加速</td><td>端到端延遲加速 <strong>1.4-1.7×</strong></td></tr>
+  <tr><td>部署目標</td><td>邊緣裝置（降低記憶體與計算門檻）</td></tr>
+</table>
+<div class="callout green">
+  <strong>關鍵發現：</strong>ViDiT-Q 在 W8A8 與 W4A8 配置下均實現近乎無損的視覺品質，搭配高效 GPU Kernel 將理論收益落地為 2-2.5× 記憶體節省與 1.4-1.7× 端到端加速。其系統化的誤差源分析方法論，為後續 DiT 量化研究（如 SVDQuant、Q-VDiT）提供了重要基線與問題框架。
+</div>
+
+<h3 id="p1-contrib">貢獻、創新與應用</h3>
+<ol>
+  <li><strong>系統化誤差源分析</strong>：首次系統性剖析 DiT 量化的誤差來源，歸納出時間步動態、注意力 Outliers、視頻時序等獨特挑戰，為 DiT PTQ 建立問題框架。</li>
+  <li><strong>改進量化方案</strong>：針對分析出的挑戰設計改進量化方案，實現 W8A8 與 W4A8 下近乎無損的視覺品質，跨多種 T2I 與視頻模型驗證有效性。</li>
+  <li><strong>高效 GPU Kernel</strong>：實作高效 GPU Kernel 將理論記憶體與計算節省轉化為實際的 2-2.5× 記憶體節省與 1.4-1.7× 端到端加速，彌合理論與實務的落差。</li>
+  <li><strong>圖像與視頻統一框架</strong>：同一套量化方案同時適用於圖像（T2I）與視頻 DiT，展現跨任務的通用性。</li>
+  <li><strong>基線地位</strong>：成為後續 DiT 量化工作（如 SVDQuant、Q-VDiT、S²Q-VDiT 等）的重要對比基線。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>邊緣裝置上的圖像與視頻 DiT 部署（降低記憶體與計算門檻）</li>
+  <li>Text-to-Image 生成模型的推理加速（如 PixArt、FLUX 系列）</li>
+  <li>視頻生成模型的實際部署（如 Open-Sora、CogVideo 等視頻 DiT）</li>
+  <li>DiT 量化研究的基線框架（誤差源分析方法論 + W8A8/W4A8 配置）</li>
+  <li>AIGC 服務平台的成本優化（更低位寬 → 更高吞吐 → 更低成本）</li>
+</ul>
+</section>
+
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>arXiv 論文</strong>：<code>arxiv.org/abs/2406.02540</code>（ViDiT-Q: Efficient and Accurate Quantization of Diffusion Transformers for Image and Video Generation）</li>
+  <li><strong>ICLR 2025 錄用</strong>（錄用會議）</li>
+  <li><strong>專案首頁</strong>：<code>a-suozhang.xyz/viditq.github.io</code></li>
+  <li><strong>相關後續工作</strong>：SVDQuant（ICLR 2025 Spotlight）、Q-VDiT（ICML 2025）、S²Q-VDiT（NeurIPS 2025）、AdaTSQ（arXiv 2602.09883）等以 ViDiT-Q 為基線</li>
+  <li><strong>相關靜態量化延伸</strong>：Hardware-Friendly Static Quantization for Video DiT（MIPR 2025, arXiv 2502.15077）以 ViDiT-Q 動態量化為對比</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-07-19 ｜ 研究來源：arXiv 2406.02540、ICLR 2025、ViDiT-Q 專案首頁<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。如需原始論文完整證明步驟，請參閱 arXiv 原文。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

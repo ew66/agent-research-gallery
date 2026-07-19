@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Q-VDiT：視頻生成擴散 Transformer 的量化與蒸餾</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">Q-VDiT：視頻 DiT 量化與蒸餾</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與應用</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Video Diffusion PTQ</span>
+  <h1>Q-VDiT：視頻生成擴散 Transformer<br>的精準量化與蒸餾</h1>
+  <p class="subtitle">針對視頻 DiT 量化的雙重挑戰 —— 以 TQE 補償 Token 維度量化誤差，以 TMD 蒸餾維持時序一致性</p>
+  <div class="meta">
+    <span>📅 2026-07-19</span>
+    <span>🏷️ diffusion · PTQ · video · DiT · ICML 2025</span>
+    <span>🔬 ICT CAS × ETH Zürich</span>
+  </div>
+</header>
+
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> Q-VDiT: Towards Accurate Quantization and Distillation of Video-Generation Diffusion Transformers</h2>
+  <p class="tagline">專為視頻 DiT 設計的 PTQ 框架 —— Token-aware Quantization Estimator（TQE）補償量化誤差，Temporal Maintenance Distillation（TMD）保持時序一致性</p>
+  <table class="info">
+    <tr><td>作者</td><td>Weilun Feng, Chuanguang Yang, Haotong Qin, Xiangqi Li, Yu Wang, Zhulin An, Libo Huang, Boyu Diao, Zixiang Zhao, Yongjun Xu, Michele Magno（中科院 ICT × ETH Zürich）</td></tr>
+    <tr><td>發表</td><td><span class="badge amber">ICML 2025 錄用</span>（arXiv 2505.22167，2025-05）</td></tr>
+    <tr><td>代碼</td><td><code>github.com/cantbebetter2/Q-VDiT</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">W3A6</span> <span class="badge blue">視頻專用</span> <span class="badge amber">時序蒸餾</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>擴散 Transformer（DiT）在視頻生成任務上表現卓越，但其<strong>龐大參數量與高計算複雜度</strong>嚴重限制了在邊緣裝置上的部署。量化（Quantization）可降低位寬以減少儲存並加速推理，然而既有針對<strong>圖像生成</strong>模型的量化方法直接遷移到<strong>視頻生成</strong>任務時效果不佳。</p>
+<p>Q-VDiT 作者系統性地識別出兩大挑戰：<strong>(1) 量化過程中的資訊損失</strong>，以及 <strong>(2) 優化目標與視頻生成獨特需求之間的錯位</strong>。為此，Q-VDiT 從「量化」與「優化」兩個視角分別提出對應方案：TQE 補償 Token 與特徵維度的量化誤差，TMD 則透過蒸餾保持幀間時空相關性，使每一幀的優化都能對齊整體視頻上下文。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>視頻 DiT 與圖像 DiT 的量化本質差異在於「時序維度」。圖像量化只需考慮空間誤差，視頻量化還須維持幀間一致性。Q-VDiT 將量化誤差補償（TQE）與時序一致蒸餾（TMD）解耦處理，雙管齊下。
+</div>
+
+<h3 id="p1-method">方法與演算法流程</h3>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>圖像 DiT 量化方法</strong>（如針對 PixArt、SDXL 的 PTQ）：僅考慮空間維度誤差，直接遷移至視頻任務時幀間一致性崩壞。</li>
+  <li><strong>通用 PTQ 方法</strong>（如 SmoothQuant、BRECQ）：未針對擴散過程的時間步動態特性與視頻時序結構做適配。</li>
+  <li><strong>Q-VDiT</strong>：從「量化視角」以 TQE 補償 Token/特徵維度誤差；從「優化視角」以 TMD 蒸餾保留時空相關性，使單幀優化對齊整體視頻上下文。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>挑戰分析</strong>：系統性分析視頻 DiT 量化的兩大挑戰 —— 量化資訊損失與優化目標錯位。</li>
+  <li><strong>TQE 構建</strong>：設計 Token-aware Quantization Estimator，在 Token 維度與特徵維度同時補償量化誤差，針對視頻長序列 Token 的分佈特性做自適應校正。</li>
+  <li><strong>TMD 設計</strong>：引入 Temporal Maintenance Distillation，以全精度教師模型引導量化學生模型，損失函數強調幀間時空相關性的保持。</li>
+  <li><strong>聯合優化</strong>：TQE 與 TMD 聯合訓練，前者降低逐層量化誤差，後者確保端到端視頻品質。</li>
+  <li><strong>W3A6 部署</strong>：權重 3-bit、激活 6-bit 的激進配置下，仍能保持可接受的視頻品質。</li>
+</ol>
+
+<h3 id="p1-math">數學公式與理論推導</h3>
+
+<h4>量化誤差與 TQE 補償</h4>
+<p>設權重 $W$ 與激活 $x$ 分別量化為 $\hat{W}$、$\hat{x}$，理想輸出 $y = Wx$ 與量化輸出 $\hat{y} = \hat{W}\hat{x}$ 的誤差來自兩側。TQE 引入補償項 $\Delta_{\text{TQE}}$：</p>
+<div class="math-block">
+$$ \hat{y}_{\text{TQE}} = \hat{W}\hat{x} + \Delta_{\text{TQE}}(\hat{W}, \hat{x}) $$
+</div>
+<p>其中 $\Delta_{\text{TQE}}$ 在 Token 維度（序列方向）與特徵維度（通道方向）分別建模量化誤差，針對視頻長序列 Token 的分佈偏離做自適應校正。</p>
+
+<h4>時序一致性蒸餾損失（TMD）</h4>
+<p>設全精度教師輸出特徵序列 $\{f_t^{\text{teacher}}\}_{t=1}^{T}$，量化學生輸出 $\{f_t^{\text{student}}\}_{t=1}^{T}$，TMD 損失同時考慮<strong>單幀重構</strong>與<strong>幀間時序相關</strong>：</p>
+<div class="math-block">
+$$ \mathcal{L}_{\text{TMD}} = \sum_{t=1}^{T} \big\| f_t^{\text{teacher}} - f_t^\text{student} \big\|^2 + \lambda \sum_{t=1}^{T-1} \big\| \Delta f_{t,t+1}^{\text{teacher}} - \Delta f_{t,t+1}^{\text{student}} \big\|^2 $$
+</div>
+<p>其中 $\Delta f_{t,t+1} = f_{t+1} - f_t$ 表徵相鄰幀的時序差異，$\lambda$ 為權重超參數。第二項確保量化模型不僅單幀品質接近教師，<strong>幀間動態變化</strong>也與教師一致，從而維持視頻時序連貫性。</p>
+
+<h4>整體優化目標</h4>
+<div class="math-block">
+$$ \mathcal{L}_{\text{total}} = \mathcal{L}_{\text{task}}(\hat{y}_{\text{TQE}}, y) + \alpha \cdot \mathcal{L}_{\text{TMD}} $$
+</div>
+<p>其中 $\mathcal{L}_{\text{task}}$ 為任務級重構損失（如去噪預測誤差），$\alpha$ 平衡任務損失與時序蒸餾損失。TQE 在前向傳播中補償量化誤差，TMD 在反向傳播中引導權重校正，兩者協同收斂。</p>
+
+<h4>W3A6 量化配置</h4>
+<p>權重 3-bit、激活 6-bit 的配置下，權重側誤差較大，TQE 的補償尤為關鍵；激活側保留 6-bit 緩解了長序列 Token 的累積誤差。整體在壓縮比與品質間取得平衡。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>任務</td><td>視頻生成（Video Generation Diffusion Transformers）</td></tr>
+  <tr><td>量化配置</td><td>W3A6（權重 3-bit、激活 6-bit）</td></tr>
+  <tr><td>核心指標</td><td>Scene Consistency（場景一致性）</td></tr>
+  <tr><td>關鍵結果</td><td>W3A6 Q-VDiT 達到 <strong>23.40</strong> 的 Scene Consistency</td></tr>
+  <tr><td>對比 SOTA</td><td>較當前最佳量化方法提升 <strong>1.9×</strong></td></tr>
+  <tr><td>部署目標</td><td>邊緣裝置（降低儲存與計算門檻）</td></tr>
+</table>
+<div class="callout green">
+  <strong>關鍵發現：</strong>Q-VDiT 在 W3A6 激進配置下仍達到 23.40 的 Scene Consistency，較 SOTA 提升 1.9×，證明 TQE（誤差補償）與 TMD（時序蒸餾）的雙重設計有效填補了圖像量化方法遷移至視頻任務時的性能鴻溝。
+</div>
+
+<h3 id="p1-contrib">貢獻、創新與應用</h3>
+<ol>
+  <li><strong>視頻 DiT 量化挑戰系統化分析</strong>：首次明確識別視頻 DiT 量化的兩大挑戰 —— 量化資訊損失與優化目標錯位，為後續工作奠定問題框架。</li>
+  <li><strong>TQE 補償機制</strong>：提出 Token-aware Quantization Estimator，在 Token 與特徵雙維度補償量化誤差，針對視頻長序列特性做自適應校正。</li>
+  <li><strong>TMD 時序蒸餾</strong>：設計 Temporal Maintenance Distillation，透過幀間時序差異損失保持視頻時空一致性，使單幀優化對齊整體視頻上下文。</li>
+  <li><strong>W3A6 新基準</strong>：在激進的 W3A6 配置下建立 Scene Consistency 23.40 的新基準，較 SOTA 提升 1.9×。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>邊緣裝置上的視頻生成（降低儲存與計算門檻）</li>
+  <li>視頻 DiT 模型的實際部署加速（如 Open-Sora、CogVideo 等視頻生成模型）</li>
+  <li>視頻生成 API 服務的成本優化（更低位寬 → 更高吞吐）</li>
+  <li>後續視頻量化研究的基線框架（問題定義 + 雙視角方案）</li>
+</ul>
+</section>
+
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>arXiv 論文</strong>：<code>arxiv.org/abs/2505.22167</code>（Q-VDiT: Towards Accurate Quantization and Distillation of Video-Generation Diffusion Transformers）</li>
+  <li><strong>ICML 2025 錄用</strong>（錄用會議）</li>
+  <li><strong>GitHub 代碼</strong>：<code>github.com/cantbebetter2/Q-VDiT</code></li>
+  <li><strong>相關後續工作</strong>：S²Q-VDiT（NeurIPS 2025, arXiv 2508.04016）、QuantSparse（ICLR 2026, arXiv 2509.23681）等以 Q-VDiT 為基線進一步改進</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-07-19 ｜ 研究來源：arXiv 2505.22167、ICML 2025、GitHub cantbebetter2/Q-VDiT<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。如需原始論文完整證明步驟，請參閱 arXiv 原文。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

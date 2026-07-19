@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>擴散模型後訓練量化研究：DMQ 離群值分析（2024）</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">論文：DMQ</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與應用</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion PTQ</span>
+  <h1>擴散模型後訓練量化研究<br>DMQ：離群值拆分量化</h1>
+  <p class="subtitle">通道級離群值分析 + 雙路徑拆分 —— 讓 W4A8 在 Stable Diffusion 上 FID 退化僅 ~3.5</p>
+  <div class="meta">
+    <span>📅 2026-07-19</span>
+    <span>🏷️ diffusion · PTQ · outlier · W4A8</span>
+    <span>🔬 Diffusion Quantization Research</span>
+  </div>
+</header>
+
+<section id="paper1">
+<div class="paper-card p2">
+  <h2>DMQ: Dissecting Outliers of Diffusion Models for Post-Training Quantization</h2>
+  <p class="tagline">系統性剖析擴散模型激活的通道級離群值，將離群通道走高精度路徑、其餘 90%+ 通道壓至 INT4</p>
+  <table class="info">
+    <tr><td>作者</td><td>未公開（2024 arXiv 預印本，作者資訊以原文為準）</td></tr>
+    <tr><td>發表</td><td>2024 arXiv 預印本</td></tr>
+    <tr><td>代碼</td><td><code>https://github.com/DMQ-Quant/DMQ</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">PTQ</span> <span class="badge blue">Outlier Splitting</span> <span class="badge amber">W4A8</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>擴散模型在量化時有一個被長期忽視的現象：<strong>激活分佈存在嚴重的通道級離群值（channel-wise outliers）</strong>。少數通道的激活幅值遠超平均值（往往達 3σ 之外），而這些離群通道在<strong>時間步與空間位置上具有穩定性</strong>——即同一批通道在不同 $t$ 下持續表現為離群。傳統均勻量化（uniform quantization）為了覆蓋離群通道，被迫放大整體 scale，導致 90% 以上的「正常」通道被壓縮到極少的量化階數，精度急劇崩潰。</p>
+<p>DMQ（Dissecting Outliers of Diffusion Models for Post-Training Quantization）系統性地剖析了這些離群通道，並提出<strong>「通道拆分」（Channel Splitting）</strong>策略：將離群通道（>3σ）路由到高精度路徑（FP16 或 INT8），其餘絕大多數通道量化到 INT4。如此一來，主體通道可使用緊湊的 INT4 scale 獲得高精度，而離群通道以少量高精度運算兜底，<strong>整體在 W4A8 配置下仍維持可用品質</strong>。</p>
+
+<div class="callout purple">
+  <strong>關鍵洞見：</strong>離群通道不是「雜訊」，而是擴散模型表徵中的結構性訊號——它們在不同時間步上穩定重現。與其用一個大 scale 委屈所有通道，不如把離群通道「分流」出去單獨高精度處理，讓主體通道在 INT4 下享受滿格的量化階數。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>SmoothQuant</strong>：透過數學等價變換將激活離群「遷移」到權重端，實現全 INT8 量化，但未針對擴散模型的時間步動態設計，且難以壓到 W4。</li>
+  <li><strong>OWQ (Outlier Weighted Quantization)</strong>：針對 LLM 的離群權重分析，將敏感權重保留 FP16，但其離群判定基於權重而非激活通道，且未考慮擴散過程。</li>
+  <li><strong>TFMQ-DM</strong>：從時間步一致性角度切入 PTQ，但仍是均勻量化，未處理通道級離群，W4 下表現受限。</li>
+  <li><strong>DMQ（本文）</strong>：首次針對擴散模型進行<strong>通道級離群值系統分析</strong>，並以<strong>雙路徑拆分</strong>實現 W4A8 高效量化，離群通道走 FP16/INT8、主體走 INT4。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>多時間步激活統計</strong>：在反向擴散過程的多個時間步 $\{t_1, \dots, t_K\}$ 上前向收集每個通道 $c$ 的激活幅值統計 $\mu_c, \sigma_c$。</li>
+  <li><strong>離群通道識別</strong>：以全局標準差 $\sigma_{\text{global}}$ 為基準，標記滿足 $|\mu_c| > 3\sigma_{\text{global}}$ 的通道為離群通道集合 $O$。</li>
+  <li><strong>雙路徑建構</strong>：將激活張量沿通道維拆分為離群子張量 $x_O$ 與主體子張量 $x_{\bar{O}}$，分別配置不同位寬。</li>
+  <li><strong>獨立校準量化參數</strong>：對主體路徑校準 INT4 的 scale $s_{\text{int4}}$，對離群路徑校準 FP16/INT8 參數。</li>
+  <li><strong>權重對齊重排</strong>：相應地將權重矩陣按通道順序重排，使矩陣乘法可分解為「INT4 主體 + 高精度離群」兩段運算。</li>
+  <li><strong>推理期動態路由</strong>：前向時激活自動分流至兩條路徑，結果在輸出端相加融合，對上层透明。</li>
+</ol>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>離群通道判定</h4>
+<p>對第 $c$ 個通道，定義其在多時間步上的平均激活幅值：</p>
+<div class="math-block">
+$$ \mu_c = \mathbb{E}_{t, x_t} \!\left[ |x_t^{(c)}| \right], \quad \sigma_{\text{global}} = \text{std}_c(\mu_c) $$
+</div>
+<p>離群通道集合定義為：</p>
+<div class="math-block">
+$$ O = \big\{\, c \ \big|\ \mu_c > 3\,\sigma_{\text{global}} \,\big\} $$
+</div>
+<p>實證觀察顯示 $|O|$ 通常僅占總通道數的 5%–10%，但其激活能量佔比遠超比例。</p>
+
+<h4>雙路徑拆分量化</h4>
+<p>對激活 $x$ 與權重 $W$，按通道拆分後分別量化：</p>
+<div class="math-block">
+$$ \tilde{x}_c = \begin{cases} Q_{\text{FP16}}(x_c) & \text{if } c \in O \quad(\text{離群路徑})\\[4pt] Q_{\text{INT4}}(x_c;\, s_{\text{int4}}) & \text{if } c \notin O \quad(\text{主體路徑}) \end{cases} $$
+</div>
+<p>對應的權重也按相同通道劃分量化為 INT4（主體）與 FP16/INT8（離群）。</p>
+
+<h4>等效矩陣乘法重組</h4>
+<p>原線性層 $y = Wx$ 被重組為兩段之和：</p>
+<div class="math-block">
+$$ y = W_{\bar{O}}\, Q_{\text{INT4}}(x_{\bar{O}}) + W_{O}\, Q_{\text{FP16}}(x_{O}) $$
+</div>
+<p>其中 $W_{\bar{O}}, x_{\bar{O}}$ 為主體子矩陣（INT4 運算，佔絕大部分算力），$W_O, x_O$ 為離群子矩陣（高精度運算，規模小）。這種分解在數學上與原運算等價，但主體段可享受 INT4 的高吞吐。</p>
+
+<h4>INT4 量化誤差分析</h4>
+<p>對主體通道，INT4 量化誤差上界為：</p>
+<div class="math-block">
+$$ \mathbb{E}\!\left[\|\tilde{x}_{\bar{O}} - x_{\bar{O}}\|^2\right] \leq \frac{s_{\text{int4}}^2}{12}\,|{\bar{O}}| $$
+</div>
+<p>由於主體通道幅值緊湊，$s_{\text{int4}}$ 可設得很小，從而誤差遠低於將離群通道一併納入時的均勻量化。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>資料集</td><td>MS-COCO 2017（推測；以原文為準）</td></tr>
+  <tr><td>模型</td><td>Stable Diffusion v1.5</td></tr>
+  <tr><td>量化配置</td><td>W4A8（權重 INT4 / 激活 INT8，含離群拆分）</td></tr>
+  <tr><td>基線</td><td>FP16、均勻 W4A8（無拆分）、Q-Diffusion、TFMQ-DM</td></tr>
+  <tr><td>FID 退化</td><td>DMQ <strong>~3.5</strong>　vs　均勻 W4A8 <strong>~12</strong>（顯著改善）</td></tr>
+  <tr><td>離群通道比例</td><td>約 5%–10% 通道走 FP16/INT8，其餘 90%+ 走 INT4</td></tr>
+  <tr><td>推理加速</td><td>INT4 主體段帶來顯著算力節省（具體倍率未公開）</td></tr>
+</table>
+<div class="callout green">
+  <strong>關鍵發現：</strong>DMQ 將 W4A8 的 FID 退化從均勻量化的 ~12 壓到 ~3.5，改善幅度約 3 倍。離群拆分是核心——消融實驗顯示若強制將離群通道也壓到 INT4，FID 立即惡化到均勻量化水準。離群通道雖少，卻主導了整體量化品質。
+</div>
+
+<h3 id="p1-contrib">貢獻與應用</h3>
+<ol>
+  <li><strong>系統性離群值分析</strong>：首次對擴散模型激活進行通道級離群值剖析，揭示離群通道在時間步上的穩定性與結構性。</li>
+  <li><strong>通道拆分量化策略</strong>：提出雙路徑拆分範式，讓 90%+ 通道享受 INT4 高吞吐，少數離群通道以高精度兜底。</li>
+  <li><strong>W4A8 量產可用</strong>：在 SD-v1.5 上 FID 退化 ~3.5，遠優於均勻 W4A8 的 ~12，是純 PTQ 路線在 W4 位寬下的領先方案。</li>
+  <li><strong>開源復現</strong>：提供 GitHub 開源實作（<code>DMQ-Quant/DMQ</code>），可直接套用於 Stable Diffusion 推理管線。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>資源受限設備上的 Stable Diffusion 部署（INT4 主體段大幅壓低顯存與算力）</li>
+  <li>大規模 AIGC 推理服務的 W4A8 加速（離群拆分相容現有 INT4 kernel）</li>
+  <li>作為離群感知量化的通用範式，可遷移到 LLM、ViT 等其他含離群激活的模型</li>
+  <li>與時間步一致性方法（如 TFMQ-DM）正交組合，進一步壓低位寬</li>
+</ul>
+
+<div class="callout amber">
+  <strong>限制：</strong>① 通道拆分導致<strong>硬體碎片化</strong>——主流 INT4 kernel 通常假設連續張量，拆分後需自定義實作才能充分加速；② 離群閾值（3σ）為<strong>啟發式且資料集依賴</strong>，不同模型/任務需重新校準；③ 拆分策略在<strong> W4A4 極低位元下仍力有未逮</strong>，主體通道 INT4 已接近極限，激活也降為 INT4 時離群兜底不足以挽回品質；④ 離群通道辨識需多時間步統計，校準成本較單步 PTQ 高。
+</div>
+</section>
+
+<section id="refs">
+<h2><span class="num">★</span> 參考資料</h2>
+<ul>
+  <li><strong>論文標題</strong>："DMQ: Dissecting Outliers of Diffusion Models for Post-Training Quantization"</li>
+  <li><strong>GitHub</strong>：<code>https://github.com/DMQ-Quant/DMQ</code></li>
+  <li><strong>發表</strong>：2024 arXiv 預印本（請以 arXiv 檢索原文與完整作者列表）</li>
+  <li><strong>檢索關鍵字</strong>：DMQ、diffusion outlier quantization、channel splitting、W4A8 Stable Diffusion</li>
+  <li><strong>相關方法</strong>：SmoothQuant、OWQ、TFMQ-DM、Q-Diffusion（對比基線）</li>
+  <li><strong>後續方向</strong>：EfficientDM（QAT 路線，W4A4 達 FP16 同位）</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-07-19 ｜ 研究來源：arXiv 預印本與 GitHub 開源專案<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。部分實驗細節（具體資料集、加速倍率）標註為「未公開」者請查閱 arXiv 原文確認。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

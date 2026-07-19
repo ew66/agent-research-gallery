@@ -5,19 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Notes Gallery</title>
 <style>
-  :root { --bg:#fafafa;--surface:#fff;--text:#1a1a1a;--text-soft:#4a4a4a;--text-muted:#6b6b6b;--border:#e4e4e7;--accent:#2563eb;--accent-soft:#dbeafe;--code-bg:#f4f4f5;--shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);--radius:10px; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#0f0f10;--surface:#1a1a1d;--text:#e8e8e8;--text-soft:#c4c4c4;--text-muted:#9a9a9a;--border:#2a2a2e;--accent:#60a5fa;--accent-soft:#1e3a5f;--code-bg:#26262a;--shadow:0 1px 3px rgba(0,0,0,.3); } }
+  :root { --bg:#fafafa;--surface:#fff;--text:#1a1a1a;--text-soft:#4a4a4a;--text-muted:#6b6b6b;--border:#e4e4e7;--accent:#2563eb;--accent-soft:#dbeafe;--accent-2:#7c3aed;--accent-2-soft:#ede9fe;--code-bg:#f4f4f5;--shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);--radius:10px; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f0f10;--surface:#1a1a1d;--text:#e8e8e8;--text-soft:#c4c4c4;--text-muted:#9a9a9a;--border:#2a2a2e;--accent:#60a5fa;--accent-soft:#1e3a5f;--accent-2:#a78bfa;--accent-2-soft:#3a2a5f;--code-bg:#26262a;--shadow:0 1px 3px rgba(0,0,0,.3); } }
   *{box-sizing:border-box;} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;}
-  .container{max-width:1000px;margin:0 auto;padding:48px 24px 80px;}
+  .container{max-width:1100px;margin:0 auto;padding:48px 24px 80px;}
   header{text-align:center;margin-bottom:48px;}
   header h1{font-size:32px;font-weight:800;margin:0 0 8px;letter-spacing:-.02em;}
   header p{font-size:16px;color:var(--text-muted);margin:0;}
-  .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;}
-  a.card{display:block;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-decoration:none;color:inherit;transition:all .2s;box-shadow:var(--shadow);}
+  .section-label{font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--accent);margin:32px 0 14px;padding-bottom:6px;border-bottom:2px solid var(--accent-soft);}
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;}
+  a.card{display:block;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-decoration:none;color:inherit;transition:all .2s;box-shadow:var(--shadow);}
   a.card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.1);}
-  .card-title{font-size:18px;font-weight:700;color:var(--accent);margin:0 0 8px;line-height:1.4;}
-  .card-date{font-size:13px;color:var(--text-muted);margin:0 0 10px;}
-  .card-desc{font-size:14px;color:var(--text-soft);margin:0;line-height:1.5;}
+  .card-title{font-size:16px;font-weight:700;color:var(--accent);margin:0 0 6px;line-height:1.4;}
+  .card-date{font-size:12px;color:var(--text-muted);margin:0 0 8px;}
+  .card-desc{font-size:13px;color:var(--text-soft);margin:0;line-height:1.5;}
   footer{text-align:center;margin-top:64px;padding-top:24px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted);}
   @media (max-width:600px){.card-grid{grid-template-columns:1fr;}.container{padding:32px 16px 60px;}header h1{font-size:26px;}}
 </style>
@@ -28,17 +29,68 @@
     <h1>Notes Gallery</h1>
     <p>Paper research reports & analyses</p>
   </header>
+
+  <div class="section-label">2026-07-19 · Diffusion PTQ Series</div>
   <div class="card-grid">
     <a class="card" href="20260719_Diffusion_PTQ_Survey_Top3.html">
       <h2 class="card-title">Diffusion PTQ 調研：問題全景與 TOP 3 論文（2023-2026）</h2>
-      <p class="card-date">2026-07-19</p>
+      <p class="card-date">2026-07-19 · Survey</p>
       <p class="card-desc">12 篇 PTQ 代表作問題全景 + TOP 3 評選（SegQuant/SVDQuant/Q-VDiT）+ 2026-2027 研究路線</p>
     </a>
     <a class="card" href="20260719_Diffusion_PTQ_APQDM_SegQuant.html">
-      <h2 class="card-title">擴散模型後訓練量化研究：APQ-DM 與 SegQuant</h2>
-      <p class="card-date">2026-07-19</p>
+      <h2 class="card-title">APQ-DM 與 SegQuant 兩篇論文對比</h2>
+      <p class="card-date">2026-07-19 · Comparison</p>
       <p class="card-desc">時間步分組感知 vs 語意分割+極性保留 —— 兩條邁向高保真可部署的 Diffusion PTQ 路徑</p>
     </a>
+    <a class="card" href="20260719_SVDQuant_W4A4_Diffusion.html">
+      <h2 class="card-title">SVDQuant：低秩分支吸收 Outliers 的 4-bit 量化</h2>
+      <p class="card-date">2026-07-19 · ICLR 2025 Spotlight</p>
+      <p class="card-desc">SVD 分解為低秩 FP16 路徑 + INT4 主矩陣，純 PTQ 達成 W4A4，記憶體 -75%</p>
+    </a>
+    <a class="card" href="20260719_QVDiT_Video_DiT_KVCache.html">
+      <h2 class="card-title">Q-VDiT：視頻生成擴散 Transformer 的量化與蒸餾</h2>
+      <p class="card-date">2026-07-19 · ICML 2025</p>
+      <p class="card-desc">TQE + TMD，W3A6 配置，Scene Consistency 23.40，1.9× 優於 SOTA</p>
+    </a>
+    <a class="card" href="20260719_ViDiTQ_Video_Diffusion.html">
+      <h2 class="card-title">ViDiT-Q：圖像與視頻生成擴散 Transformer 高效量化</h2>
+      <p class="card-date">2026-07-19 · ICLR 2025</p>
+      <p class="card-desc">W8A8/W4A8，2-2.5× 記憶體節省，1.4-1.7× 加速，清華大學</p>
+    </a>
+    <a class="card" href="20260719_PTQ4DiT_Diffusion_Transformer.html">
+      <h2 class="card-title">PTQ4DiT：擴散 Transformer 之訓練後量化</h2>
+      <p class="card-date">2026-07-19 · 2024</p>
+      <p class="card-desc">Rotation-based smoothing for DiT RMSNorm/SwiGLU + block-wise mixed precision</p>
+    </a>
+    <a class="card" href="20260719_QDiffusion_ICCV2023.html">
+      <h2 class="card-title">Q-Diffusion：擴散模型量化研究</h2>
+      <p class="card-date">2026-07-19 · ICCV 2023</p>
+      <p class="card-desc">Timestep bucketing + per-bucket MSE calibration，W8A8/W6A6 on UNet</p>
+    </a>
+    <a class="card" href="20260719_PTQD_NeurIPS2023.html">
+      <h2 class="card-title">PTQD：噪聲預測誤差引導之擴散模型量化</h2>
+      <p class="card-date">2026-07-19 · NeurIPS 2023</p>
+      <p class="card-desc">以實際 diffusion loss 為校正目標 + bias correction，W8A8 近無損</p>
+    </a>
+    <a class="card" href="20260719_TFMQDM_CVPR2024.html">
+      <h2 class="card-title">TFMQ-DM：時間特徵維持量化</h2>
+      <p class="card-date">2026-07-19 · CVPR 2024</p>
+      <p class="card-desc">Temporal feature consistency regularization + ResBlock mixed-precision，W6A6 FID &lt;2%</p>
+    </a>
+    <a class="card" href="20260719_DMQ_Outlier_Diffusion.html">
+      <h2 class="card-title">DMQ：離群值分析之擴散模型後訓練量化</h2>
+      <p class="card-date">2026-07-19 · 2024</p>
+      <p class="card-desc">Channel-splitting：outlier channels → FP16/INT8，其餘 → INT4，W4A8 FID ~3.5</p>
+    </a>
+    <a class="card" href="20260719_EfficientDM_ICLR2024.html">
+      <h2 class="card-title">EfficientDM：輕量化 QAT 達成 W4A4 無損</h2>
+      <p class="card-date">2026-07-19 · ICLR 2024</p>
+      <p class="card-desc">LoRA-style adapters + short-step QAT，W4A4 FP16 parity，&lt;1h on A100</p>
+    </a>
+  </div>
+
+  <div class="section-label">2026-06 · Diffusion SR & Guidance</div>
+  <div class="card-grid">
     <a class="card" href="20260629_TADSR_CVPR2026_Time_Aware_Diffusion_SR.html">
       <h2 class="card-title">TADSR (CVPR 2026)：時間感知一步擴散超解析度網路</h2>
       <p class="card-date">2026-06-29</p>
@@ -55,7 +107,8 @@
       <p class="card-desc">Token Swapping 與 Score Discrepancy 兩種創新 Diffusion Guidance 路徑</p>
     </a>
   </div>
-  <footer>Generated by paper-research-gallery skill · 5 reports</footer>
+
+  <footer>Generated by paper-research-gallery skill · 14 reports</footer>
 </div>
 </body>
 </html>

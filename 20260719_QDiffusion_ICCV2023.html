@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Q-Diffusion：擴散模型量化研究（ICCV 2023）</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#overview">論文概覽</a></li>
+      <li><a href="#idea">核心思想</a></li>
+      <li><a href="#method">方法與演算法</a>
+        <ol>
+          <li><a href="#m-pos">與現有方法的定位</a></li>
+          <li><a href="#m-steps">演算法步驟</a></li>
+        </ol>
+      </li>
+      <li><a href="#math">數學推導</a></li>
+      <li><a href="#exp">實驗結果</a></li>
+      <li><a href="#contrib">貢獻與應用</a></li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion PTQ</span>
+  <h1>Q-Diffusion：擴散模型量化<br>首個擴散專用訓練後量化方法</h1>
+  <p class="subtitle">以 Timestep-aware Calibration 與 Split Shortcut Quantization 解決多時間步啟動分佈漂移與雙峰啟動難題</p>
+  <div class="meta">
+    <span>📅 2026-07-19</span>
+    <span>🏷️ diffusion · PTQ · timestep · ICCV 2023</span>
+    <span>🔬 UC Berkeley × NVIDIA × PKU</span>
+  </div>
+</header>
+
+<section id="overview">
+<div class="paper-card">
+  <h2><span class="num">1.</span> Q-Diffusion: Quantizing Diffusion Models</h2>
+  <p class="tagline">第一篇系統性指出「擴散模型不能直接套用一般 PTQ」並提出專屬解法的開創性工作，獲 ICCV 2023 收錄</p>
+  <table class="info">
+    <tr><td>作者</td><td>Xiuyu Li, Yijiang Liu, Long Lian, Huanrui Yang, Zhen Dong, Daniel Kang, Shanghang Zhang, Kurt Keutzer</td></tr>
+    <tr><td>發表</td><td><span class="badge amber">ICCV 2023</span>（pp. 17535–17545）</td></tr>
+    <tr><td>arXiv</td><td><code>arxiv.org/abs/2302.04304</code></td></tr>
+    <tr><td>代碼</td><td><code>github.com/Xiuyu-Li/q-diffusion</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">訓練免費</span> <span class="badge blue">4-bit 可用</span> <span class="badge amber">UNet 專用</span></td></tr>
+  </table>
+</div>
+</section>
+
+<section id="idea">
+<h2><span class="num">2.</span> 核心思想</h2>
+<p>擴散模型透過在大量時間步 $t \in \{1, \dots, T\}$ 上反覆呼叫噪聲預測網路 $\epsilon_\theta(x_t, t)$ 來生成樣本，每個 $t$ 對應一組截然不同的啟動統計分佈。傳統 PTQ 方法（如 LSQ、BRECQ）假設啟動分佈在推理過程中穩定，因此用單一量化參數覆蓋整個推理流程——這在擴散模型上會<strong>災難性失效</strong>，4-bit 直接量化可使 FID 從個位數飆升至 100 以上。</p>
+<p>Q-Diffusion 識別出兩個核心挑戰：</p>
+<ol>
+  <li><strong>多時間步啟動分佈漂移</strong>：同一層的啟動值範圍在不同 $t$ 下差異可達數個數量級，單一 clipping 範圍無法同時覆蓋。</li>
+  <li><strong>Shortcut 層的雙峰啟動</strong>：U-Net 的 skip-connection 匯入處啟動呈現明顯雙峰分佈，傳統對稱量化會在兩峰之間浪費大量表示精度。</li>
+</ol>
+<p>對應提出兩項關鍵技術：<strong>Timestep-aware Calibration</strong>（時間步感知校準）與 <strong>Split Shortcut Quantization</strong>（分裂捷徑量化）。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>擴散模型的多時間步結構是 PTQ 的「詛咒」也是「祝福」——雖然啟動分佈隨 $t$ 漂移，但相鄰 $t$ 的分佈高度相似，可分桶（bucketing）共享參數，將校準成本從 $O(T)$ 降至 $O(K)$（$K \ll T$）。
+</div>
+</section>
+
+<section id="method">
+<h2><span class="num">3.</span> 方法與演算法</h2>
+
+<h3 id="m-pos">與現有方法的定位</h3>
+<ul>
+  <li><strong>一般 PTQ（LSQ、BRECQ、PTQ4ViT）</strong>：假設啟動分佈穩定，單組量化參數；對擴散模型 4-bit 量化 FID 暴增至 100+。</li>
+  <li><strong>混合精度訓練（Mixed-Precision Training）</strong>：需重新訓練，非 PTQ；Q-Diffusion 完全訓練免費。</li>
+  <li><strong>後續 PTQ4DiT、PTQD</strong>：借鑑 Q-Diffusion 的時間步分桶思想，但分別針對 DiT 與噪聲預測誤差做改進。</li>
+  <li><strong>Q-Diffusion</strong>：首個擴散專用 PTQ，以分桶校準 + 分裂捷徑解決 U-Net 的動態性與雙峰啟動。</li>
+</ul>
+
+<h3 id="m-steps">演算法步驟</h3>
+<ol>
+  <li><strong>校準資料生成</strong>：以預訓練全精度模型執行一次 DDIM 採樣，收集每個時間步 $t$ 各層的中間啟動作為校準集。</li>
+  <li><strong>時間步分桶（Bucketing）</strong>：將 $T$ 個時間步依啟動統計量聚類為 $K$ 個 bucket（典型 $K \ll T$，如 $K=4$），每個 bucket 共享一組量化參數。</li>
+  <li><strong>逐桶 MSE 校準</strong>：對每個 bucket，以最小化全精度與量化輸出的 MSE 為目標，搜尋最適 clipping 範圍與 scale。</li>
+  <li><strong>分裂捷徑量化（Split Shortcut）</strong>：對 U-Net skip-connection 匯入的雙峰啟動，將其拆分為正負兩部分獨立量化，再合併還原，避免單一範圍覆蓋兩峰造成精度浪費。</li>
+  <li><strong>權重與啟動位寬配置</strong>：支援 W4A8、W6A6、W8A8 等配置；attention 的 softmax 輸出保留 16-bit 以穩定注意力分佈。</li>
+  <li><strong>量化推理</strong>：依桶切換量化參數，執行標準 DDIM／PLMS 採樣流程。</li>
+</ol>
+</section>
+
+<section id="math">
+<h2><span class="num">4.</span> 數學推導</h2>
+
+<h4>標準對稱量化</h4>
+<p>對張量 $x$，標準均勻量化為：</p>
+<div class="math-block">
+$$ Q(x) = \text{clip}\!\left( \text{round}\!\left( \frac{x}{s} \right), -2^{b-1}, 2^{b-1}-1 \right) \cdot s, \quad s = \frac{\max(|x|)}{2^{b-1}-1} $$
+</div>
+<p>其中 $b$ 為位寬，$s$ 為縮放因子。當啟動分佈雙峰或動態範圍極大時，$s$ 被極端值拉大，多數值被量化為 0，資訊嚴重流失。</p>
+
+<h4>時間步分桶校準</h4>
+<p>設時間步集合 $\mathcal{T}$ 分為 $K$ 個 bucket $\{\mathcal{T}_1, \dots, \mathcal{T}_K\}$，每個 bucket $k$ 對應一組參數 $(s_k^w, s_k^a)$。對第 $l$ 層在 bucket $k$ 上的重構誤差：</p>
+<div class="math-block">
+$$ \mathcal{L}_l^{(k)} = \mathbb{E}_{t \in \mathcal{T}_k} \Big[ \big\| W_l x_t - Q(W_l; s_k^w)\, Q(x_t; s_k^a) \big\|_2^2 \Big] $$
+</div>
+<p>透過網格搜尋或梯度下降最小化 $\mathcal{L}_l^{(k)}$，得到每個 bucket 的最佳 $(s_k^w, s_k^a)$。</p>
+
+<h4>分裂捷徑量化</h4>
+<p>對雙峰啟動 $x$，拆分為正部 $x^+ = \max(x, 0)$ 與負部 $x^- = \min(x, 0)$，各自獨立量化：</p>
+<div class="math-block">
+$$ Q_{\text{split}}(x) = Q(x^+; s^+) + Q(x^-; s^-), \quad s^+ = \frac{\max(x^+)}{2^{b-1}-1}, \quad s^- = \frac{\max(|x^-|)}{2^{b-1}-1} $$
+</div>
+<p>此舉使正負兩峰各獲得完整 $b$-bit 動態範圍，等效精度近乎翻倍，特別適用於 U-Net 中 skip-connection 匯入處的啟動。</p>
+
+<h4>整體目標</h4>
+<div class="math-block">
+$$ \min_{\{s_k^w, s_k^a\}_{k=1}^{K}} \sum_{l \in \mathcal{L}_{\text{shortcut}}} \sum_{k=1}^{K} \mathcal{L}_l^{(k)} \quad \text{s.t.} \quad |\mathcal{T}_k| \text{ 平衡} $$
+</div>
+</section>
+
+<section id="exp">
+<h2><span class="num">5.</span> 實驗結果</h2>
+<table class="info">
+  <tr><td>目標模型</td><td>DDIM（CIFAR-10）、LDM-4／LDM-8（LSUN Bedroom／Churches）、Stable Diffusion v1.4</td></tr>
+  <tr><td>量化配置</td><td>W4A8、W6A6、W8A8（權重 4／6／8-bit，啟動 8-bit）</td></tr>
+  <tr><td>4-bit 表現</td><td>無條件生成 FID 變化 ≤ 2.34（傳統 PTQ 達 100+）</td></tr>
+  <tr><td>W8A8</td><td>FID 退化 &lt; 1.0，近乎無損</td></tr>
+  <tr><td>W6A6</td><td>較全局 PTQ 改善約 3.5 FID</td></tr>
+  <tr><td>Stable Diffusion</td><td>首次實現 4-bit 權重 SD 並保持高品質文生圖</td></tr>
+  <tr><td>工業落地</td><td>被 NVIDIA TensorRT 採用為 SD 8-bit PTQ 官方方案</td></tr>
+</table>
+<div class="callout green">
+  <strong>關鍵發現：</strong>時間步分桶在 $K=4$ 時即可捕捉絕大部分啟動漂移，進一步增加 bucket 數收益邊際遞減；分裂捷徑量化對 LSUN Churches 等高頻細節場景的 FID 改善尤為顯著。
+</div>
+<div class="callout amber">
+  <strong>已知限制：</strong>(1) W4A4 全 4-bit 配置仍會失效，瓶頸在 attention 與極端啟動層；(2) 僅針對 U-Net，未涵蓋 DiT 架構；(3) 校準成本隨 bucket 數 $K$ 線性增長，$K$ 過大時校準時間逼近一次完整採樣。
+</div>
+</section>
+
+<section id="contrib">
+<h2><span class="num">6.</span> 貢獻與應用</h2>
+<ol>
+  <li><strong>開創性診斷</strong>：首次系統性指出擴散模型 PTQ 的兩大獨特挑戰（多時間步漂移、雙峰啟動），為後續所有擴散 PTQ 工作奠定問題框架。</li>
+  <li><strong>實用化解決方案</strong>：時間步分桶 + 分裂捷徑的組合使 4-bit 擴散生成首次可用品質，FID 從 100+ 降至個位數變化。</li>
+  <li><strong>工業級影響</strong>：被 NVIDIA TensorRT 整合為 Stable Diffusion 8-bit PTQ 官方範例，推動邊緣裝置 SD 部署。</li>
+  <li><strong>方法論遺產</strong>：時間步分桶思想被 PTQ4DiT、PTQD、EfficientDM 等後續工作廣泛繼承與改進。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>Stable Diffusion 系列模型的邊緣部署（手機、筆電 GPU）</li>
+  <li>大規模 AIGC 服務的推理成本優化（降低顯存頻寬）</li>
+  <li>無條件生成模型（LSUN、CIFAR）的輕量化研究基線</li>
+  <li>作為後續 DiT 專用 PTQ（PTQ4DiT）的對比基準</li>
+</ul>
+</section>
+
+<section id="refs">
+<h2><span class="num">7.</span> 參考資料</h2>
+<ul>
+  <li><strong>論文</strong>：Li et al., "Q-Diffusion: Quantizing Diffusion Models," <em>ICCV 2023</em>, pp. 17535–17545</li>
+  <li><strong>arXiv</strong>：<code>https://arxiv.org/abs/2302.04304</code></li>
+  <li><strong>代碼</strong>：<code>https://github.com/Xiuyu-Li/q-diffusion</code></li>
+  <li><strong>專案頁</strong>：<code>https://xiuyuli.com/qdiffusion/</code></li>
+  <li><strong>工業整合</strong>：NVIDIA TensorRT SD INT8 PTQ <code>github.com/NVIDIA/TensorRT</code></li>
+  <li><strong>相關筆記</strong>：[[Diffusion PTQ Survey]]、[[PTQ4DiT]]、[[PTQD]]（Obsidian vault 內）</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-07-19 ｜ 研究來源：arXiv 2302.04304、ICCV 2023 論文、GitHub 官方代碼庫<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。FID 數值引自論文原文與 GitHub README。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

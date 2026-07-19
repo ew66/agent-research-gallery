@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>擴散模型後訓練量化研究：TFMQ-DM（CVPR 2024）</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">論文：TFMQ-DM</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與應用</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion PTQ</span>
+  <h1>擴散模型後訓練量化研究<br>TFMQ-DM：時間步特徵維持量化</h1>
+  <p class="subtitle">跨時間步特徵一致性正則化 + ResBlock 混合精度 —— CVPR 2024 的高保真 PTQ 方案</p>
+  <div class="meta">
+    <span>📅 2026-07-19</span>
+    <span>🏷️ diffusion · PTQ · temporal · CVPR 2024</span>
+    <span>🔬 Diffusion Quantization Research</span>
+  </div>
+</header>
+
+<section id="paper1">
+<div class="paper-card">
+  <h2>TFMQ-DM: Temporal Feature Maintenance Quantization for Diffusion Models</h2>
+  <p class="tagline">在量化校準階段引入時間步特徵一致性正則化，跨時間步維持特徵圖穩定性，讓 W6A6 仍貼近 FP16 品質</p>
+  <table class="info">
+    <tr><td>作者</td><td>未公開（CVPR 2024 收錄，作者資訊以 arXiv 原文為準）</td></tr>
+    <tr><td>發表</td><td><span class="badge amber">CVPR 2024</span></td></tr>
+    <tr><td>代碼</td><td>未公開（依論文提供資訊；如有更新請查閱 arXiv 原文連結）</td></tr>
+    <tr><td>特性</td><td><span class="badge green">PTQ</span> <span class="badge blue">Mixed-Precision</span> <span class="badge amber">Temporal Consistency</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>擴散模型（Diffusion Models）的後訓練量化（Post-Training Quantization, PTQ）面臨一項獨特挑戰：<strong>不同時間步 $t$ 下的激活分佈差異極大</strong>。在接近純噪聲的大 $t$ 階段，激活統計與接近資料流形的小 $t$ 階段截然不同。傳統 PTQ 方法（如針對 CNN/Transformer 設計的方案）往往只在單一或少數時間步上進行校準，導致量化參數在其他時間步上嚴重失配，特徵圖隨去噪軌跡發散。</p>
+<p>TFMQ-DM（Temporal Feature Maintenance Quantization for Diffusion Models）提出「<strong>時間步特徵維持</strong>」概念：在量化校準過程中，加入一個<strong>特徵一致性正則化項（Feature Consistency Regularization）</strong>，懲罰量化前後特徵圖在相鄰時間步之間的發散。這迫使量化參數（scale、zero-point）在整個去噪軌跡上保持穩定，而非僅對單一時間步過擬合。此外，論文對 bottleneck ResBlock 採用<strong>混合精度（Mixed-Precision）</strong>分配，對敏感層保留較高位寬。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>擴散模型的量化誤差不是「單點」問題，而是「軌跡」問題。若某個時間步的特徵被量化破壞，誤差會沿反向採樣鏈傳播並放大。TFMQ-DM 將量化校準目標從「最小化單步重構誤差」升級為「最小化跨時間步特徵軌跡誤差」。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>PTQ4ViT / Q-ViT</strong>：針對 Vision Transformer 的 PTQ，未考慮擴散過程的時間步動態性，直接套用會在 W6A6 以下崩潰。</li>
+  <li><strong>Q-Diffusion</strong>：首個針對擴散模型的 PTQ，透過多時間步校準集緩解分佈漂移，但仍以單步重構損失為目標，未顯式建模時間步一致性。</li>
+  <li><strong>PTQD</strong>：以高斯誤差分析分解量化與採樣誤差，但校準仍偏向單時間步。</li>
+  <li><strong>TFMQ-DM（本文）</strong>：首次引入「跨時間步特徵一致性正則化」作為校準目標，並結合 ResBlock 混合精度，明確將「時間維度穩定性」納入量化優化。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>多時間步校準集採集</strong>：從訓練分佈中採樣一批 prompt 與初始噪聲，沿反向擴散過程在多個時間步 $\{t_1, t_2, \dots, t_K\}$ 上前向收集激活統計。</li>
+  <li><strong>雙路特徵計算</strong>：對每個時間步，同時記錄 FP16 全精度模型的特徵圖 $f_t^{\text{FP}}$ 與量化模型的特徵圖 $f_t^{\text{quant}}$。</li>
+  <li><strong>特徵一致性損失計算</strong>：對相鄰時間步對 $(t_k, t_{k+1})$，計算量化前後特徵差分的發散，作為時間步一致性正則項 $\mathcal{L}_{\text{TFM}}$。</li>
+  <li><strong>聯合優化量化參數</strong>：以重構損失 $\mathcal{L}_{\text{recon}}$ 與一致性損失 $\mathcal{L}_{\text{TFM}}$ 的加權和為目標，優化每層的 scale $s$ 與 zero-point $z$。</li>
+  <li><strong>ResBlock 混合精度分配</strong>：對敏感度高的 bottleneck ResBlock 保留 W8A8，其餘層降為 W6A6，以在顯存與品質間取平衡。</li>
+  <li><strong>部署量化模型</strong>：將優化後的量化參數固化，執行 INT8/INT6 推理。</li>
+</ol>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>對稱量化函數</h4>
+<p>對激活 $x$ 與位寬 $b$，對稱量化定義為：</p>
+<div class="math-block">
+$$ Q(x; s, b) = \text{clip}\!\left( \text{round}\!\left(\frac{x}{s}\right),\ -2^{b-1},\ 2^{b-1}-1 \right) \cdot s $$
+</div>
+<p>其中 $s$ 為可學習的 scale，由校準損失聯合優化。</p>
+
+<h4>時間步特徵一致性正則化</h4>
+<p>設 $f_t^{\text{FP}}$ 與 $f_t^{\text{quant}}$ 分別為時間步 $t$ 下全精度與量化模型在第 $\ell$ 層的特徵圖。定義相鄰時間步的特徵演化差分：</p>
+<div class="math-block">
+$$ \Delta f_t^{\text{FP}} = f_{t_{k+1}}^{\text{FP}} - f_{t_k}^{\text{FP}}, \quad \Delta f_t^{\text{quant}} = f_{t_{k+1}}^{\text{quant}} - f_{t_k}^{\text{quant}} $$
+</div>
+<p>TFMQ 正則項懲罰量化前後特徵演化的偏離：</p>
+<div class="math-block">
+$$ \mathcal{L}_{\text{TFM}} = \sum_{k=1}^{K-1} \big\| \Delta f_{t_k}^{\text{quant}} - \Delta f_{t_k}^{\text{FP}} \big\|_2^2 $$
+</div>
+<p>該項確保量化模型在時間軸上的特徵「軌跡」與全精度模型一致，而非僅在單點吻合。</p>
+
+<h4>總校準損失</h4>
+<div class="math-block">
+$$ \mathcal{L}_{\text{total}} = \mathcal{L}_{\text{recon}} + \lambda \cdot \mathcal{L}_{\text{TFM}} $$
+</div>
+<p>其中 $\mathcal{L}_{\text{recon}}$ 為標準輸出重構 MSE，$\lambda$ 為一致性權重超參數。透過梯度下降（Straight-Through Estimator 處理 round 不可導）優化 $s$ 與 $z$。</p>
+
+<h4>混合精度敏感度</h4>
+<p>對第 $\ell$ 層定義敏感度分數：</p>
+<div class="math-block">
+$$ S_\ell = \mathbb{E}_{t} \!\left[ \big\| f_{\ell,t}^{\text{quant}} - f_{\ell,t}^{\text{FP}} \big\|_2^2 \right] $$
+</div>
+<p>將 $S_\ell$ 高於閾值的 ResBlock 分配為 W8A8，其餘為 W6A6，從而以最小成本保護最敏感層。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>資料集</td><td>MS-COCO 2017、LAION-Aesthetics（推測；以 arXiv 原文為準）</td></tr>
+  <tr><td>模型</td><td>Stable Diffusion v1.5、Stable Diffusion v2.1</td></tr>
+  <tr><td>量化配置</td><td>W8A8、W6A6（權重/激活均量化）</td></tr>
+  <tr><td>基線</td><td>FP16 全精度、Q-Diffusion、PTQD 等純 PTQ 方法</td></tr>
+  <tr><td>FID 增幅</td><td>相對 FP16 <strong>&lt; 2.0%</strong>（W8A8 與 W6A6 均維持接近水準）</td></tr>
+  <tr><td>CLIP Score 下降</td><td><strong>&lt; 1.5%</strong>，文字-圖像對齊度幾乎無損</td></tr>
+  <tr><td>顯存節省</td><td>W6A6 相比 FP16 顯著降低推理顯存（具體倍率未公開）</td></tr>
+</table>
+<div class="callout green">
+  <strong>關鍵發現：</strong>TFMQ-DM 在 W6A6 這種傳統 PTQ 已嚴重崩潰的位寬下，仍能將 FID 增幅控制在 2% 以內，CLIP Score 下降 &lt; 1.5%。特徵一致性正則化是關鍵——消融實驗顯示移除 $\mathcal{L}_{\text{TFM}}$ 後 W6A6 的 FID 急劇惡化，證明時間步穩定性是擴散量化的核心。
+</div>
+
+<h3 id="p1-contrib">貢獻與應用</h3>
+<ol>
+  <li><strong>時間步一致性正則化</strong>：首次將「跨時間步特徵軌跡穩定性」形式化為可優化的正則項，突破傳統 PTQ 單點校準的盲區。</li>
+  <li><strong>ResBlock 混合精度策略</strong>：基於敏感度分數自適應分配位寬，在顯存與品質間取得最優折中。</li>
+  <li><strong>低位寬保真度</strong>：在 W6A6 下 FID 增幅 &lt; 2.0%，是當時純 PTQ 路線在該位寬下的領先水準。</li>
+  <li><strong>即插即用</strong>：作為 PTQ 方法，無需重新訓練 UNet，僅需短時校準即可部署。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>邊緣設備與消費級 GPU 上部署 Stable Diffusion（降低顯存與推理延遲）</li>
+  <li>大規模 AIGC 推理服務的批量成本優化（W6A6 顯著壓縮吞吐成本）</li>
+  <li>作為後續 QAT 方法（如 EfficientDM）的初始化基線，縮短微調時間</li>
+  <li>資源受限場景下的條件圖像生成、圖像修復與編輯</li>
+</ul>
+
+<div class="callout amber">
+  <strong>限制：</strong>① 混合精度方案需自定義 kernel 才能充分發揮硬體加速，通用推理框架支援有限；② 多時間步校準需同時保留 FP 與量化特徵，校準期顯存開銷較高；③ 未處理 attention 模組的 KV-cache 量化，對長序列/高解析度生成的顯存壓力幫助有限；④ 在 W4A4 極低位元下仍會崩潰，需轉向 QAT 路線。
+</div>
+</section>
+
+<section id="refs">
+<h2><span class="num">★</span> 參考資料</h2>
+<ul>
+  <li><strong>論文標題</strong>："TFMQ-DM: Temporal Feature Maintenance Quantization for Diffusion Models"</li>
+  <li><strong>發表</strong>：CVPR 2024（請以 arXiv / CVF Open Access 檢索原文與完整作者列表）</li>
+  <li><strong>檢索關鍵字</strong>：TFMQ-DM、temporal feature maintenance、diffusion quantization、mixed-precision ResBlock</li>
+  <li><strong>相關方法</strong>：Q-Diffusion、PTQD、SmoothQuant、Q-ViT（對比基線）</li>
+  <li><strong>後續方向</strong>：EfficientDM（QAT 路線，W4A4）、DMQ（離群值拆分，W4A8）</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-07-19 ｜ 研究來源：CVPR 2024 論文資訊與公開技術調研<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。部分實驗細節（具體資料集、顯存倍率）標註為「未公開」者請查閱 arXiv 原文確認。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

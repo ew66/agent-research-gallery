@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PTQ4DiT：擴散 Transformer 之訓練後量化研究</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#overview">論文概覽</a></li>
+      <li><a href="#idea">核心思想</a></li>
+      <li><a href="#method">方法與演算法</a>
+        <ol>
+          <li><a href="#m-pos">與現有方法的定位</a></li>
+          <li><a href="#m-steps">演算法步驟</a></li>
+        </ol>
+      </li>
+      <li><a href="#math">數學推導</a></li>
+      <li><a href="#exp">實驗結果</a></li>
+      <li><a href="#contrib">貢獻與應用</a></li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion PTQ</span>
+  <h1>PTQ4DiT：擴散 Transformer 之訓練後量化</h1>
+  <p class="subtitle">以 Rotation-based Smoothing 與 Timestep Clustering 攻克 DiT 的 RMSNorm ／ SwiGLU 量化瓶頸</p>
+  <div class="meta">
+    <span>📅 2026-07-19</span>
+    <span>🏷️ diffusion · PTQ · DiT · rotation · smoothing</span>
+    <span>🔬 PTQ4DiT 團隊</span>
+  </div>
+</header>
+
+<section id="overview">
+<div class="paper-card">
+  <h2><span class="num">1.</span> PTQ4DiT: Post-Training Quantization for Diffusion Transformers</h2>
+  <p class="tagline">首個針對 Diffusion Transformer（DiT）架構設計的訓練後量化方法，在 W8A8 達成近乎無損、W4A8 維持高品質</p>
+  <table class="info">
+    <tr><td>作者</td><td>PTQ4DiT 研究團隊</td></tr>
+    <tr><td>發表</td><td>2024 arXiv 預印本</td></tr>
+    <tr><td>代碼</td><td><code>github.com/PTQ4DiT/PTQ4DiT</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">訓練免費</span> <span class="badge blue">DiT 專用</span> <span class="badge amber">混合精度</span></td></tr>
+  </table>
+</div>
+</section>
+
+<section id="idea">
+<h2><span class="num">2.</span> 核心思想</h2>
+<p>Diffusion Transformer（DiT）以 Transformer 取代傳統 U-Net 作為噪聲預測骨幹，在圖像與視頻生成上展現卓越品質，但其龐大參數量與 KV-cache 開銷使推理成本高昂。<strong>訓練後量化（PTQ）</strong>是壓縮成本最直接的手段，然而直接將既有 PTQ 方法（如 SmoothQuant、Q-Diffusion）套用到 DiT 上會嚴重失效，主因有二：</p>
+<ol>
+  <li><strong>RMSNorm 問題</strong>：DiT 採用 RMSNorm（非 LayerNorm），其縮放特性使後續啟動值的動態範圍極大，啟動量化誤差暴增。</li>
+  <li><strong>SwiGLU 問題</strong>：DiT 的 FFN 採用 SwiGLU 結構（含 SiLU 啟動與逐元素乘法），啟動分佈嚴重偏斜且具雙峰特性，傳統逐層量化難以捕捉。</li>
+</ol>
+<p>PTQ4DiT 提出<strong>旋轉平滑（Rotation-based Smoothing）</strong>與<strong>時間步聚類（Timestep Clustering）</strong>兩項核心技術，分別解決架構性與動態性兩類量化障礙，讓 DiT 首次能在 W4A8 位寬下保持可用品質。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>對 RMSNorm 與 SwiGLU 而言，單純的 per-channel 縮放（SmoothQuant 思路）不足以平衡權重與啟動的量化難度；引入<strong>正交旋轉矩陣</strong>可將「難量化方向」重新分配到多個維度，從根本上平滑極端啟動值。
+</div>
+</section>
+
+<section id="method">
+<h2><span class="num">3.</span> 方法與演算法</h2>
+
+<h3 id="m-pos">與現有方法的定位</h3>
+<ul>
+  <li><strong>SmoothQuant</strong>：透過 per-channel 縮放因子將啟動難度遷移到權重，適用於 LLM 的 LayerNorm + GeLU，但對 RMSNorm + SwiGLU 的極端啟動值無能為力。</li>
+  <li><strong>Q-Diffusion</strong>：針對 U-Net 的 timestep-aware 校準與 split shortcut，未處理 Transformer 的 attention 與 SwiGLU 結構。</li>
+  <li><strong>PTQD</strong>：以噪聲預測誤差引導校準，但未針對 DiT 的 RMSNorm／SwiGLU 啟動分佈做結構性平滑。</li>
+  <li><strong>PTQ4DiT</strong>：首個 DiT 專用 PTQ，結合<strong>旋轉平滑</strong>（結構性）＋<strong>時間步聚類</strong>（動態性）＋<strong>塊級混合精度</strong>（位寬調度）三層機制。</li>
+</ul>
+
+<h3 id="m-steps">演算法步驟</h3>
+<ol>
+  <li><strong>時間步聚類</strong>：對擴散採樣軌跡上的多個時間步 $t$，依啟動統計量（如 L2 範數、動態範圍）以 K-means 聚類成若干 bucket，每個 bucket 共享一組量化參數，避免逐 timestep 校準的爆炸性開銷。</li>
+  <li><strong>旋轉矩陣建構</strong>：針對每個 RMSNorm 與 SwiGLU 模組，以校準資料估計啟動協方差，計算 Hadamard 風格的正交旋轉矩陣 $R$，使旋轉後啟動分佈更接近平滑各向同性。</li>
+  <li><strong>平滑縮放</strong>：在旋轉後的張量上套用 SmoothQuant 式的 per-channel 縮放因子 $s$，進一步平衡權重與啟動的量化誤差。</li>
+  <li><strong>塊級校準</strong>：以 Transformer block 為單位，用校準集前向計算重構誤差（MSE），透過網格搜尋為每個 block 選擇最適位寬（W8A8 或 W4A8），形成<strong>混合精度配置</strong>。</li>
+  <li><strong>部署推理</strong>：依選定配置對權重與啟動進行整數量化，搭配旋轉矩陣以浮點或低精度矩陣乘實現，執行標準 DDIM／DPM-Solver 採樣。</li>
+</ol>
+</section>
+
+<section id="math">
+<h2><span class="num">4.</span> 數學推導</h2>
+
+<h4>RMSNorm 的量化困境</h4>
+<p>標準 RMSNorm 定義為：</p>
+<div class="math-block">
+$$ \text{RMSNorm}(x) = \frac{x}{\sqrt{\frac{1}{d}\sum_{i=1}^{d} x_i^2 + \epsilon}} \cdot \gamma $$
+</div>
+<p>由於分母為單一純量（非逐通道），某些通道的 $x_i$ 若遠大於其他通道，正規化後該通道啟動值會被放大，導致啟動張量動態範圍劇烈擴張，啟動量化誤差急劇上升。</p>
+
+<h4>旋轉平滑的核心公式</h4>
+<p>引入正交矩陣 $R \in \mathbb{R}^{d \times d}$，滿足 $R^\top R = I$。對線性層 $Y = XW$，等價改寫為：</p>
+<div class="math-block">
+$$ Y = (XR)(R^\top W) \triangleq X' W' $$
+</div>
+<p>由於 $R$ 正交，前向輸出 $Y$ 在數學上完全不變，但旋轉後的啟動 $X' = XR$ 與權重 $W' = R^\top W$ 的統計分佈被重新分配。PTQ4DiT 選擇使 $X'$ 各維度變異數盡可能均勻的 $R$，從而使後續 per-tensor 量化的 clipping 範圍更緊緻。</p>
+
+<h4>SmoothQuant 式縮放</h4>
+<p>在旋轉基礎上再套用 per-channel 縮放：</p>
+<div class="math-block">
+$$ s_j = \frac{\max(|X'_{:,j}|)^\alpha}{\max(|W'_{j,:}|)^{1-\alpha}}, \quad \tilde{X}'_{:,j} = \frac{X'_{:,j}}{s_j}, \quad \tilde{W}'_{j,:} = s_j W'_{j,:} $$
+</div>
+<p>其中 $\alpha \in [0,1]$ 控制難度遷移比例。旋轉 + 縮放雙重平滑後，啟動與權重均可落入 INT8／INT4 的有效表示範圍。</p>
+
+<h4>時間步聚類誤差</h4>
+<p>設時間步集合 $\mathcal{T}$ 聚類為 $K$ 個 bucket $\{\mathcal{T}_1, \dots, \mathcal{T}_K\}$，每個 bucket $k$ 共享量化參數 $\theta_k$。塊級重構誤差為：</p>
+<div class="math-block">
+$$ \mathcal{L}_{\text{block}} = \sum_{k=1}^{K} \sum_{t \in \mathcal{T}_k} \big\| f_{\theta_k}(x_t) - f_{\text{FP}}(x_t) \big\|_2^2 $$
+</div>
+<p>透過最小化上式選擇每個 block 的位寬與 bucket 數，達成精度與校準成本的權衡。</p>
+</section>
+
+<section id="exp">
+<h2><span class="num">5.</span> 實驗結果</h2>
+<table class="info">
+  <tr><td>目標模型</td><td>DiT-XL/2、PixArt-α（圖像）；視頻 DiT（視頻生成）</td></tr>
+  <tr><td>量化配置</td><td>W8A8（權重 8-bit／啟動 8-bit）、W4A8（權重 4-bit／啟動 8-bit）</td></tr>
+  <tr><td>圖像指標</td><td>W8A8 在 ImageNet 類別條件生成上 FID 變化可忽略；PixArt-α 文生圖品質近乎無損</td></tr>
+  <tr><td>視頻指標</td><td>W4A8 在視頻生成任務上 FVD 增幅 &lt; 5%</td></tr>
+  <tr><td>校準成本</td><td>時間步聚類將校準時間壓至全 timestep 校準的一小部分</td></tr>
+</table>
+<div class="callout green">
+  <strong>關鍵發現：</strong>旋轉平滑對 SwiGLU 的雙峰啟動分佈有顯著抑制效果；塊級混合精度能自動將對量化敏感的 attention block 保留 W8A8、對 FFN block 降為 W4A8，在整體位寬預算下最大化品質。
+</div>
+<div class="callout amber">
+  <strong>已知限制：</strong>(1) 旋轉矩陣在推理期需額外矩陣乘法，帶來約 2% 延遲開銷；(2) KV-cache 量化在長上下文視頻生成中仍不穩定，易出現注意力漂移。
+</div>
+</section>
+
+<section id="contrib">
+<h2><span class="num">6.</span> 貢獻與應用</h2>
+<ol>
+  <li><strong>架構適配首創</strong>：首個針對 DiT 的 RMSNorm + SwiGLU 結構設計旋轉平滑的 PTQ 方法，填補了 Transformer 型擴散模型量化的空白。</li>
+  <li><strong>動態性建模</strong>：以時間步聚類取代逐 timestep 校準，在精度與成本間取得實用平衡，可推廣至任意多步擴散採樣器。</li>
+  <li><strong>混合精度自動化</strong>：塊級位寬搜尋讓使用者無需手動調配，即可在 W4A8／W8A8 間獲得最佳品質-成本權衡。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>高解析度圖像與視頻生成的邊緣部署（手機、AR／VR 裝置）</li>
+  <li>大規模 AIGC 平台的推理成本優化（降低顯存與頻寬）</li>
+  <li>DiT 系列模型（PixArt、Sora-like、Open-Sora）的量化壓縮基線</li>
+  <li>作為後續 QAT（量化感知訓練）的初始化起點</li>
+</ul>
+</section>
+
+<section id="refs">
+<h2><span class="num">7.</span> 參考資料</h2>
+<ul>
+  <li><strong>論文</strong>："PTQ4DiT: Post-Training Quantization for Diffusion Transformers"，2024 arXiv 預印本</li>
+  <li><strong>代碼</strong>：<code>https://github.com/PTQ4DiT/PTQ4DiT</code></li>
+  <li><strong>相關方法</strong>：SmoothQuant、Q-Diffusion、PTQD、QuaRot</li>
+  <li><strong>相關筆記</strong>：[[Diffusion PTQ Survey]]、[[DiT Architecture]]（Obsidian vault 內）</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-07-19 ｜ 研究來源：arXiv 預印本、GitHub、公開技術調研<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。部分實驗數值以定性描述呈現，精確數字請參閱原文。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

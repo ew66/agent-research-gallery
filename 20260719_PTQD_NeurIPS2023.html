@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PTQD：噪聲預測誤差引導之擴散模型量化研究（NeurIPS 2023）</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#overview">論文概覽</a></li>
+      <li><a href="#idea">核心思想</a></li>
+      <li><a href="#method">方法與演算法</a>
+        <ol>
+          <li><a href="#m-pos">與現有方法的定位</a></li>
+          <li><a href="#m-steps">演算法步驟</a></li>
+        </ol>
+      </li>
+      <li><a href="#math">數學推導</a></li>
+      <li><a href="#exp">實驗結果</a></li>
+      <li><a href="#contrib">貢獻與應用</a></li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion PTQ</span>
+  <h1>PTQD：噪聲預測誤差引導之擴散模型量化<br>NeurIPS 2023</h1>
+  <p class="subtitle">以「噪聲預測誤差」作為量化誤差傳播的理論橋樑，搭配 Bias Correction 修正累積偏差</p>
+  <div class="meta">
+    <span>📅 2026-07-19</span>
+    <span>🏷️ diffusion · PTQ · noise-prediction · NeurIPS 2023</span>
+    <span>🔬 PTQD 團隊</span>
+  </div>
+</header>
+
+<section id="overview">
+<div class="paper-card">
+  <h2><span class="num">1.</span> PTQD: Post-Training Quantization for Diffusion Models</h2>
+  <p class="tagline">從擴散模型「噪聲預測」本質出發，推導量化誤差對最終生成品質的影響邊界，並以偏差校正消除累積誤差</p>
+  <table class="info">
+    <tr><td>作者</td><td>PTQD 研究團隊（wsd-mario 等）</td></tr>
+    <tr><td>發表</td><td><span class="badge amber">NeurIPS 2023</span></td></tr>
+    <tr><td>代碼</td><td><code>github.com/wsd-mario/PTQD</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">訓練免費</span> <span class="badge blue">誤差理論驅動</span> <span class="badge amber">偏差校正</span></td></tr>
+  </table>
+</div>
+</section>
+
+<section id="idea">
+<h2><span class="num">2.</span> 核心思想</h2>
+<p>擴散模型的去噪網路 $\epsilon_\theta(x_t, t)$ 輸出的是<strong>噪聲預測</strong>，而非最終圖像。傳統 PTQ 方法只關注單步前向輸出的重構誤差（如逐層 MSE），卻忽略了量化誤差會透過 DDPM／DDIM 的反向採樣遞迴<strong>累積傳播</strong>到後續所有時間步，最終在 $t=0$ 的生成樣本上放大為可見的品質退化。</p>
+<p>PTQD 的核心洞見是：<strong>量化誤差應以「對噪聲預測的擾動」為單位來度量與補償</strong>，而非以單層啟動重構誤差為單位。具體而言：</p>
+<ol>
+  <li><strong>誤差建模</strong>：將量化後網路 $\tilde{\epsilon}_\theta$ 的輸出分解為全精度預測 $\epsilon_\theta$ 加上一個量化誘發的擾動項 $\Delta\epsilon_t$。</li>
+  <li><strong>傳播分析</strong>：推導 $\Delta\epsilon_t$ 如何透過反向採樣遞迴影響 $x_{t-1}, x_{t-2}, \dots, x_0$，建立「單步量化誤差 → 最終 FID 退化」的理論聯繫。</li>
+  <li><strong>偏差校正</strong>：在校準階段估計 $\Delta\epsilon_t$ 的期望值（系統性偏差），並在推理時以反向偏移抵消，消除一階累積誤差。</li>
+</ol>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>量化誤差中「系統性偏差」比「隨機性噪聲」更危險——前者會在反向採樣中單向累積，後者會因擴散過程的平滑性部分相互抵消。PTQD 因此專注於偏差校正而非單純最小化 MSE。
+</div>
+</section>
+
+<section id="method">
+<h2><span class="num">3.</span> 方法與演算法</h2>
+
+<h3 id="m-pos">與現有方法的定位</h3>
+<ul>
+  <li><strong>Q-Diffusion（ICCV 2023）</strong>：以時間步分桶 + 分裂捷徑處理啟動分佈問題，但校準目標仍是逐層 MSE，未建模誤差傳播。</li>
+  <li><strong>一般 PTQ（BRECQ、QDROP）</strong>：以塊級重構誤差為目標，適用於分類網路，未考慮擴散的反向遞迴結構。</li>
+  <li><strong>PTQ4DiT</strong>：針對 DiT 架構的旋轉平滑，未從誤差傳播理論出發。</li>
+  <li><strong>PTQD</strong>：首個從「噪聲預測誤差傳播」理論推導 PTQ 目標的方法，並以偏差校正消除累積誤差，與 Q-Diffusion 的時間步分桶正交可組合。</li>
+</ul>
+
+<h3 id="m-steps">演算法步驟</h3>
+<ol>
+  <li><strong>校準資料收集</strong>：以全精度模型執行一次完整反向採樣，記錄每個時間步 $t$ 的輸入 $x_t$ 與全精度噪聲預測 $\epsilon_\theta(x_t, t)$。</li>
+  <li><strong>量化誤差估計</strong>：對候選量化配置，計算每個 $t$ 的量化噪聲預測 $\tilde{\epsilon}_\theta(x_t, t)$ 與全精度值的差異 $\Delta\epsilon_t = \tilde{\epsilon}_\theta - \epsilon_\theta$。</li>
+  <li><strong>偏差統計</strong>：對每個 $t$（或時間步 bucket），估計 $\mathbb{E}[\Delta\epsilon_t]$ 作為系統性偏差，並計算其協方差以評估隨機分量。</li>
+  <li><strong>誤差傳播分析</strong>：基於 DDPM／DDIM 反向更新公式，推導 $\Delta\epsilon_t$ 對 $x_{t-1}$ 的影響，進而遞迴計算對 $x_0$ 的累積影響，作為配置選擇的理論目標。</li>
+  <li><strong>偏差校正部署</strong>：推理時對量化網路輸出加上 $-\mathbb{E}[\Delta\epsilon_t]$ 的反向偏移，消除一階累積偏差。</li>
+  <li><strong>位寬配置搜尋</strong>：在 W8A8／W4A8 等配置間，以理論推導的累積誤差為準則選擇最適配置，而非僅看單步 MSE。</li>
+</ol>
+</section>
+
+<section id="math">
+<h2><span class="num">4.</span> 數學推導</h2>
+
+<h4>量化噪聲預測的分解</h4>
+<p>量化後網路的輸出可分解為：</p>
+<div class="math-block">
+$$ \tilde{\epsilon}_\theta(x_t, t) = \epsilon_\theta(x_t, t) + \Delta\epsilon_t, \quad \Delta\epsilon_t = \mu_t + \eta_t $$
+</div>
+<p>其中 $\mu_t = \mathbb{E}[\Delta\epsilon_t]$ 為系統性偏差，$\eta_t$ 為零均值隨機分量。</p>
+
+<h4>DDPM 反向更新的誤差傳播</h4>
+<p>標準 DDPM 反向更新：</p>
+<div class="math-block">
+$$ x_{t-1} = \frac{1}{\sqrt{\alpha_t}} \left( x_t - \frac{\beta_t}{\sqrt{1-\alpha_t}} \, \epsilon_\theta(x_t, t) \right) + \sigma_t z $$
+</div>
+<p>代入量化預測 $\tilde{\epsilon}_\theta$，展開後 $x_{t-1}$ 的誤差為：</p>
+<div class="math-block">
+$$ \Delta x_{t-1} = -\frac{\beta_t}{\sqrt{\alpha_t(1-\alpha_t)}} \, \Delta\epsilon_t + \mathcal{O}(\|\Delta\epsilon_t\|^2) $$
+</div>
+<p>遞迴至 $x_0$，累積誤差為各時間步誤差的加權和：</p>
+<div class="math-block">
+$$ \Delta x_0 \approx \sum_{t=1}^{T} w_t \, \Delta\epsilon_t, \quad w_t = -\prod_{s>t} \frac{1}{\sqrt{\alpha_s}} \cdot \frac{\beta_t}{\sqrt{\alpha_t(1-\alpha_t)}} $$
+</div>
+
+<h4>偏差校正</h4>
+<p>由於 $\eta_t$ 零均值且擴散過程具平滑性，隨機分量部分相互抵消；系統性偏差 $\mu_t$ 則單向累積。PTQD 在推理時扣除偏差：</p>
+<div class="math-block">
+$$ \hat{\epsilon}_\theta(x_t, t) = \tilde{\epsilon}_\theta(x_t, t) - \mu_t $$
+</div>
+<p>校正後剩餘誤差以零均值隨機分量為主，累積效應大幅降低。</p>
+
+<h4>校準目標</h4>
+<p>有別於逐層 MSE，PTQD 以累積誤差的期望為目標：</p>
+<div class="math-block">
+$$ \min_{\text{config}} \; \mathbb{E}\!\left[ \left\| \sum_{t=1}^{T} w_t \, (\Delta\epsilon_t - \mu_t) \right\|_2^2 \right] $$
+</div>
+<p>此目標直接對齊最終生成品質，而非單步重構精度。</p>
+</section>
+
+<section id="exp">
+<h2><span class="num">5.</span> 實驗結果</h2>
+<table class="info">
+  <tr><td>目標模型</td><td>Stable Diffusion v1.5、LSUN 系列（U-Net 架構）</td></tr>
+  <tr><td>量化配置</td><td>W8A8、W4A8（權重 4-bit／8-bit，啟動 8-bit）</td></tr>
+  <tr><td>W8A8</td><td>近乎無損（near-lossless），FID 變化在測量誤差範圍內</td></tr>
+  <tr><td>W4A8</td><td>FID 退化約 4，仍維持可用品質</td></tr>
+  <tr><td>偏差校準</td><td>顯著降低 W4A8 下的色彩偏移與結構偽影</td></tr>
+  <tr><td>對比基線</td><td>優於逐層 MSE 校準的標準 PTQ，與 Q-Diffusion 互補</td></tr>
+</table>
+<div class="callout green">
+  <strong>關鍵發現：</strong>偏差校正在低位寬（W4A8）下收益最大——W8A8 時量化誤差本身已小，偏差占比低；W4A8 時系統性偏差成為主導，校正後 FID 改善顯著。隨機分量 $\eta_t$ 因擴散平滑性確實部分自我抵消，驗證了理論預測。
+</div>
+<div class="callout amber">
+  <strong>已知限制：</strong>(1) 校準需完整前向採樣（每個時間步都要跑），成本顯著高於 Q-Diffusion 的分桶校準；(2) 偏差校正假設誤差統計在推理時平穩，對長採樣軌跡或分佈外提示詞可能失效；(3) 未推廣至視頻與高解析度 DiT 架構。
+</div>
+</section>
+
+<section id="contrib">
+<h2><span class="num">6.</span> 貢獻與應用</h2>
+<ol>
+  <li><strong>理論奠基</strong>：首次建立「單步量化誤差 → 最終生成品質」的解析聯繫，將擴散 PTQ 從經驗性逐層校準提升為理論驅動優化。</li>
+  <li><strong>偏差校正機制</strong>：識別系統性偏差為累積誤差主因，並提出推理期反向偏移的輕量校正方案，零額外網路開銷。</li>
+  <li><strong>實用位寬邊界</strong>：明確給出 W8A8 近乎無損、W4A8 可用的實務建議，為工業部署提供量化決策依據。</li>
+  <li><strong>方法論互補</strong>：與 Q-Diffusion 的時間步分桶、PTQ4DiT 的旋轉平滑正交，可組合使用以同時處理動態性與累積誤差。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>Stable Diffusion 系列的高品質低位寬部署（W4A8 仍可用）</li>
+  <li>對生成品質敏感的專業場景（醫療影像、設計稿生成）</li>
+  <li>作為後續 EfficientDM、QuEST 等擴散 PTQ 工作的理論基礎</li>
+  <li>與 Q-Diffusion 分桶校準組合，兼顧動態性與累積誤差控制</li>
+</ul>
+</section>
+
+<section id="refs">
+<h2><span class="num">7.</span> 參考資料</h2>
+<ul>
+  <li><strong>論文</strong>："PTQD: Post-Training Quantization for Diffusion Models," <em>NeurIPS 2023</em></li>
+  <li><strong>代碼</strong>：<code>https://github.com/wsd-mario/PTQD</code></li>
+  <li><strong>相關方法</strong>：Q-Diffusion（ICCV 2023）、PTQ4DiT、BRECQ、EfficientDM</li>
+  <li><strong>相關筆記</strong>：[[Diffusion PTQ Survey]]、[[Q-Diffusion]]、[[PTQ4DiT]]（Obsidian vault 內）</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-07-19 ｜ 研究來源：NeurIPS 2023 論文、GitHub、公開技術調研<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。部分實驗數值以定性描述呈現，精確數字請參閱原文。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>
