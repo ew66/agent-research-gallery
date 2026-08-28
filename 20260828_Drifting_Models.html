@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generative Modeling via Drifting — Drifting Models 研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 680px;
+  }
+  table.compare th, table.compare td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--code-bg);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child {
+    font-weight: 600;
+    background: var(--surface);
+    width: 150px;
+  }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) {
+    background: var(--surface);
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">Generative Modeling via Drifting</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與應用</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Generative Models</span>
+  <h1>Generative Modeling via Drifting<br>Drifting Models 研究報告</h1>
+  <p class="subtitle">訓練期演化 Pushforward 分佈 —— 以 anti-symmetric drifting field 實現原生 1-NFE 生成的全新範式</p>
+  <div class="meta">
+    <span>📅 2026-08-28</span>
+    <span>🏷️ drifting · pushforward · 1-NFE · ImageNet 256×256</span>
+    <span>🔬 MIT × Harvard</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> Generative Modeling via Drifting</h2>
+  <p class="tagline">Drifting Models — 將 pushforward 分佈的演化從推理期移至訓練期，原生單步生成達 SOTA</p>
+  <table class="info">
+    <tr><td>作者</td><td>Mingyang Deng, He Li, Tianhong Li, Yilun Du, Kaiming He</td></tr>
+    <tr><td>機構</td><td>MIT（Deng, Li, Li, He）；Harvard University（Du）</td></tr>
+    <tr><td>發表</td><td>arXiv 2602.04770v2，2026 年 2 月</td></tr>
+    <tr><td>代碼</td><td>尚未公開釋出（Appendix A 含完整 pseudo-code）</td></tr>
+    <tr><td>特性</td><td><span class="badge green">原生 1-NFE</span> <span class="badge blue">訓練期演化</span> <span class="badge amber">SOTA</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>生成式建模可表述為學習一個映射 $f$，使其 pushforward 分佈匹配資料分佈：$f_\# p_{\text{prior}} \approx p_{\text{data}}$。主流的 Diffusion / Flow-based Models 將這個 pushforward 行為拆解為<em>推理期</em>的迭代更新（如 Euler solver 的 $\mathbf{x}_{i+1} = \mathbf{x}_i + \Delta\mathbf{x}_i$），需要多次網路評估（multi-NFE）。</p>
+<p>本文提出 <strong>Drifting Models</strong>：將 pushforward 分佈的演化移至<em>訓練期</em>。由於深度學習優化器（如 SGD）本身就是迭代的，訓練過程自然產生一個模型序列 $\{f_i\}$，對應一個 pushforward 分佈序列 $\{q_i\}$。作者引入一個 <strong>drifting field</strong> $\mathbf{V}_{p,q}$ 來主導樣本在訓練過程中的移動，當生成分佈 $q$ 匹配資料分佈 $p$ 時，$\mathbf{V} = \mathbf{0}$ 達到平衡。推由此，$f$ 本身為單次前向（single-pass）網路，<strong>推理時無需任何迭代</strong>，天然實現 1-NFE 生成。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>Diffusion 在<em>推理期</em>迭代地推進 pushforward；Drifting Models 在<em>訓練期</em>透過 SGD 迭代演化 pushforward。兩者都在「迭代」，但一個在推理、一個在訓練 —— 後者因此完全擺脫推理期迭代需求。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout purple">
+  <strong>直覺範例 — 房間裡的人群：</strong>想像一個空房間裡站著一群人（生成的樣本 $\mathbf{x}$，初始是隨機噪聲映射來的）。房間另一側有一組「目標位置」標記（真實資料 $\mathbf{y}^+$）。現在每個人做兩件事：（1）<strong>被最近的目標吸引</strong> —— 往離自己最近的標記走一步，這就是 $\mathbf{V}_p^+$；（2）<strong>被其他生成的人排斥</strong> —— 遠離身邊擠在一起的人，避免大家疊在同一點，這就是 $\mathbf{V}_q^-$。兩股力合起來 $\mathbf{V} = \mathbf{V}_p^+ - \mathbf{V}_q^-$，讓人群逐漸散開並對齊目標位置。當人群的分佈與目標完全一致時，每個人受到的吸引力和排斥力剛好抵消，<strong>不再移動</strong>（$\mathbf{V}=\mathbf{0}$）—— 這就是平衡。
+</div>
+
+<div class="callout">
+  <strong>與 Diffusion 的差別（一句話版）：</strong>Diffusion 是「推理時一步步把噪聲變成圖像」，Drifting 是「訓練時讓網路輸出一步步逼近資料分佈」。訓練結束後網路就定型了，推理時只需跑一次前向 —— 像拍照一樣按一次快門就得到成品。
+</div>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>Diffusion / Flow Matching</strong>：在推理期以 SDE/ODE 迭代演化樣本分佈，需多步 NFE。蒸餾法（distillation）將多步壓縮為單步，但仍依賴預訓練的多步教師模型。</li>
+  <li><strong>GAN</strong>：單步生成器，但依賴對抗優化，訓練不穩定。Drifting Models 同為單步網路 $f$，但<strong>不依賴對抗</strong>。</li>
+  <li><strong>VAE</strong>：優化 ELBO（重構 + KL），單步生成但品質受限；現今多作為 tokenizer 使用。</li>
+  <li><strong>Normalizing Flows</strong>：需可逆架構與可計算 Jacobian；Drifting Models 無此限制。</li>
+  <li><strong>Moment Matching / MMD</strong>：最小化生成與資料分佈的 MMD。Drifting Models 同樣使用 kernel 與正負樣本概念，但聚焦於<em>主導樣本漂移</em>的 field，而非直接最小化分佈距離。</li>
+  <li><strong>Contrastive Learning</strong>：drifting field 由資料的正樣本與生成的負樣本驅動，概念上關聯對比學習。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>樣本生成</strong>：從噪聲 $\boldsymbol{\epsilon} \sim p_{\boldsymbol{\epsilon}}$ 經網路 $f_\theta$ 生成 $\mathbf{x} = f_\theta(\boldsymbol{\epsilon}) \sim q$，同一批樣本同時作為<strong>負樣本</strong> $\mathbf{y}^- \sim q$。</li>
+  <li><strong>正樣本採樣</strong>：從資料分佈採樣 $\mathbf{y}^+ \sim p_{\text{data}}$。</li>
+  <li><strong>計算 drifting field</strong>：以 kernel-softmax 加權計算 attraction $\mathbf{V}_p^+(\mathbf{x})$（拉向正樣本）與 repulsion $\mathbf{V}_q^-(\mathbf{x})$（推離負樣本），合成 $\mathbf{V}_{p,q}(\mathbf{x}) = \mathbf{V}_p^+(\mathbf{x}) - \mathbf{V}_q^-(\mathbf{x})$。</li>
+  <li><strong>構造 frozen target</strong>：$\mathbf{x}_{\text{drifted}} = \text{stopgrad}(\mathbf{x} + \mathbf{V}_{p,q}(\mathbf{x}))$。</li>
+  <li><strong>計算 loss</strong>：$\mathcal{L} = \text{mse\_loss}(\mathbf{x} - \mathbf{x}_{\text{drifted}})$，即最小化 $\|\mathbf{V}\|^2$。</li>
+  <li><strong>反向傳播</strong>：更新 $\theta$，使網路輸出朝 drifted target 移動，間接演化 pushforward 分佈 $q$。</li>
+</ol>
+
+<div class="callout green">
+  <strong>演算法直覺範例 — 漂流的木塊：</strong>把生成樣本 $\mathbf{x}$ 想成水面上的木塊，drifting field $\mathbf{V}$ 是水流方向。<br>
+  <br>
+  <strong>Step 1-2</strong>：丟一批木塊下水（生成），同時在岸邊標記真實資料的位置（正樣本）。<br>
+  <strong>Step 3</strong>：計算每塊木塊該往哪漂 —— 朝最近的標記流（attraction），同時避開其他木塊（repulsion）。<br>
+  <strong>Step 4</strong>：把「木塊 + 漂流向量」的位置記下來，當作<strong>凍結的目標</strong>（frozen target）—— 注意這個目標是「木塊漂完後該到的位置」，而非真實資料位置。<br>
+  <strong>Step 5-6</strong>：訓練網路讓<strong>下一次</strong>生成的木塊直接落在這個凍結目標上。換句話說，網路學會「直接把木塊放到水流會帶它去的地方」，如此一來，訓練結束後水流已「內化」進網路權重，推理時就不需要再模擬水流了 —— 一次前向即完成。
+</div>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>Pushforward 分佈</h4>
+<p>網路 $f: \mathbb{R}^C \mapsto \mathbb{R}^D$，輸入 $\boldsymbol{\epsilon} \sim p_{\boldsymbol{\epsilon}}$，輸出 $\mathbf{x} = f(\boldsymbol{\epsilon}) \sim q$。$q$ 為 $p_{\boldsymbol{\epsilon}}$ 在 $f$ 下的 pushforward：</p>
+<div class="math-block">
+$$ q = f_\# p_{\boldsymbol{\epsilon}} $$
+</div>
+<p>訓練迭代產生模型序列 $\{f_i\}$，對應 pushforward 序列 $\{q_i\}$，其中 $q_i = [f_i]_\# p_{\boldsymbol{\epsilon}}$。樣本隱式漂移為 $\mathbf{x}_{i+1} = \mathbf{x}_i + \Delta\mathbf{x}_i$，其中 $\Delta\mathbf{x}_i := f_{i+1}(\boldsymbol{\epsilon}) - f_i(\boldsymbol{\epsilon})$。</p>
+
+<h4>Drifting Field 與 Anti-symmetry</h4>
+<p>定義 drifting field $\mathbf{V}_{p,q}(\cdot): \mathbb{R}^d \to \mathbb{R}^d$：</p>
+<div class="math-block">
+$$ \mathbf{x}_{i+1} = \mathbf{x}_i + \mathbf{V}_{p,q_i}(\mathbf{x}_i) $$
+</div>
+<p><strong>Proposition 3.1（anti-symmetry）：</strong>若 $\mathbf{V}_{p,q}(\mathbf{x}) = -\mathbf{V}_{q,p}(\mathbf{x}),\ \forall\mathbf{x}$，則：</p>
+<div class="math-block">
+$$ q = p \quad \Rightarrow \quad \mathbf{V}_{p,q}(\mathbf{x}) = \mathbf{0},\ \forall\mathbf{x} $$
+</div>
+<p>證明直接：$q=p \Rightarrow \mathbf{V}_{p,q} = \mathbf{V}_{q,p} = -\mathbf{V}_{p,q} \Rightarrow \mathbf{V}_{p,q} = \mathbf{0}$。這意味分佈匹配時所有樣本停止漂移，達到平衡。</p>
+
+<h4>Attraction-Repulsion 分解</h4>
+<p>受 mean-shift 方法啟發，將 field 分解為吸引項與排斥項：</p>
+<div class="math-block">
+$$ \mathbf{V}_p^+(\mathbf{x}) := \frac{1}{Z_p}\mathbb{E}_{\mathbf{y}^+ \sim p}\!\left[k(\mathbf{x},\mathbf{y}^+)(\mathbf{y}^+ - \mathbf{x})\right] $$
+$$ \mathbf{V}_q^-(\mathbf{x}) := \frac{1}{Z_q}\mathbb{E}_{\mathbf{y}^- \sim q}\!\left[k(\mathbf{x},\mathbf{y}^-)(\mathbf{y}^- - \mathbf{x})\right] $$
+$$ \mathbf{V}_{p,q}(\mathbf{x}) := \mathbf{V}_p^+(\mathbf{x}) - \mathbf{V}_q^-(\mathbf{x}) $$
+</div>
+<p>其中 $Z_p(\mathbf{x}) := \mathbb{E}_p[k(\mathbf{x},\mathbf{y}^+)]$，$Z_q(\mathbf{x}) := \mathbb{E}_q[k(\mathbf{x},\mathbf{y}^-)]$ 為歸一化因子。代入後可得等價形式：</p>
+<div class="math-block">
+$$ \mathbf{V}_{p,q}(\mathbf{x}) = \frac{1}{Z_p Z_q}\mathbb{E}_{p,q}\!\left[k(\mathbf{x},\mathbf{y}^+)k(\mathbf{x},\mathbf{y}^-)(\mathbf{y}^+ - \mathbf{y}^-)\right] $$
+</div>
+<p>向量差簡化為 $\mathbf{y}^+ - \mathbf{y}^-$，權重由兩個 kernel 聯合歸一化。此形式顯然滿足 anti-symmetry：$\mathbf{V}_{p,q} = -\mathbf{V}_{q,p}$。</p>
+
+<h4>Kernel 函數</h4>
+<div class="math-block">
+$$ k(\mathbf{x},\mathbf{y}) = \exp\!\left(-\frac{1}{\tau}\|\mathbf{x}-\mathbf{y}\|\right) $$
+</div>
+<p>其中 $\tau$ 為溫度，$\|\cdot\|$ 為 $\ell_2$ 距離。實作上以 softmax 實現歸一化 kernel $\tilde{k}$，logits 為 $-\frac{1}{\tau}\|\mathbf{x}-\mathbf{y}\|$，softmax 在 $\mathbf{y}$ 維度上進行（類似 InfoNCE）。另在 batch 內對 $\{\mathbf{x}\}$ 做額外 softmax 歸一化以提升穩定性，不改變 anti-symmetry。</p>
+
+<h4>訓練目標（Stop-gradient Fixed-point）</h4>
+<p>平衡時 $\mathbf{V}=\mathbf{0}$，可得 fixed-point 關係：</p>
+<div class="math-block">
+$$ f_{\hat{\theta}}(\boldsymbol{\epsilon}) = f_{\hat{\theta}}(\boldsymbol{\epsilon}) + \mathbf{V}_{p,q_{\hat{\theta}}}\!\big(f_{\hat{\theta}}(\boldsymbol{\epsilon})\big) $$
+</div>
+<p>轉化為 loss（stop-gradient 凍結上一迭代狀態）：</p>
+<div class="math-block">
+$$ \mathcal{L} = \mathbb{E}_{\boldsymbol{\epsilon}}\!\left[\left\| \underbrace{f_\theta(\boldsymbol{\epsilon})}_{\text{prediction}} - \underbrace{\text{stopgrad}\!\big(f_\theta(\boldsymbol{\epsilon}) + \mathbf{V}_{p,q_\theta}\!\big(f_\theta(\boldsymbol{\epsilon})\big)\big)}_{\text{frozen target}} \right\|^2\right] $$
+</div>
+<p>Loss 值等於 $\mathbb{E}_{\boldsymbol{\epsilon}}[\|\mathbf{V}(f(\boldsymbol{\epsilon}))\|^2]$，即 drifting field 的平方範數。stop-gradient 使 solver 不直接對 $\mathbf{V}$ 反傳（因 $\mathbf{V}$ 依賴分佈 $q_\theta$，對分佈反傳非平凡），而是間接將 $\mathbf{x}$ 朝其漂移版本移動。</p>
+
+<h4>Feature Space Drifting</h4>
+<p>將 loss 推廣至任意 feature space，令 $\phi$ 為 feature extractor（如 image encoder）：</p>
+<div class="math-block">
+$$ \mathbb{E}\!\left[\left\|\phi(\mathbf{x}) - \text{stopgrad}\!\big(\phi(\mathbf{x}) + \mathbf{V}(\phi(\mathbf{x}))\big)\right\|^2\right] $$
+</div>
+<p>可進一步推廣至多尺度、多位置：</p>
+<div class="math-block">
+$$ \sum_j \mathbb{E}\!\left[\left\|\phi_j(\mathbf{x}) - \text{stopgrad}\!\big(\phi_j(\mathbf{x}) + \mathbf{V}(\phi_j(\mathbf{x}))\big)\right\|^2\right] $$
+</div>
+<p>feature encoding 僅於訓練期使用，推理時不需要。與 perceptual loss 的差異：perceptual loss 的回歸目標是 $\phi(\mathbf{x}_{\text{target}})$ 需配對；本法的目標是 $\phi(\mathbf{x}) + \mathbf{V}(\phi(\mathbf{x}))$，drifting 在 feature space 進行，<strong>無需配對</strong>。</p>
+
+<h4>Classifier-Free Guidance（訓練期）</h4>
+<p>給定類別條件 $c$，正樣本 $\mathbf{y}^+ \sim p_{\text{data}}(\cdot|c)$。負樣本分佈混合生成樣本與無條件資料：</p>
+<div class="math-block">
+$$ \tilde{q}(\cdot|c) \triangleq (1-\gamma)\,q_\theta(\cdot|c) + \gamma\,p_{\text{data}}(\cdot|\varnothing) $$
+</div>
+<p>目標 $\tilde{q}(\cdot|c) = p_{\text{data}}(\cdot|c)$ 代入得：</p>
+<div class="math-block">
+$$ q_\theta(\cdot|c) = \alpha\,p_{\text{data}}(\cdot|c) - (\alpha-1)\,p_{\text{data}}(\cdot|\varnothing), \quad \alpha = \frac{1}{1-\gamma} \geq 1 $$
+</div>
+<p>即 $q_\theta(\cdot|c)$ 近似條件與無條件分佈的線性組合，遵循 CFG 精神。關鍵：<strong>CFG 在本法中為訓練期行為</strong>，推理時仍保持 1-NFE。實作上採 CFG-conditioning：訓練時隨機採樣 CFG scale $\alpha$，網路以該值為條件；推理時 $\alpha$ 可自由指定且無需重訓。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+
+<h4>ImageNet 256×256 — Latent Space</h4>
+<table class="info">
+  <tr><td>資料集</td><td>ImageNet 256×256</td></tr>
+  <tr><td>Tokenizer</td><td>SD-VAE（32×32×4 latent）</td></tr>
+  <tr><td>架構</td><td>DiT-like（DiT/2），adaLN-zero</td></tr>
+  <tr><td>Feature Extractor</td><td>ResNet-style MAE（latent space，多尺度）</td></tr>
+  <tr><td>最佳模型</td><td>Drifting Model L/2，463M+49M params，1280 epochs</td></tr>
+  <tr><td>最佳 FID</td><td><strong>1.54</strong>（1-NFE，CFG=1.0），IS 258.9</td></tr>
+</table>
+
+<h4>Latent Space 系統級比較（節選）</h4>
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Params</th>
+      <th>NFE</th>
+      <th>FID↓</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>DiT-XL/2</td><td>675M+49M</td><td>250×2</td><td>2.27</td></tr>
+    <tr><td>SiT-XL/2+REPA</td><td>675M+49M</td><td>250×2</td><td>1.42</td></tr>
+    <tr><td>LightningDiT-XL/2</td><td>675M+70M</td><td>250×2</td><td>1.35</td></tr>
+    <tr><td>RAE+DiT<sup>DH</sup>-XL/2</td><td>839M+415M</td><td>50×2</td><td>1.13</td></tr>
+    <tr><td>iCT-XL/2</td><td>675M+49M</td><td>1</td><td>34.24</td></tr>
+    <tr><td>MeanFlow-XL/2</td><td>676M+49M</td><td>1</td><td>3.43</td></tr>
+    <tr><td>AdvFlow-XL/2</td><td>673M+49M</td><td>1</td><td>2.38</td></tr>
+    <tr><td>iMeanFlow-XL/2</td><td>610M+49M</td><td>1</td><td>1.72</td></tr>
+    <tr><td><strong>Drifting Model L/2</strong></td><td>463M+49M</td><td>1</td><td><strong>1.54</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout green">
+  <strong>關鍵發現：</strong>Drifting Model L/2 以 1-NFE 達 FID 1.54，超越所有先前 1-NFE 方法（含 iMeanFlow-XL 1.72）。值得注意的是，這個 Base-size 等級的模型即可與先前 XL-size 模型競爭。最佳結果使用 CFG scale = 1.0（相當於 diffusion 方法中的「無 CFG」），顯示其 CFG 機制與傳統 CFG 的行為不同。
+</div>
+
+<h4>ImageNet 256×256 — Pixel Space</h4>
+<table class="info">
+  <tr><td>設定</td><td>無 VAE，直接生成 256×256×3</td></tr>
+  <tr><td>架構</td><td>DiT/16</td></tr>
+  <tr><td>最佳模型</td><td>Drifting Model L/16，464M params，640 epochs</td></tr>
+  <tr><td>最佳 FID</td><td><strong>1.61</strong>（1-NFE），IS 307.5</td></tr>
+  <tr><td>計算效率</td><td>87G FLOPs（vs StyleGAN-XL 1574G FLOPs 達 FID 2.30）</td></tr>
+</table>
+
+<h4>Pixel Space 系統級比較（節選）</h4>
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Params</th>
+      <th>NFE</th>
+      <th>FID↓</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>ADM-G</td><td>554M</td><td>250×2</td><td>4.59</td></tr>
+    <tr><td>VDM++</td><td>2.5B</td><td>256×2</td><td>2.12</td></tr>
+    <tr><td>SiD2 UViT/1</td><td>–</td><td>512×2</td><td>1.38</td></tr>
+    <tr><td>JiT-G/16</td><td>2B</td><td>100×2</td><td>1.82</td></tr>
+    <tr><td>PixelDiT/16</td><td>797M</td><td>200×2</td><td>1.61</td></tr>
+    <tr><td>BigGAN</td><td>112M</td><td>1</td><td>6.95</td></tr>
+    <tr><td>GigaGAN</td><td>569M</td><td>1</td><td>3.45</td></tr>
+    <tr><td>StyleGAN-XL</td><td>166M</td><td>1</td><td>2.30</td></tr>
+    <tr><td><strong>Drifting Model L/16</strong></td><td>464M</td><td>1</td><td><strong>1.61</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout green">
+  <strong>效率優勢：</strong>Pixel-space Drifting Model 以 1-NFE、87G FLOPs 達 FID 1.61，超越所有 1-NFE GAN 方法。相較 StyleGAN-XL（FID 2.30，1574G FLOPs），計算量僅 5.5% 即更佳品質。與多步 PixelDiT/16（200×2 NFE，FID 1.61）持平，但推理步數從 400 步壓縮至 1 步。
+</div>
+
+<h4>Robotics Control — Diffusion Policy 替換</h4>
+<p>將 Diffusion Policy 的多步 diffusion generator 替換為 1-NFE Drifting Model，直接在原始控制表徵上計算 drifting loss（不使用 feature space）：</p>
+<table class="info">
+  <tr><td>任務</td><td>Diffusion Policy (100-NFE) vs Drifting Policy (1-NFE)</td></tr>
+  <tr><td>單階段</td><td>Lift / Can / ToolHang / PushT — 多數持平或超越</td></tr>
+  <tr><td>多階段</td><td>BlockPush / Kitchen — Phase 成功率接近或超越</td></tr>
+</table>
+<div class="callout">
+  <strong>跨領域遷移：</strong>1-NFE Drifting Policy 在多數任務上匹配或超越 100-NFE Diffusion Policy，顯示 Drifting Models 作為通用生成範式的潛力，不限於圖像。
+</div>
+
+<h3 id="p1-contrib">貢獻與應用</h3>
+<ol>
+  <li><strong>新範式</strong>：首次將 pushforward 分佈演化從推理期移至訓練期，概念上區別於 Diffusion/Flow 的推理期迭代與蒸餾法的軌跉近似。</li>
+  <li><strong>Anti-symmetric drifting field</strong>：以 $\mathbf{V}_{p,q} = -\mathbf{V}_{q,p}$ 保證 $q=p$ 時 $\mathbf{V}=\mathbf{0}$ 的平衡性質，並提供 kernelized 形式下的可辨識性啟發（Appendix C.1）。</li>
+  <li><strong>Stop-gradient fixed-point loss</strong>：將分佈演化轉化為可優化的 fixed-point 目標，避免對分佈直接反傳的困難。</li>
+  <li><strong>Feature-space drifting</strong>：將 loss 推廣至多尺度 feature space，以預訓練 self-supervised encoder（MAE/MoCo/SimCLR）驅動高維資料生成，且 feature encoding 僅訓練期使用。</li>
+  <li><strong>訓練期 CFG</strong>：CFG 融入訓練過程，推理時保持 1-NFE，CFG scale 可自由調整無需重訓。</li>
+  <li><strong>SOTA 單步結果</strong>：ImageNet 256×256 latent FID 1.54、pixel FID 1.61，均為 1-NFE 方法最佳；pixel-space 以極低 FLOPs 超越 GAN。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>高品質單步圖像生成（latent space 與 pixel space）</li>
+  <li>機器人控制策略（作為 Diffusion Policy 的單步替代）</li>
+  <li>低延遲、低算力生成場景（1-NFE、低 FLOPs）</li>
+  <li>條件生成（CFG-conditioning，推理時可調 CFG scale）</li>
+  <li>跨模態/跨領域生成範式探索</li>
+</ul>
+
+<div class="callout purple">
+  <strong>未來展望：</strong>作者期望此範式為高品質單步生成開闢新機會。Pixel-space 模型僅訓練 640 epochs（latent 為 1280），更長訓練預期可進一步提升。drifting field 的 kernel 設計、feature extractor 選擇、與其他生成範式的結合均有探索空間。
+</div>
+</section>
+
+<!-- ============ REFS ============ -->
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>arXiv</strong>：<code>https://arxiv.org/abs/2602.04770</code>（v2, 2026-02-06）</li>
+  <li><strong>HTML 全文</strong>：<code>https://arxiv.org/html/2602.04770v2</code></li>
+  <li><strong>作者</strong>：Mingyang Deng, He Li, Tianhong Li, Yilun Du, Kaiming He</li>
+  <li><strong>機構</strong>：MIT（CSAIL）× Harvard University</li>
+  <li><strong>代碼</strong>：論文未附公開 repo；Appendix A 含完整 pseudo-code（compute_V、generator architecture、training loop）</li>
+  <li><strong>相關方法</strong>：MeanFlow, iMeanFlow, iCT, AdvFlow, SiT, DiT, REPA, LightningDiT, Diffusion Policy, MoCo, SimCLR, MAE</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-08-28 ｜ 研究來源：arXiv 2602.04770v2 HTML 全文<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。如需原始論文完整證明步驟，請參閱 arXiv 原文 Appendix C。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>
