@@ -1,0 +1,49 @@
+# research-directions.yaml
+# Configuration for the daily research agent (research-daily skill).
+# Edit this file to change what the agent searches for.
+# The agent reads this file at the start of each daily run.
+
+version: 1
+
+# Global run limits
+limits:
+  max_tokens: 200000              # hard token cap per daily run
+  max_deep_dives: 3               # hard cap on teaching reports per day
+  deep_dive_score_threshold: 7.0  # items scoring >= this get a teaching report
+
+# Daily schedule (informational; actual schedule is in the launchd plist)
+schedule: "07:00"
+
+# De-duplication: skip items seen in the last N days (read from runs/*.log)
+dedup_window_days: 14
+
+# Research directions
+# - description: natural-language summary; agent uses this for scoring relevance
+#   AND may reformulate its own websearch queries based on it
+# - seed_keywords: used for relevance scoring only (NOT a search restriction)
+# - weight: multiplies final score (higher = easier to clear threshold)
+# - cadence: daily | weekly | mon,wed,fri
+directions:
+  - name: "Diffusion Models"
+    description: "Score-based and flow-based generative modeling: diffusion, flow matching, rectified flow, consistency models, DiT, latent diffusion, score distillation, CFG/classifier-free guidance, sampling acceleration."
+    seed_keywords: ["diffusion", "flow matching", "rectified flow", "consistency model", "DiT", "latent diffusion", "score distillation", "classifier-free guidance"]
+    weight: 1.0
+    cadence: daily
+
+  - name: "Model Compression & Quantization"
+    description: "Post-training and quantization-aware compression for diffusion and LLMs: PTQ, QAT, W4A4, W8A8, INT4, rotation/SpinQuant/QuaRot, AWQ, GPTQ, SmoothQuant, weight-only, outlier handling, low-bit."
+    seed_keywords: ["PTQ", "QAT", "quantization", "W4A4", "SpinQuant", "QuaRot", "AWQ", "GPTQ", "SmoothQuant", "outlier", "low-bit"]
+    weight: 1.0
+    cadence: daily
+
+  - name: "Efficient Inference"
+    description: "Making large models fast at serving time: speculative decoding, FlashAttention, continuous batching, prefix caching, KV cache, MoE, sparse inference, chunked prefill."
+    seed_keywords: ["speculative decoding", "FlashAttention", "continuous batching", "prefix caching", "KV cache", "MoE", "sparse inference", "chunked prefill"]
+    weight: 0.8
+    cadence: daily
+
+  - name: "Image Editing"
+    description: "Diffusion-based image editing and controllable generation: ControlNet, DragDiffusion, prompt-to-prompt, null-text inversion, concept editing, subject-driven editing, identity preservation, mask-free editing, DreamBooth."
+    seed_keywords: ["image editing", "ControlNet", "DragDiffusion", "prompt-to-prompt", "null-text inversion", "concept editing", "identity-preserving", "mask-free", "DreamBooth"]
+    weight: 1.0
+    cadence: daily

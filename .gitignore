@@ -1,0 +1,6 @@
+# launchd capture logs (large, noisy — keep local only)
+runs/launchd-stdout.log
+runs/launchd-stderr.log
+
+# macOS metadata
+.DS_Store

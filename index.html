@@ -103,6 +103,28 @@
     margin: 0;
     line-height: 1.55;
   }
+  .card-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+  }
+  .badge-report {
+    background: #d1fae5;
+    color: #059669;
+  }
+  .badge-digest {
+    background: #ede9fe;
+    color: #7c3aed;
+  }
+  @media (prefers-color-scheme: dark) {
+    .badge-report { background: #064e3b; color: #34d399; }
+    .badge-digest { background: #2e1065; color: #a78bfa; }
+  }
   @media (max-width: 600px) {
     .container { padding: 32px 16px 60px; }
     header h1 { font-size: 26px; }
@@ -113,80 +135,95 @@
 <div class="container">
   <header>
     <h1>Notes Gallery</h1>
-    <p>Paper research reports &amp; analyses</p>
+    <p>Paper research reports &amp; daily digests</p>
   </header>
   <div class="card-grid">
-    <a class="card" href="20260828_Drifting_Models.html">
+    <a class="card" href="reports/20260828_Drifting_Models.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">Generative Modeling via Drifting — Drifting Models 研究報告</h2>
       <p class="card-date">2026-08-28</p>
       <p class="card-desc">訓練期演化 pushforward 分佈，anti-symmetric drifting field 實現原生 1-NFE 生成，ImageNet 256 FID 1.54</p>
     </a>
-    <a class="card" href="20260719_ViDiTQ_Video_Diffusion.html">
+    <a class="card" href="reports/20260719_ViDiTQ_Video_Diffusion.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">ViDiT-Q：圖像與視頻生成擴散 Transformer 的高效量化</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">圖像與視頻生成擴散 Transformer 的高效量化，ICLR 2025</p>
     </a>
-    <a class="card" href="20260719_TFMQDM_CVPR2024.html">
+    <a class="card" href="reports/20260719_TFMQDM_CVPR2024.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">擴散模型後訓練量化研究：TFMQ-DM（CVPR 2024）</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">時間特徵維持量化，CVPR 2024</p>
     </a>
-    <a class="card" href="20260719_SVDQuant_W4A4_Diffusion.html">
+    <a class="card" href="reports/20260719_SVDQuant_W4A4_Diffusion.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">SVDQuant：以低秩分支吸收 Outliers 的 4-bit 擴散模型量化</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">低秩分支吸收 outliers 的 4-bit 擴散模型量化，ICLR 2025 Spotlight</p>
     </a>
-    <a class="card" href="20260719_QVDiT_Video_DiT_KVCache.html">
+    <a class="card" href="reports/20260719_QVDiT_Video_DiT_KVCache.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">Q-VDiT：視頻生成擴散 Transformer 的量化與蒸餾</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">視頻生成擴散 Transformer 的量化與蒸餾，ICML 2025</p>
     </a>
-    <a class="card" href="20260719_QDiffusion_ICCV2023.html">
+    <a class="card" href="reports/20260719_QDiffusion_ICCV2023.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">Q-Diffusion：擴散模型量化研究（ICCV 2023）</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">擴散模型量化研究，ICCV 2023</p>
     </a>
-    <a class="card" href="20260719_PTQD_NeurIPS2023.html">
+    <a class="card" href="reports/20260719_PTQD_NeurIPS2023.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">PTQD：噪聲預測誤差引導之擴散模型量化研究（NeurIPS 2023）</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">噪聲預測誤差引導之擴散模型量化研究，NeurIPS 2023</p>
     </a>
-    <a class="card" href="20260719_PTQ4DiT_Diffusion_Transformer.html">
+    <a class="card" href="reports/20260719_PTQ4DiT_Diffusion_Transformer.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">PTQ4DiT：擴散 Transformer 之訓練後量化研究</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">擴散 Transformer 之訓練後量化研究</p>
     </a>
-    <a class="card" href="20260719_EfficientDM_ICLR2024.html">
+    <a class="card" href="reports/20260719_EfficientDM_ICLR2024.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">擴散模型量化研究：EfficientDM（ICLR 2024）</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">輕量化 QAT 達成 W4A4 無損，ICLR 2024</p>
     </a>
-    <a class="card" href="20260719_DMQ_Outlier_Diffusion.html">
+    <a class="card" href="reports/20260719_DMQ_Outlier_Diffusion.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">擴散模型後訓練量化研究：DMQ 離群值分析（2024）</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">離群值分析之擴散模型後訓練量化</p>
     </a>
-    <a class="card" href="20260719_Diffusion_PTQ_Survey_Top3.html">
+    <a class="card" href="reports/20260719_Diffusion_PTQ_Survey_Top3.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">Diffusion PTQ 調研報告：問題全景與 TOP 3 論文（2023-2026）</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">12 篇 PTQ 代表作問題全景 + TOP 3 評選（SegQuant/SVDQuant/Q-VDiT）</p>
     </a>
-    <a class="card" href="20260719_Diffusion_PTQ_APQDM_SegQuant.html">
+    <a class="card" href="reports/20260719_Diffusion_PTQ_APQDM_SegQuant.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">擴散模型後訓練量化研究：APQ-DM 與 SegQuant</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">擴散模型後訓練量化：時間步分組感知 vs 語意分割+極性保留</p>
     </a>
-    <a class="card" href="20260629_TADSR_CVPR2026_Time_Aware_Diffusion_SR.html">
+    <a class="card" href="reports/20260629_TADSR_CVPR2026_Time_Aware_Diffusion_SR.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">TADSR：時間感知一步擴散超解析度網路（CVPR 2026）</h2>
       <p class="card-date">2026-06-29</p>
       <p class="card-desc">SD 各時間步生成先驗挖掘 + 可控 fidelity/realism 權衡</p>
     </a>
-    <a class="card" href="20260629_TAD_SR_Super_Resolution.html">
+    <a class="card" href="reports/20260629_TAD_SR_Super_Resolution.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">TAD-SR：時間感知一步擴散超解析度研究</h2>
       <p class="card-date">2026-06-29</p>
       <p class="card-desc">時間感知一步擴散超解析度，含代碼一致性驗證</p>
     </a>
-    <a class="card" href="Diffusion_Guidance_Research_SSG_C2FG.html">
+    <a class="card" href="reports/Diffusion_Guidance_Research_SSG_C2FG.html">
+      <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">擴散模型引導機制研究：SSG 與 C²FG</h2>
       <p class="card-date">2026-06-26</p>
       <p class="card-desc">擴散模型引導機制：Token Swapping 與 Score Discrepancy</p>
