@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日科研摘要 — 2026-09-07</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --code-bg: #f4f4f5;
+    --digest-badge: #7c3aed;
+    --digest-badge-soft: #ede9fe;
+    --report-badge: #059669;
+    --report-badge-soft: #d1fae5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --code-bg: #26262a;
+      --digest-badge: #a78bfa;
+      --digest-badge-soft: #2e1065;
+      --report-badge: #34d399;
+      --report-badge-soft: #064e3b;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+  header.digest-header {
+    margin-bottom: 40px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--digest-badge);
+    background: var(--digest-badge-soft);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  header.digest-header h1 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px 0;
+  }
+  header.digest-header .meta {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0 0 12px 0;
+    font-variant-numeric: tabular-nums;
+  }
+  header.digest-header .stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--text-soft);
+  }
+  header.digest-header .stats span {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .back-link {
+    display: inline-block;
+    margin-top: 16px;
+    font-size: 14px;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .back-link:hover { text-decoration: underline; }
+  section.direction {
+    margin-bottom: 40px;
+  }
+  section.direction > h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  section.direction > p.direction-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0 0 16px 0;
+  }
+  .item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  .item-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .item-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+    line-height: 1.4;
+    flex: 1;
+  }
+  .item-title:hover { text-decoration: underline; }
+  .score-badge {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .score-high { background: var(--report-badge-soft); color: var(--report-badge); }
+  .score-mid { background: #fef3c7; color: #b45309; }
+  @media (prefers-color-scheme: dark) {
+    .score-mid { background: #422006; color: #fbbf24; }
+  }
+  .item-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 8px 0;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .item-meta .source-type {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .item-summary {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin: 0;
+    line-height: 1.55;
+  }
+  .deep-dive-link {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--report-badge);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .deep-dive-link:hover { text-decoration: underline; }
+  .empty {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 16px 0;
+  }
+  footer {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 600px) {
+    .container { padding: 32px 16px 60px; }
+    header.digest-header h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="digest-header">
+    <span class="eyebrow">Daily Digest</span>
+    <h1>每日科研摘要 — 2026-09-07</h1>
+    <p class="meta">2026-09-07 · 自動科研 agent 產出</p>
+    <div class="stats">
+      <span>發現 30</span>
+      <span>深度報告 3</span>
+      <span>去重排除 0</span>
+    </div>
+    <a class="back-link" href="../index.html">← 返回 Gallery</a>
+  </header>
+
+  <section class="direction">
+    <h2>Diffusion Models</h2>
+    <p class="direction-desc">Score-based and flow-based generative modeling: diffusion, flow matching, rectified flow, consistency models, DiT, latent diffusion, score distillation, CFG, sampling acceleration.</p>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="../reports/20260907_PixelIR_Flow_Matching_OneStep_SR.html">PixelIR: Fidelity-Perception Decoupling via Pixel-Space Image-Residual Flow Matching for Efficient One-Step Real-World Super-Resolution</a>
+        <span class="score-badge score-high">8.22</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2608.30782</span><span>2026-08-31</span></div>
+      <p class="item-summary">以「圖像流 + 殘差流」解耦 Real-ISR 的 fidelity 與 perception，避免共享網路下的目標干擾；coarse-to-fine 金字塔蒸餾壓成單步，32.9M 參數、89.7G MACs、8.5ms 延遲達 SOTA。</p>
+      <a class="deep-dive-link" href="../reports/20260907_PixelIR_Flow_Matching_OneStep_SR.html">📖 閱讀深度報告 →</a>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.04649">ReaDiT Guidance: Control for Image and Video Generation using Diffusion Transformer Features</a>
+        <span class="score-badge score-high">8.00</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.04649</span><span>2026-09-04</span></div>
+      <p class="item-summary">利用 Diffusion Transformer 內部特徵實現對圖像與視頻生成的控制，無需額外條件模組。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.04525">Discriminative Flow Matching: Beyond Time-Conditioning in Generative Restoration via Flow-State Representations</a>
+        <span class="score-badge score-high">8.00</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.04525</span><span>2026-09-03</span></div>
+      <p class="item-summary">提出 flow-state 表徵超越傳統時間條件化，用於生成式復原任務的判別式流匹配。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2608.29107">PathGuide: Dynamic Classifier-Free Guidance via On-Policy Transport Alignment</a>
+        <span class="score-badge score-high">7.33</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2608.29107</span><span>2026-08-29</span></div>
+      <p class="item-summary">將標量 CFG 選擇重構為 on-policy transport 問題，以連續性方程弱形式推導具路徑正確性的 guidance scale 選擇準則。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.00198">A Lagrangian View of Flow Matching</a>
+        <span class="score-badge score-high">7.44</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.00198</span><span>2026-08-31</span></div>
+      <p class="item-summary">以 Lagrangian 視角重新審視 flow matching，為生成流提供新的理論理解。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.04646">Importance-Aware Low-Rank Distillation of Diffusion Transformers</a>
+        <span class="score-badge score-mid">7.44</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.04646</span><span>2026-09-04</span></div>
+      <p class="item-summary">以重要性感知的低秩蒸餾壓縮 Diffusion Transformer，兼顧效率與生成品質。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2608.29160">Training-Free Hidden-State Refinement for Flow-Matching Image Generators</a>
+        <span class="score-badge score-mid">6.67</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2608.29160</span><span>2026-08-29</span></div>
+      <p class="item-summary">在凍結 flow-matching 生成器內部增加推理計算（loop 機制），不改權重提升品質；Scale-RAE DiT2.4B 上 GenEval 0.4471→0.5691。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2608.29281">Elastic Token Compression for Pixel-Space Diffusion Transformers</a>
+        <span class="score-badge score-mid">6.22</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2608.29281</span><span>2026-08-29</span></div>
+      <p class="item-summary">以 Hilbert 排序的區域 token 壓縮像素空間 DiT，匹配密集品質下達 2.0× 加速。</p>
+    </div>
+  </section>
+
+  <section class="direction">
+    <h2>Model Compression &amp; Quantization</h2>
+    <p class="direction-desc">PTQ, QAT, W4A4, W8A8, INT4, rotation/SpinQuant/QuaRot, AWQ, GPTQ, SmoothQuant, weight-only, outlier handling, low-bit.</p>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="../reports/20260907_DSAQuant_Video_Diffusion_QAT.html">DSAQuant: Denoising-Stage-Aligned Quantization-Aware Training for Video Generation</a>
+        <span class="score-badge score-high">9.33</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.04031</span><span>2026-09-03</span></div>
+      <p class="item-summary">將視頻擴散的階段化去噪先驗注入 QAT：早期步蒸餾保結構、晚期步目標驅動逼細節，推理末步停用 CFG 防高頻偽影；W3A3 下 VBench 平均 +6.60。</p>
+      <a class="deep-dive-link" href="../reports/20260907_DSAQuant_Video_Diffusion_QAT.html">📖 閱讀深度報告 →</a>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="../reports/20260907_Minima_NVFP4_GatedDeltaNet_W4A4.html">Why Gated DeltaNet Survives 4-Bit Quantization: NVFP4 W4A4 for the Recurrent Half of a Hybrid 27B LLM</a>
+        <span class="score-badge score-high">8.89</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.04098</span><span>2026-09-03</span></div>
+      <p class="item-summary">挑戰「遞迴層怕量化」直覺：在 Qwen3.8-27B 全 496 線性層（含 GDN）做 NVFP4 W4A4，匹配 BF16（5 任務 -0.52），17.5 GiB 最小、prefill +14-19% 最快；四部分機制解釋為何 GDN 反而好量化。</p>
+      <a class="deep-dive-link" href="../reports/20260907_Minima_NVFP4_GatedDeltaNet_W4A4.html">📖 閱讀深度報告 →</a>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2608.30564">Q-Strata: Hierarchical Bit Allocation for Mixed-Precision Quantization of Mixture-of-Experts LLMs</a>
+        <span class="score-badge score-high">8.22</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2608.30564</span><span>2026-08-31</span></div>
+      <p class="item-summary">雙層分配器：內層用便宜代理排每塊候選、外層在組裝後量化模型上直接優化模型級目標；Mixtral-8x7B / Qwen1.5-MoE / DeepSeek-V2-Lite 低 bit 下 PPL 優於 GPTQ 與 MxMoE/GEMQ。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.00450">HBQ: Hierarchical Scaling Block Quantization with Hardware-Efficiency-Aware Design for Accurate LLM Inference</a>
+        <span class="score-badge score-high">8.22</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.00450</span><span>2026-08-31</span></div>
+      <p class="item-summary">大塊 + significand 二級縮放的塊量化；HBQ-A 以 W4A5 達 W4A16 精度且面積小於 NVFP4，28nm ASIC 上較 WoQ 達 2.3×/4.6× 面積/能效。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.01587">The Structure of Quantization Damage in LLMs: Why the Next Bit Should Be Spent Globally</a>
+        <span class="score-badge score-high">8.22</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.01587</span><span>2026-09-01</span></div>
+      <p class="item-summary">以因果混合精度介入研究量化損傷分布：恢復是擴散的（8/9 模型需約半數層才恢復 75%）；在相同預算下「全域更細粒度」比「局部修復關鍵層」好 21-52 分。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2608.28911">SemKV: Semantic Mixed-Precision KV Cache Quantization Guided by the Quality Cliff for Long-Context LLM Inference</a>
+        <span class="score-badge score-mid">6.89</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2608.28911</span><span>2026-08-28</span></div>
+      <p class="item-summary">發現 KV 量化的「品質懸崖」（2.0-2.322 bit 間崩潰）；SemKV 在懸崖上方做相鄰精度混合，6.0× 壓縮無統計可測品質差異。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2608.27875">HyQuant: Hybrid-Precision Quantization for LLM Attention</a>
+        <span class="score-badge score-mid">6.67</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2608.27875</span><span>2026-08-28</span></div>
+      <p class="item-summary">以垂直線 token + 局部滑窗保留高精度、其餘低 bit 的混合精度注意力量化；prefill 與 decode 兼顧。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2608.29667">A Target-Centric Survey of Quantization-Aware Training</a>
+        <span class="score-badge score-mid">6.22</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2608.29667</span><span>2026-08-30</span></div>
+      <p class="item-summary">以目標為中心的 QAT 綜述，系統梳理理論基礎、實作景觀與跨目標差異（誤差特性、數值格式、策略可遷移性）。</p>
+    </div>
+  </section>
+
+  <section class="direction">
+    <h2>Efficient Inference</h2>
+    <p class="direction-desc">Speculative decoding, FlashAttention, continuous batching, prefix caching, KV cache, MoE, sparse inference, chunked prefill. (direction weight 0.8)</p>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.04105">Hardware-Aware FP4 FlashAttention-4</a>
+        <span class="score-badge score-high">7.11</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.04105</span><span>2026-09-03</span></div>
+      <p class="item-summary">針對 Blackwell FP4 tensor core 設計：Direct-P 將 score 直接映至 FP4 機率，非因果達 2.13× BF16 前向吞吐；因果路徑以 FP8 梯度加速單卡 8B 更新達 1.14×。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.00355">GLANCE: One-Pass Block Drafting for Lossless Speculative Decoding in Vision-Language Models</a>
+        <span class="score-badge score-high">7.11</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.00355</span><span>2026-08-31</span></div>
+      <p class="item-summary">首個單遍塊狀 drafter：塊擴散頭讀取目標已融合的視覺-語言狀態，一次前向填滿整塊；VLM 上達 2.93× 加速且貪婪解碼完全可重現。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2608.30310">Tail-Replay: Escaping the Curse of Linear Attention in Prefix Caching for Hybrid LLMs</a>
+        <span class="score-badge score-high">7.11</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2608.30310</span><span>2026-08-31</span></div>
+      <p class="item-summary">混合 LLM 前綴快取：僅重放匹配前綴的短近期後綴即可近似 Gated DeltaNet 遞迴狀態；5-10% 重放預算下 LongBench/RULER 保留 92.8-99.9% 品質，32K 前綴 TTFT 加速 9.1-14.3×。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.03949">VestigeKV: The NoPE-MLA KV Cache Carries Its Own Eviction Signal in a Vestigial Branch</a>
+        <span class="score-badge score-mid">6.58</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.03949</span><span>2026-09-03</span></div>
+      <p class="item-summary">NoPE-MLA 模型的 64 維解耦分支（RoPE 遺跡）自帶查詢無關顯著性訊號；讀 11% 即可分層快取，32× 壓縮下檢索 0.92，無需訓練/量化/改 kernel。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.03235">SGD-KV: Summarization Guided KV Cache Compression</a>
+        <span class="score-badge score-mid">6.58</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.03235</span><span>2026-09-03</span></div>
+      <p class="item-summary">以摘要診斷任務識別專責分層聚合的注意力頭，Qwen2.5-7B-1M / Qwen3-32B 上 1M 上下文達 SOTA，KV 記憶體最多降 75%。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.03181">Jina-OCR-v1: Efficient Document Parsing with Speculative Decoding and Dense Verifiable Rewards</a>
+        <span class="score-badge score-mid">6.58</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.03181</span><span>2026-09-02</span></div>
+      <p class="item-summary">DeepSeek-OCR 壓縮視覺編碼器 + 3B MoE 解碼器 + FastMTP 投機解碼頭（K=3 遞迴共享）；NVIDIA L4 上解碼速度翻倍，OmniDocBench 91.14。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.00891">CacheBridge: Efficient Cross-Model KV Cache Transfer</a>
+        <span class="score-badge score-mid">6.58</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.00891</span><span>2026-09-01</span></div>
+      <p class="item-summary">跨模型 KV 傳輸：架構索引映射支援 + 注意力對齊校準 + 有界映射；Qwen3 14B→32B 上映射存儲降 8×、應用加速 3.0×。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2609.04575">Training-Free Halving of Activated Experts in Fine-Grained Mixture-of-Experts Models</a>
+        <span class="score-badge score-mid">6.58</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2609.04575</span><span>2026-09-04</span></div>
+      <p class="item-summary">揭示路由重歸一化隱含校準專家增益；Qwen3.6-35B-A3B 上 8→4 專家僅掉 0.35 MMLU 分（標準重歸一化掉 4.65），無參數無訓練。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2608.30427">Ceiling-Clipped Acceptance Histograms Indicate Stranded Speed-up in Block-Diffusion Speculative Decoding</a>
+        <span class="score-badge score-mid">6.40</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2608.30427</span><span>2026-08-31</span></div>
+      <p class="item-summary">指出塊擴散投機解碼的「擱淺加速」問題：接受直方圖的天花板尖峰暴露未實現加速；DBloom 課程式擴塊可恢復 +0.8 token。</p>
+    </div>
+  </section>
+
+  <section class="direction">
+    <h2>Image Editing</h2>
+    <p class="direction-desc">Diffusion-based image editing and controllable generation: ControlNet, DragDiffusion, prompt-to-prompt, null-text inversion, concept editing, subject-driven editing, identity preservation, mask-free editing, DreamBooth.</p>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2608.09322">Diffusion Image Editing via Asynchronous Token Decoding (ATDEdit)</a>
+        <span class="score-badge score-high">7.33</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2608.09322</span><span>2026-08-10</span></div>
+      <p class="item-summary">推理期框架：以 token 條件驚訝度估計可編輯位置，對選中 token 做目標條件修正、其餘保留源 key/value；PIE-Bench 上達 27.44 dB PSNR / 0.055 LPIPS，無需遮罩或微調。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-header">
+        <a class="item-title" href="https://arxiv.org/abs/2608.04820">When Diffusion Models Forget Who You Are: Identity Preservation in Face Inpainting under Large Occlusions</a>
+        <span class="score-badge score-mid">5.33</span>
+      </div>
+      <div class="item-meta"><span class="source-type">arxiv</span><span>2608.04820</span><span>2026-08-05</span></div>
+      <p class="item-summary">ReSem-Face：級聯擴散框架，從多參考蒸餾身分特徵重建缺失語意區，以多流條件架構引導擴散；CelebAHQ-IDI-5 / VGGFace2 上嚴重遮擋下身分保真更穩。</p>
+    </div>
+
+    <p class="empty">註：本方向本期 arXiv 新出論文較少（多為 2026-08 中以前），僅收錄 2 篇符合時間窗者。後續運行可放寬至 60 天或納入 ECCV/CVPR 2026 程序集補充。</p>
+  </section>
+
+  <footer>
+    <p>由 <code>research-daily</code> agent 自動生成 · 模型 GLM-5.2 · 詳見 <code>runs/2026-09-07.log</code><br>
+    所有 arXiv ID 均經 arXiv API 驗證。評分：composite = (0.4·relevance + 0.3·novelty + 0.2·impact)/0.9 × direction_weight。</p>
+  </footer>
+</div>
+</body>
+</html>

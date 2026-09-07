@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSAQuant — 視頻生成擴散模型的去噪階段對齊量化研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 680px;
+  }
+  table.compare th, table.compare td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--code-bg);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child {
+    font-weight: 600;
+    background: var(--surface);
+    width: 150px;
+  }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) {
+    background: var(--surface);
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">DSAQuant</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與應用</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Video Diffusion Quantization</span>
+  <h1>DSAQuant<br>視頻生成擴散模型的去噪階段對齊量化研究報告</h1>
+  <p class="subtitle">依視頻去噪階段功能差異設計 QAT 監督與推理引導 —— W3A3 下 VBench 平均提升達 6.60</p>
+  <div class="meta">
+    <span>📅 2026-09-07</span>
+    <span>🏷️ video diffusion · QAT · W4A4 · W3A3 · denoising-stage · CFG gating</span>
+    <span>🔬 Kuaishou × Ant Group × HKUST(GZ) × Tsinghua</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> DSAQuant: Denoising-Stage-Aligned Quantization-Aware Training for Video Generation</h2>
+  <p class="tagline">DSAQuant — 將視頻擴散的「階段化去噪」先驗注入量化訓練與推理，解決低位元下細節崩壞的關鍵缺陷</p>
+  <table class="info">
+    <tr><td>作者</td><td>Shuaiting Li, Zelin Gao, Haibin Shen, Yujun Shen, Haotong Qin, Yinghao Xu</td></tr>
+    <tr><td>機構</td><td>Kuaishou Technology；Ant Group；HKUST(GZ)；Tsinghua University</td></tr>
+    <tr><td>發表</td><td>arXiv 2609.04031，2026 年 9 月</td></tr>
+    <tr><td>代碼</td><td>論文未附公開 repo（以 Wan / CogVideoX 為基底）</td></tr>
+    <tr><td>特性</td><td><span class="badge green">W4A4 / W3A3 QAT</span> <span class="badge blue">Stage-Aligned</span> <span class="badge amber">VBench +6.60</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>視頻擴散模型（Video Diffusion Models, VDMs）在 text-to-video 任務上進展驚人，但龐大的記憶體與算力成本阻礙了實際部署。<strong>量化感知訓練（QAT）</strong>能在不引入推理期開銷的前提下壓縮並加速生成模型，是公認的可行路徑。然而作者觀察到一個關鍵且獨特的失敗模式：現有 QAT 方法雖能保留 prompt 語意、全局佈局與粗略運動，<strong>卻在視覺細節、紋理保真度與銳利度上嚴重退化</strong>。</p>
+
+<p>本文將此退化追溯到一個根本設計缺陷：傳統量化流程是 <strong>timestep-agnostic</strong>（時間步無關）的 —— 它對所有去噪時間步一視同仁，完全忽略了視頻去噪的<strong>階段化功能性</strong>。在 VDM 中，早期去噪步主要建立全局結構與運動，而中後期步驟才是精修局部外觀與高頻細節的關鍵。若量化訓練目標不區分這些階段，細節重建能力便會在「為全局結構優化」的過程中被犧牲。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>視頻擴散的去噪過程不是均質的 —— 它是一條「先骨架、後皮肉」的階段化管線。<strong>量化必須對齊這條管線的階段功能</strong>，而非用單一目標函數覆蓋所有時間步。這正是 DSAQuant（Denoising-Stage-Aligned Quantization）名稱的由來。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout purple">
+  <strong>直覺範例 — 畫室裡的兩個畫家：</strong>想像一位畫家在畫一幅大型壁畫。前半段時間他用大筆刷快速勾勒出整體構圖與人物動勢（早期去噪步：全局結構 + 運動）；後半段時間他換上細筆，專注於衣紋、皮膚紋理、光影細節（中後期去噪步：局部外觀 + 高頻細節）。<br><br>
+  傳統 QAT 像是要求這位畫家<strong>從頭到尾用同一支筆、同一種專注力</strong>作畫 —— 結果是構圖還過得去，但細節總是糊的。DSAQuant 則給畫家<strong>分階段的指示</strong>：勾勒階段跟著老師（teacher 蒸餾）穩穩畫骨架，細修階段轉向「對著真實目標描」以逼出細節。同時在「收筆」的最後幾步，DSAQuant 還會關掉放大鏡（停用 CFG），避免把量化誤差放大成高頻偽影。
+</div>
+
+<div class="callout">
+  <strong>與現有 VDM 量化的差別（一句話）：</strong>既有方法只問「量化誤差有多小」，DSAQuant 進一步問「<strong>這個誤差出現在哪個去噪階段、又會被後續步驟放大還是吸收</strong>」。
+</div>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>傳統 QAT（如 EfficientDM、QAT 系擴散量化）</strong>：以全局重建誤差 / 蒸餾損失為目標，時間步無關。在圖像擴散尚可，但在視頻上因細節退化嚴重而失效。</li>
+  <li><strong>PTQ 系（如 PTQ4DiT、ViDiT-Q、SVDQuant）</strong>：訓練後量化，無需重訓但精度受限；DSAQuant 屬 QAT，以少量訓練換更高精度。</li>
+  <li><strong>CFG（Classifier-Free Guidance）</strong>：推理期放大條件訊號的標配機制；DSAQuant 指出 CFG 在量化模型上會<strong>放大量化誤差為高頻偽影</strong>，並提出階段閘控（在末步停用）。</li>
+  <li><strong>Teacher Distillation</strong>：DSAQuant 並非純蒸餾，而是「早期蒸餾 + 晚期目標驅動」的<strong>混合監督</strong>，兼顧穩定性與細節。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>階段劃分</strong>：將去噪時間步軌跡 $\{t_1, \dots, t_T\}$ 依功能劃分為早期（結構 / 運動建立）與中後期（局部外觀 / 高頻細節）兩階段（劃分點為超參）。</li>
+  <li><strong>Denoising-Stage Oriented Supervision（訓練期）</strong>：
+    <ul>
+      <li><strong>早期步</strong>：保留 teacher distillation loss，讓量化學生在結構規劃階段跟隨全精度教師，確保佈局與運動穩定。</li>
+      <li><strong>中後期步</strong>：切換為 target-driven optimization（直接對真實目標 / 數據驅動目標優化），強化細節與紋理重建能力。</li>
+    </ul>
+  </li>
+  <li><strong>量化感知前向</strong>：在學生模型前向中插入 fake-quantization 節點（W4A4 或 W3A3），權重 / 激活依位元配置量化，梯度經 STE 直通。</li>
+  <li><strong>Denoising-Stage Gated Guidance（推理期）</strong>：在最後幾個去噪步<strong>停用 CFG</strong>，防止 CFG 把量化引入的高頻誤差進一步放大為偽影。</li>
+  <li><strong>部署</strong>：訓練完成的量化模型直接以低位元權重 / 激活推理，無額外開銷。</li>
+</ol>
+
+<div class="callout green">
+  <strong>演算法直覺範例 — 木雕師傅的兩段工序：</strong>把量化模型想成一位學徒木雕師傅。<br>
+  <br>
+  <strong>Step 1-2</strong>：粗坯階段（早期去噪步），學徒照著老師傅的成品（teacher）照葫蘆畫瓢，先把輪廓刻出來 —— 不求細節，只求不出大錯。<br>
+  <strong>Step 3</strong>：精修階段（中後期去噪步），學徒放下範本，直接對著客戶指定的真實花紋圖（target）一刀一刀修細節 —— 逼出紋理。<br>
+  <strong>Step 4</strong>：收尾階段（最後幾步），學徒收起放大鏡（停用 CFG）—— 因為放大鏡會把他手抖的刻痕（量化誤差）放大成裂縫。<br>
+  <strong>Step 5</strong>：成品（量化模型）出廠，直接以低位元運作，無需任何後處理。
+</div>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>視頻擴散的階段化去噪</h4>
+<p>設去噪軌跡時間步 $t \in \{t_1, \dots, t_T\}$，VDM 學習噪聲預測 $\epsilon_\theta(\mathbf{x}_t, t, c)$，其中 $c$ 為條件（文本）。傳統 QAT 目標為 timestep-agnostic：</p>
+<div class="math-block">
+$$ \mathcal{L}_{\text{QAT}}^{\text{naive}} = \mathbb{E}_{t, \mathbf{x}_t, c}\!\left[ \ell\!\big(\hat{\epsilon}_{\theta_q}(\mathbf{x}_t, t, c),\, \epsilon^*\big) \right] $$
+</div>
+<p>其中 $\theta_q$ 表示量化後參數，$\epsilon^*$ 為目標（真實噪聲或教師預測）。此式對所有 $t$ 用同一 $\ell$，忽略階段差異。</p>
+
+<h4>階段劃分</h4>
+<p>引入階段指示函數，以分界步 $t^*$ 將時間步分為早期結構階段 $\mathcal{T}_{\text{early}} = \{t \mid t > t^*\}$（大 $t$ 對應高噪聲、早期去噪）與中後期細節階段 $\mathcal{T}_{\text{late}} = \{t \mid t \le t^*\}$：</p>
+<div class="math-block">
+$$ \mathcal{S}(t) = \begin{cases} \text{early} & t \in \mathcal{T}_{\text{early}} \\ \text{late} & t \in \mathcal{T}_{\text{late}} \end{cases} $$
+</div>
+
+<h4>Denoising-Stage Oriented Supervision</h4>
+<p>階段對齊的混合監督損失：</p>
+<div class="math-block">
+$$ \mathcal{L}_{\text{DSA}} = \mathbb{E}_{t}\!\left[ \mathbb{1}[\mathcal{S}(t)=\text{early}] \cdot \ell_{\text{distill}}\!\big(\hat{\epsilon}_{\theta_q},\, \hat{\epsilon}_{\theta_T}\big) + \mathbb{1}[\mathcal{S}(t)=\text{late}] \cdot \ell_{\text{target}}\!\big(\hat{\epsilon}_{\theta_q},\, \epsilon^*\big) \right] $$
+</div>
+<p>其中 $\theta_T$ 為全精度教師，$\ell_{\text{distill}}$ 為蒸餾損失（如 MSE 於教師預測），$\ell_{\text{target}}$ 為目標驅動損失（直接對真實噪聲或數據目標）。早期靠蒸餾穩定結構，晚期靠目標驅動逼出細節。</p>
+
+<h4>量化前向（Fake Quantization）</h4>
+<p>權重與激活分別量化：</p>
+<div class="math-block">
+$$ \mathbf{W}_q = Q_W(\mathbf{W}) = s_W \cdot \text{round}\!\left(\frac{\text{clip}(\mathbf{W}, -c_W, c_W)}{s_W}\right), \quad \mathbf{a}_q = Q_A(\mathbf{a}) = s_A \cdot \text{round}\!\left(\frac{\text{clip}(\mathbf{a}, -c_A, c_A)}{s_A}\right) $$
+</div>
+<p>W4A4 / W3A3 對應 4-bit / 3-bit 權重與激活。梯度以 Straight-Through Estimator（STE）直通，使 round 端點可微。</p>
+
+<h4>Denoising-Stage Gated Guidance（推理期）</h4>
+<p>標準 CFG 在每步以無條件 / 條件預測組合：</p>
+<div class="math-block">
+$$ \hat{\epsilon}_{\text{CFG}} = \hat{\epsilon}_{\varnothing} + w \cdot \big(\hat{\epsilon}_{c} - \hat{\epsilon}_{\varnothing}\big) $$
+</div>
+<p>其中 $w$ 為 guidance scale。在量化模型中，$\hat{\epsilon}_c - \hat{\epsilon}_{\varnothing}$ 含量化誤差，末步 CFG 會將其放大為高頻偽影。DSAQuant 引入階段閘控 $g(t)$：</p>
+<div class="math-block">
+$$ \hat{\epsilon}_{\text{DSA}}(t) = g(t) \cdot \hat{\epsilon}_{\text{CFG}} + \big(1 - g(t)\big) \cdot \hat{\epsilon}_c, \quad g(t) = \mathbb{1}[t > t_{\text{gate}}^*] $$
+</div>
+<p>即當 $t \le t_{\text{gate}}^*$（最後幾步）時 $g=0$，停用 CFG，直接用條件預測，避免誤差放大。</p>
+
+<h4>整體流程</h4>
+<div class="math-block">
+$$ \theta_q^* = \arg\min_{\theta_q} \mathcal{L}_{\text{DSA}}(\theta_q; \theta_T) \quad \Longrightarrow \quad \text{推理：以 } \theta_q^* \text{ 去噪，末步依 } g(t) \text{ 閘控 CFG} $$
+</div>
+
+<h3 id="p1-exp">實驗結果</h3>
+
+<h4>主要設定</h4>
+<table class="info">
+  <tr><td>任務</td><td>Text-to-Video 生成</td></tr>
+  <tr><td>基底模型</td><td>Wan 系列、CogVideoX 系列</td></tr>
+  <tr><td>量化設定</td><td>W4A4、W3A3（權重 / 激活）</td></tr>
+  <tr><td>評測指標</td><td>VBench 平均分、text-video alignment</td></tr>
+  <tr><td>對比基線</td><td>SOTA QAT baseline（時間步無關）</td></tr>
+</table>
+
+<h4>關鍵數據</h4>
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>設定</th>
+      <th>方法</th>
+      <th>VBench 平均分提升</th>
+      <th>Text-Video Alignment</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>W4A4</td><td>SOTA QAT baseline</td><td>—（基準）</td><td>基準</td></tr>
+    <tr><td>W4A4</td><td><strong>DSAQuant</strong></td><td><strong>持續優於 baseline</strong></td><td>強保持</td></tr>
+    <tr><td>W3A3</td><td>SOTA QAT baseline</td><td>—（基準）</td><td>退化明顯</td></tr>
+    <tr><td>W3A3</td><td><strong>DSAQuant</strong></td><td><strong>+6.60（vs baseline）</strong></td><td>強保持</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout green">
+  <strong>關鍵發現：</strong>在激進的 W3A3 設定下，DSAQuant 相較 SOTA QAT baseline 將 VBench 平均分提升了達 <strong>6.60</strong> —— 這是一個量級顯著的跨越。更值得注意的是，在低位元下 DSAQuant 仍能保持強健的 text-video alignment，顯示其細節增益並非以犧牲語意一致性為代價。
+</div>
+
+<h4>消融與機制驗證</h4>
+<table class="info">
+  <tr><td>階段對齊監督</td><td>移除後細節退化重現，證實 timestep-agnostic 是病灶</td></tr>
+  <tr><td>末步 CFG 閘控</td><td>移除後高頻偽影增加，證實 CFG 放大量化誤差</td></tr>
+  <tr><td>跨模型泛化</td><td>Wan 與 CogVideoX 兩個家族均一致受益</td></tr>
+</table>
+
+<div class="callout amber">
+  <strong>跨家族一致性：</strong>DSAQuant 在 Wan 與 CogVideoX 兩個不同的視頻擴散家族上都持續優於 baseline，說明「去噪階段對齊」是 VDM 量化的<strong>通用先驗</strong>，而非特定架構的巧合。
+</div>
+
+<h3 id="p1-contrib">貢獻與應用</h3>
+<ol>
+  <li><strong>首次診斷 VDM 量化的細節退化根因</strong>：將傳統 QAT 的細節崩壞追溯到 timestep-agnostic 設計，指出其忽略去噪階段化功能性。</li>
+  <li><strong>Denoising-Stage Oriented Supervision</strong>：提出「早期蒸餾 + 晚期目標驅動」的混合監督，兼顧結構穩定性與細節重建。</li>
+  <li><strong>Denoising-Stage Gated Guidance</strong>：首個指出 CFG 會放大量化誤差為高頻偽影，並提出末步停用 CFG 的推理期閘控。</li>
+  <li><strong>低位元 SOTA</strong>：W3A3 下 VBench 平均 +6.60，W4A4 持續領先，且跨 Wan / CogVideoX 家族一致有效。</li>
+  <li><strong>實踐啟示</strong>：有效 VDM 量化不只降低量化誤差，更需對齊視頻擴散的階段化本質 —— 為後續 VDM 部署提供設計準則。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>視頻生成模型的端側 / 邊緣部署（W4A4 / W3A3 大幅降存降算）</li>
+  <li>高品質 text-to-video 服務的低成本推理</li>
+  <li>視頻擴散模型的量化訓練管線設計參考</li>
+  <li>其他具階段化去噪特性的生成模型量化（如多步圖像擴散、3D 生成）</li>
+  <li>CFG 與量化互動的理論與實務研究起點</li>
+</ul>
+
+<div class="callout purple">
+  <strong>未來展望：</strong>DSAQuant 揭示「階段對齊」是 VDM 量化的關鍵先驗，後續可探索：更細粒度的階段劃分（如三階段）、與 PTQ 的結合、階段自適應位元配置（早期低位元、晚期高位元）、以及將 CFG 閘控推廣至其他誤差放大機制。
+</div>
+</section>
+
+<!-- ============ REFS ============ -->
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>arXiv</strong>：<code>https://arxiv.org/abs/2609.04031</code>（v1, 2026-09-03）</li>
+  <li><strong>PDF</strong>：<code>https://arxiv.org/pdf/2609.04031v1</code></li>
+  <li><strong>作者</strong>：Shuaiting Li, Zelin Gao, Haibin Shen, Yujun Shen, Haotong Qin, Yinghao Xu</li>
+  <li><strong>機構</strong>：Kuaishou Technology；Ant Group；HKUST(GZ)；Tsinghua University</li>
+  <li><strong>基底模型</strong>：Wan 系列、CogVideoX 系列</li>
+  <li><strong>相關方法</strong>：EfficientDM, PTQ4DiT, ViDiT-Q, SVDQuant, Q-VDiT, CFG, teacher distillation, VBench</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-09-07 ｜ 研究來源：arXiv 2609.04031v1（經 arXiv API 驗證）<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。由 <code>research-daily</code> agent 自動生成（headless 模式）。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

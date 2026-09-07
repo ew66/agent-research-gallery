@@ -12,12 +12,15 @@ Automated daily by the `research-daily` agent (launchd 07:00). See `research-dir
 
 ## Daily Digests
 
-_(Auto-populated by the research-daily agent. First run pending.)_
+- [Daily Digest — 2026-09-07](https://ew66.github.io/notes-gallery/digests/20260907_digest.html) — 4 方向 30 篇新論文 + 3 篇深度報告（DSAQuant / Minima NVFP4 / PixelIR）(2026-09-07)
 
 ## Reports
 
 ### Featured
 
+- [DSAQuant: Denoising-Stage-Aligned QAT for Video Generation](https://ew66.github.io/notes-gallery/reports/20260907_DSAQuant_Video_Diffusion_QAT.html) — 階段化去噪先驗注入 QAT，W3A3 下 VBench +6.60；末步停用 CFG 防高頻偽影 (2026-09-07)
+- [Minima NVFP4: Why Gated DeltaNet Survives 4-Bit Quantization](https://ew66.github.io/notes-gallery/reports/20260907_Minima_NVFP4_GatedDeltaNet_W4A4.html) — 挑戰「遞迴層怕量化」直覺，全 496 線性層 W4A4 匹配 BF16，17.5 GiB 最小最快 (2026-09-07)
+- [PixelIR: Pixel-Space Image-Residual Flow Matching for One-Step SR](https://ew66.github.io/notes-gallery/reports/20260907_PixelIR_Flow_Matching_OneStep_SR.html) — 圖像流+殘差流解耦 fidelity/perception，32.9M 參數、8.5ms 延遲達 SOTA (2026-09-07)
 - [Diffusion Guidance Research — SSG vs C²FG](https://ew66.github.io/notes-gallery/reports/Diffusion_Guidance_Research_SSG_C2FG.html) — 擴散模型引導機制：Token Swapping 與 Score Discrepancy (2026-06-26)
 - [TAD-SR: Time-Aware One Step Diffusion SR](https://ew66.github.io/notes-gallery/reports/20260629_TAD_SR_Super_Resolution.html) — 時間感知一步擴散超解析度，含代碼一致性驗證 (2026-06-29)
 - [TADSR (CVPR 2026): Time-Aware One Step Diffusion Network](https://ew66.github.io/notes-gallery/reports/20260629_TADSR_CVPR2026_Time_Aware_Diffusion_SR.html) — SD 各時間步生成先驗挖掘 + 可控 fidelity/realism 權衡 (2026-06-29)

@@ -1,0 +1,69 @@
+==================================================
+research-daily run log
+==================================================
+started: 2026-09-07
+model: GLM-5.2
+directions_due: Diffusion Models, Model Compression & Quantization, Efficient Inference, Image Editing (all daily)
+limits: max_tokens=200000, max_deep_dives=3, deep_dive_score_threshold=7.0, dedup_window_days=14
+
+## Phase 0 — Bootstrap
+- Read research-directions.yaml: OK (4 directions, all cadence=daily)
+- Dedup set: built from existing reports/ (15 existing reports) + runs/*.log (none prior)
+- git pull --rebase: Already up to date.
+
+## Phase 1 — Discovery
+- websearch dispatched once per due direction (4 calls). Results had many unverified/
+  fabricated arXiv IDs (flagged "xxxxx" placeholders). Fell back to arXiv listing API
+  (export.arxiv.org/api/query, sortBy=submittedDate desc) with title-keyword filters per
+  direction to obtain VERIFIED papers with real IDs + abstracts + authors.
+- All items below are arXiv-verified (IDs resolve to the stated titles).
+
+## Phase 2 — Scoring
+NOTE on formula: skill gives composite=(0.4*rel+0.3*nov+0.2*imp)*10*weight, but weights
+sum to 0.9 and the table/threshold are 0-10. Normalized to 0-10: composite=(0.4*rel+0.3*nov
++0.2*imp)/0.9*weight. novelty: <=7d=10, 8-30d=6, >30d=2 (days from 2026-09-07).
+
+=== DIFFUSION MODELS (weight 1.0) ===
+[2609.04649] 09-04 ReaDiT Guidance: DiT features for image/video control          rel9 nov10 imp5 => 8.00 ✓
+[2609.04646] 09-04 Importance-Aware Low-Rank Distillation of DiT                 rel8 nov10 imp5 => 7.44
+[2609.04525] 09-03 Discriminative Flow Matching (flow-state reps)                rel8 nov10 imp5 => 8.00 ✓
+[2608.30782] 08-31 PixelIR: pixel-residual flow matching one-step SR            rel8 nov10 imp6 => 8.22 ✓ DEEPDIVE
+[2608.29160] 08-29 Training-Free Hidden-State Refinement for flow-matching       rel8 nov6  imp5 => 6.67
+[2608.29281] 08-29 Elastic Token Compression for pixel-space DiT                 rel7 nov6  imp5 => 6.22
+[2608.29107] 08-29 PathGuide: Dynamic CFG via on-policy transport alignment      rel9 nov6  imp6 => 7.33 ✓
+[2609.00198] 08-31 A Lagrangian View of Flow Matching                            rel7 nov10 imp5 => 7.44
+
+=== MODEL COMPRESSION & QUANTIZATION (weight 1.0) ===
+[2609.04031] 09-03 DSAQuant: denoising-stage-aligned QAT for video gen W4A4/W3A3  rel10 nov10 imp7 => 9.33 ✓ DEEPDIVE
+[2609.04098] 09-03 Why Gated DeltaNet Survives 4-Bit (Minima NVFP4 W4A4)         rel9  nov10 imp7 => 8.89 ✓ DEEPDIVE
+[2608.30564] 08-31 Q-Strata: hierarchical bit alloc for MoE LLM MPQ             rel8  nov10 imp6 => 8.22 ✓
+[2609.00450] 08-31 HBQ: hierarchical scaling block quant W4A5 (ASIC)            rel8  nov10 imp6 => 8.22 ✓
+[2609.01587] 09-01 Structure of Quantization Damage in LLMs                      rel8  nov10 imp6 => 8.22 ✓
+[2608.28911] 08-28 SemKV: semantic mixed-precision KV cache quant (quality cliff)rel8  nov6  imp6 => 6.89
+[2608.27875] 08-28 HyQuant: hybrid-precision quant for LLM attention             rel8  nov6  imp5 => 6.67
+[2608.29667] 08-30 A Target-Centric Survey of Quantization-Aware Training        rel7  nov6  imp5 => 6.22
+
+=== EFFICIENT INFERENCE (weight 0.8) ===
+[2609.04105] 09-03 Hardware-Aware FP4 FlashAttention-4 (Blackwell)               rel9  nov10 imp7 => 7.11 ✓
+[2609.00355] 08-31 GLANCE: one-pass block drafting spec-decode for VLMs          rel9  nov10 imp7 => 7.11 ✓
+[2608.30310] 08-31 Tail-Replay: prefix caching for hybrid (Gated DeltaNet) LLMs  rel9  nov10 imp7 => 7.11 ✓
+[2609.03949] 09-03 VestigeKV: NoPE-MLA KV cache eviction signal                 rel8  nov10 imp6 => 6.58
+[2609.03235] 09-03 SGD-KV: summarization-guided KV cache compression             rel8  nov10 imp6 => 6.58
+[2609.03181] 09-02 Jina-OCR-v1: spec-decode + dense verifiable rewards           rel8  nov10 imp6 => 6.58
+[2609.00891] 09-01 CacheBridge: cross-model KV cache transfer                    rel8  nov10 imp6 => 6.58
+[2609.04575] 09-04 Training-Free Halving of Activated Experts (fine-grained MoE)rel8  nov10 imp6 => 6.58
+[2608.30427] 08-31 Ceiling-Clipped Acceptance Histograms (block-diff spec-decode)rel8  nov10 imp5 => 6.40
+
+=== IMAGE EDITING (weight 1.0) ===
+[2608.09322] 08-10 ATDEdit: async token decoding for diffusion image editing     rel9  nov6  imp6 => 7.33 ✓
+[2608.04820] 08-05 ReSem-Face: identity preservation face inpainting            rel8  nov2  imp5 => 5.33
+
+Dedup Excluded: 0 (no prior run logs; existing reports are older single-paper studies, none
+overlap with today's discovered items).
+
+## Phase 3 — Deep-dive selection
+Eligible (>=7.0): 13 items. Top 3 by composite (tie at 8.22 broken toward direction diversity):
+  1. DSAQuant [2609.04031]        9.33  -> reports/20260907_DSAQuant_Video_Diffusion_QAT.html
+  2. Minima NVFP4 [2609.04098]    8.89  -> reports/20260907_Minima_NVFP4_GatedDeltaNet_W4A4.html
+  3. PixelIR [2608.30782]         8.22  -> reports/20260907_PixelIR_Flow_Matching_OneStep_SR.html
+Token budget: ~25k/deep-dive est; 3 = ~75k << 200k cap. Proceeding with all 3.

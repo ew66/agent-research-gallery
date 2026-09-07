@@ -11,7 +11,7 @@ STDOUT_LOG="$LOG_DIR/launchd-stdout.log"
 STDERR_LOG="$LOG_DIR/launchd-stderr.log"
 BLUECODE_BIN="$HOME/.bluecode/bin/bluecode"
 AGENT="research-daily"
-MODEL="bluecode-ai/Claude-Opus-5"
+MODEL="bluecode-ai/GLM-5.2"
 
 mkdir -p "$LOG_DIR"
 

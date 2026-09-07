@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minima NVFP4 — 為何 Gated DeltaNet 能挺過 4-bit 量化研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa; --surface: #ffffff; --text: #1a1a1a; --text-soft: #4a4a4a; --text-muted: #6b6b6b;
+    --border: #e4e4e7; --accent: #2563eb; --accent-soft: #dbeafe; --accent-2: #7c3aed; --accent-2-soft: #ede9fe;
+    --green: #059669; --green-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04); --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10; --surface: #1a1a1d; --text: #e8e8e8; --text-soft: #c4c4c4; --text-muted: #9a9a9a;
+      --border: #2a2a2e; --accent: #60a5fa; --accent-soft: #1e3a5f; --accent-2: #a78bfa; --accent-2-soft: #3a2a5f;
+      --green: #34d399; --green-soft: #134e3a; --amber: #fbbf24; --amber-soft: #4a3508; --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3); --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; } html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; font-size: 16px; -webkit-font-smoothing: antialiased; }
+  .layout { display: grid; grid-template-columns: 260px 1fr; max-width: 1280px; margin: 0 auto; gap: 0; }
+  aside.toc { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 32px 20px 32px 24px; border-right: 1px solid var(--border); background: var(--surface); font-size: 14px; }
+  aside.toc h3 { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin: 0 0 14px 0; font-weight: 700; }
+  aside.toc nav ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+  aside.toc nav ol > li { counter-increment: toc; margin: 0 0 2px 0; }
+  aside.toc nav > ol > li > a::before { content: counter(toc) ". "; color: var(--text-muted); font-weight: 600; }
+  aside.toc nav a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--text-soft); text-decoration: none; transition: all 0.15s; }
+  aside.toc nav a:hover { background: var(--accent-soft); color: var(--accent); }
+  aside.toc nav ol ol { padding-left: 14px; margin: 2px 0 6px 0; }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  main { padding: 48px 56px 80px; max-width: 900px; min-width: 0; }
+  header.report-header { margin-bottom: 48px; padding-bottom: 28px; border-bottom: 2px solid var(--border); }
+  header.report-header .eyebrow { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; }
+  header.report-header h1 { font-size: 34px; line-height: 1.25; margin: 0 0 12px 0; font-weight: 800; letter-spacing: -0.02em; }
+  header.report-header .subtitle { font-size: 17px; color: var(--text-muted); margin: 0; }
+  header.report-header .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+  header.report-header .meta span { background: var(--code-bg); padding: 4px 10px; border-radius: 6px; color: var(--text-soft); }
+  h2 { font-size: 26px; font-weight: 700; margin: 56px 0 8px 0; padding-bottom: 10px; border-bottom: 1px solid var(--border); letter-spacing: -0.01em; scroll-margin-top: 20px; }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 19px; font-weight: 700; margin: 32px 0 10px 0; color: var(--text); scroll-margin-top: 20px; }
+  h4 { font-size: 16px; font-weight: 700; margin: 22px 0 8px 0; color: var(--text-soft); }
+  p { margin: 0 0 14px 0; }
+  .paper-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 24px 28px; margin: 16px 0 28px 0; box-shadow: var(--shadow); }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline { font-size: 15px; color: var(--text-muted); margin: 6px 0 16px 0; font-style: italic; }
+  table.info { width: 100%; border-collapse: collapse; margin: 12px 0 8px 0; font-size: 14px; }
+  table.info td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.info td:first-child { font-weight: 600; color: var(--text-soft); width: 110px; white-space: nowrap; }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 8px; padding: 14px 18px; margin: 18px 0; font-size: 15px; }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code { font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; color: var(--accent-2); }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; overflow-x: auto; margin: 16px 0; }
+  pre code { background: none; padding: 0; color: var(--text); font-size: 13.5px; line-height: 1.6; }
+  .math-block { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 22px; margin: 16px 0; overflow-x: auto; }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 680px; }
+  table.compare th, table.compare td { padding: 12px 16px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+  table.compare thead th { background: var(--code-bg); font-weight: 700; font-size: 13px; }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child { font-weight: 600; background: var(--surface); width: 150px; }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) { background: var(--surface); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } aside.toc { display: none; } main { padding: 32px 20px 60px; } header.report-header h1 { font-size: 26px; } h2 { font-size: 22px; } }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">Minima NVFP4</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與應用</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · LLM Quantization</span>
+  <h1>Minima NVFP4<br>為何 Gated DeltaNet 能挺過 4-bit 量化研究報告</h1>
+  <p class="subtitle">挑戰「遞迴層怕量化」直覺 —— 在混合 27B LLM 的 496 個線性層全做 NVFP4 W4A4，匹配 BF16 且更小更快</p>
+  <div class="meta">
+    <span>📅 2026-09-07</span>
+    <span>🏷️ NVFP4 · W4A4 · Gated DeltaNet · hybrid LLM · Blackwell</span>
+    <span>🔬 minima-ai</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> Why Gated DeltaNet Survives 4-Bit Quantization: NVFP4 W4A4 for the Recurrent Half of a Hybrid 27B LLM</h2>
+  <p class="tagline">Minima — 反直覺地將混合 LLM 的遞迴半部（Gated DeltaNet）也壓到 NVFP4 W4A4，並以四部分機制研究解釋為何它反而是「容易量化的那一半」</p>
+  <table class="info">
+    <tr><td>作者</td><td>Sergii Kozyrev, Davyd Maiboroda</td></tr>
+    <tr><td>機構</td><td>minima-ai</td></tr>
+    <tr><td>發表</td><td>arXiv 2609.04098，2026 年 9 月</td></tr>
+    <tr><td>代碼 / 模型</td><td><code>https://huggingface.co/minima-ai/mnma_qwen3.8_27b_nvfp4</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">NVFP4 W4A4</span> <span class="badge blue">BF16 等價</span> <span class="badge amber">17.5 GiB 最小</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>混合式大型語言模型（Hybrid LLMs）將 softmax attention 與線性注意力層（如 <strong>Gated DeltaNet, GDN</strong>）交錯排列。GDN 的遞迴狀態（recurrent state）以固定大小總結上下文。在 Qwen3.8-27B 這類模型中，共有 48 層 GDN 與 16 層 attention。早期社群的 4-bit 量化方案普遍<strong>將 GDN 區塊保留在 8-bit 或 16-bit</strong> —— 尤其是其 decay 與 write-strength gates —— 出於一個直覺：遞迴層的誤差會在長上下文中累積。</p>
+
+<p>本文作者直接<strong>測試這個直覺</strong>。他們構建了 <strong>Minima</strong>：在<strong>全部 496 個線性層</strong>（GDN 也包含在內）上做 NVFP4 W4A4。結果反直覺：在 4K / 32K perplexity、MMLU-Pro、GSM8K、AIME'25、GPQA-Diamond、LiveCodeBench、以及 64K 的 RULER 檢索上，Minima 在種子雜訊範圍內匹配 BF16（5 任務平均 -0.52），同時是所比較方案中<strong>最小（17.5 GiB）且 prefill 最快（+14-19%）</strong>的。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>「遞迴層怕量化」其實是個未經檢驗的假設。本文以一份四部分的機制研究證明：在 NVFP4 的 16 元素塊縮放下，混合 LLM 的遞迴半部（GDN）反而是<strong>容易量化的那一半</strong> —— gate projections 是最不敏感的，遞迴會把注入噪聲維持在平坦高原上，量化成本隨上下文被「洗掉」而非複利累積。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout purple">
+  <strong>直覺範例 — 沙漏與篩子的對比：</strong>把 softmax attention 想成一只沙漏：每粒沙（token）都精確落在特定位置，少一粒都看得出（對量化敏感）。把 GDN 的遞迴狀態想成一只不斷搖晃的篩子：沙子（資訊）進來後，舊的會被新的沿當前方向「覆寫」掉，篩子裡的沙量大致固定 —— 偶爾抖一下（量化誤差）不會讓沙子永久偏移，因為下一次搖晃就會把它重新調整。<br><br>
+  社群的直覺是「篩子搖久了誤差會疊加」；本文證明其實是「<strong>篩子每搖一次就把上一次的抖動覆寫掉</strong>」，所以遞迴反而不怕量化。
+</div>
+
+<div class="callout">
+  <strong>與既有方案差別（一句話）：</strong>既有 4-bit 方案「保護 GDN 留高位元」，Minima「<strong>全部量化、連 GDN 一起</strong>」並給出為何可行的機制解釋。
+</div>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>社群早期 4-bit 方案</strong>：GDN 保留 8/16-bit（保護 gates）—— 基於「誤差累積」直覺，未經實證。</li>
+  <li><strong>NVFP4 格式</strong>：NVIDIA Blackwell 的 4-bit 浮點格式，含 16 元素塊縮放（block scaling），本文採用。</li>
+  <li><strong>FP8 KV-cache</strong>：本文額外展示校準後的 FP8 KV-cache scale 是「無性能損失」的。</li>
+  <li><strong>Per-module calibration vs fused GEMM serving</strong>：本文修復了「逐模組校準的 NVFP4 checkpoint 被 serving kernel 融合成單一 GEMM」時的全局尺度不匹配問題。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>基底選擇</strong>：以 Qwen3.8-27B（48 GDN 層 + 16 attention 層，共 496 個線性層）為目標。</li>
+  <li><strong>全層 NVFP4 W4A4</strong>：對全部 496 個線性層（含 GDN 的 decay / write-strength gates）實施 NVFP4 W4A4 量化，逐模組校準。</li>
+  <li><strong>全局尺度修復</strong>：當 per-module-calibrated checkpoint 被 serving kernel 融合成單一 GEMM 時，修復全局尺度不匹配。</li>
+  <li><strong>FP8 KV-cache 校準</strong>：為 KV-cache 配置校準的 FP8 scale，無性能損失。</li>
+  <li><strong>機制研究（四部分）</strong>：見數學推導，解釋為何 GDN 能挺過 4-bit。</li>
+  <li><strong>全面評測</strong>：在 4K/32K perplexity、MMLU-Pro、GSM8K、AIME'25、GPQA-Diamond、LiveCodeBench、64K RULER 上評測。</li>
+</ol>
+
+<div class="callout green">
+  <strong>演算法直覺範例 — 倉庫管理員的覆寫式記帳：</strong>把 GDN 的遞迴狀態想成一位倉庫管理員的記帳本。<br>
+  <br>
+  <strong>Step 1-2</strong>：管理員每天記進貨（每個 token 寫入狀態），但記帳方式是「<strong>沿當前貨品類別方向覆寫</strong>」—— 同類貨的新紀錄直接蓋掉舊的。<br>
+  <strong>Step 3</strong>：偶爾算錯一筆（量化誤差注入）。<br>
+  <strong>Step 4-5</strong>：但這筆錯帳不會永遠累積 —— 因為下次同類貨進來時，它會被<strong>直接覆寫</strong>；而且管理員有個「衰減」習慣（decay gate），舊紀錄本身就會慢慢淡出。<br>
+  <strong>結果</strong>：錯帳被維持在一個平坦的高原上（不會滾雪球），幾百步內就被淡忘 —— 這就是「遞迴不怕量化」的根因。
+</div>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>混合 LLM 結構</h4>
+<p>Qwen3.8-27B 由 16 層 softmax attention 與 48 層 Gated DeltaNet（GDN）交錯組成，共 496 個線性層（含各 GDN 的 decay / write-strength gate projections）。</p>
+
+<h4>NVFP4 W4A4 量化</h4>
+<p>NVFP4 為 NVIDIA Blackwell 4-bit 浮點格式，採用 <strong>16 元素塊縮放（16-element block scaling）</strong>。權重與激活均量化：</p>
+<div class="math-block">
+$$ \mathbf{W}_{q} = \text{NVFP4}_W(\mathbf{W}), \quad \mathbf{a}_{q} = \text{NVFP4}_A(\mathbf{a}) $$
+</div>
+<p>每 16 個元素共享一個縮放因子 $s$，量化為 4-bit 浮點（含符號 + 指數 + 尾數位元）。塊縮放使殘差流的極端離群值被<strong>局部化</strong>到塊內，不會跨塊汙染整體精度。</p>
+
+<h4>四部分機制研究</h4>
+<p>作者以四部分研究解釋「為何 GDN 能挺過 4-bit」：</p>
+
+<p><strong>(i) NVFP4 塊縮放局部化離群值</strong>：16 元素塊縮放將殘差流的極端離群值局部化，<strong>均衡各層角色的激活誤差</strong> —— 即使 GDN 與 attention 角色不同，其激活誤差被拉平。</p>
+
+<p><strong>(ii) Gate projections 最不敏感</strong>：被認為「最脆弱」的 decay / write-strength gates 反而是最不敏感的。其 softplus / exponential 與 sigmoid 參數化將約 <strong>11% 的 GEMM 誤差壓縮至約 2% 的輸出誤差</strong>：</p>
+<div class="math-block">
+$$ \text{GEMM 誤差} \approx 11\% \;\xrightarrow{\text{gate 非線性}}\; \text{輸出誤差} \approx 2\% $$
+</div>
+<p>非線性的 gate 函數（sigmoid 飽和、softplus 平滑）天然抑制了量化擾動。</p>
+
+<p><strong>(iii) Delta-rule 遞迴維持噪聲高原</strong>：delta-rule 的每次寫入會<strong>沿當前 key 方向覆寫狀態</strong>，使注入的量化噪聲被維持在 32K token 上的平坦高原，並在數百步內淡忘一個狀態脈衝：</p>
+<div class="math-block">
+$$ \mathbf{S}_{t} = \mathbf{S}_{t-1} \cdot \text{decay} + \mathbf{v}_t \mathbf{k}_t^\top \quad \text{(覆寫沿 } \mathbf{k}_t \text{ 方向)} $$
+</div>
+<p>誤差不會複利累積，而是被後續寫入不斷「覆蓋」。</p>
+
+<p><strong>(iv) Per-token 量化成本被上下文洗掉</strong>：每個 token 的量化成本<strong>隨上下文被洗掉（washed out）而非複利累積</strong> —— 上下文越長，單 token 誤差的相對影響越小。</p>
+
+<h4>全局尺度修復</h4>
+<p>當 per-module-calibrated NVFP4 checkpoint 被 serving kernel 融合成單一 GEMM 時，會出現全局尺度不匹配。本文修復此問題，使校準結果在融合 serving 下仍正確。</p>
+
+<h4>FP8 KV-cache</h4>
+<div class="math-block">
+$$ \text{KV-cache}_{\text{FP8}} = \text{scale}_{\text{calib}} \cdot \text{FP8}(\mathbf{K}, \mathbf{V}), \quad \text{性能無損} $$
+</div>
+<p>校準後的 FP8 KV-cache scale 不引入額外性能損失。</p>
+
+<h4>整體配方</h4>
+<div class="math-block">
+$$ \boxed{\text{Minima 配方} = \text{全部量化（含 GDN）} + \text{全局尺度修復} + \text{校準 FP8 KV scale}} $$
+</div>
+
+<h3 id="p1-exp">實驗結果</h3>
+
+<h4>主要設定</h4>
+<table class="info">
+  <tr><td>基底模型</td><td>Qwen3.8-27B（48 GDN + 16 attention，496 線性層）</td></tr>
+  <tr><td>量化格式</td><td>NVFP4 W4A4（全 496 線性層）+ 校準 FP8 KV-cache</td></tr>
+  <tr><td>對比基線</td><td>BF16 全精度；社群早期 4-bit（GDN 保留 8/16-bit）</td></tr>
+  <tr><td>評測</td><td>4K/32K perplexity, MMLU-Pro, GSM8K, AIME'25, GPQA-Diamond, LiveCodeBench, 64K RULER</td></tr>
+</table>
+
+<h4>關鍵數據</h4>
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>方案</th>
+      <th>權重格式</th>
+      <th>大小</th>
+      <th>5 任務平均（vs BF16）</th>
+      <th>Prefill 速度</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>BF16（基準）</td><td>BF16</td><td>~54 GiB</td><td>0（基準）</td><td>基準</td></tr>
+    <tr><td>社群 4-bit</td><td>W4 + GDN 8/16-bit</td><td>較大</td><td>有差距</td><td>基準</td></tr>
+    <tr><td><strong>Minima</strong></td><td><strong>NVFP4 W4A4（全層）</strong></td><td><strong>17.5 GiB（最小）</strong></td><td><strong>-0.52（種子雜訊內）</strong></td><td><strong>+14-19%（最快）</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout green">
+  <strong>關鍵發現：</strong>Minima 在全部 496 個線性層（含 GDN）上做 NVFP4 W4A4，5 任務平均僅 -0.52（在種子雜訊範圍內匹配 BF16），同時是<strong>最小（17.5 GiB）且 prefill 最快（+14-19%）</strong>的方案。其 32K perplexity 差距還會<strong>隨位置縮小</strong> —— 越長的上下文，量化越「洗得乾淨」。
+</div>
+
+<h4>機制研究驗證</h4>
+<table class="info">
+  <tr><td>(i) 塊縮放局部化</td><td>16 元素塊縮放均衡各層激活誤差</td></tr>
+  <tr><td>(ii) Gate 最不敏感</td><td>11% GEMM 誤差 → 2% 輸出誤差（非線性壓制）</td></tr>
+  <tr><td>(iii) Delta-rule 高原</td><td>32K token 上噪聲平坦，數百步內淡忘脈衝</td></tr>
+  <tr><td>(iv) 成本洗掉</td><td>per-token 成本隨上下文 wash out，非複利</td></tr>
+  <tr><td>FP8 KV-cache</td><td>校準 scale 性能無損</td></tr>
+</table>
+
+<div class="callout amber">
+  <strong>反直覺結論：</strong>「遞迴層怕量化」是錯的。混合 LLM 的遞迴半部（GDN）反而是<strong>容易量化的那一半</strong> —— gate 非線性壓制誤差、delta-rule 覆寫維持高原、塊縮放局部化離群值，三者合力使 4-bit 在 GDN 上幾乎免費。
+</div>
+
+<h3 id="p1-contrib">貢獻與應用</h3>
+<ol>
+  <li><strong>挑戰並推翻「遞迴層怕量化」直覺</strong>：首次以實證證明 GDN 的遞迴狀態在 NVFP4 W4A4 下匹配 BF16。</li>
+  <li><strong>Minima 配方</strong>：全 496 線性層 NVFP4 W4A4 + 全局尺度修復 + 校準 FP8 KV scale，最小且最快。</li>
+  <li><strong>四部分機制研究</strong>：從塊縮放局部化、gate 非線性壓制、delta-rule 覆寫高原、成本洗掉四個角度，給出為何 GDN 不怕量化的完整解釋。</li>
+  <li><strong>全局尺度修復</strong>：解決 per-module 校準與 fused GEMM serving 間的尺度不匹配工程問題。</li>
+  <li><strong>實踐啟示</strong>：「全部量化、附 KV scale」是混合 LLM 部署的實用配方；遞迴半部是「容易的那一半」。</li>
+</ol>
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li>混合式 LLM（attention + GDN / 線性注意力）的 Blackwell 部署</li>
+  <li>27B 級模型壓至 17.5 GiB 以適配單卡 / 邊緣推理</li>
+  <li>長上下文（32K-64K）場景的低成本量化部署</li>
+  <li>遞迴 / 線性注意力架構量化敏感性的理論研究參考</li>
+  <li>NVFP4 / FP8 KV-cache 的工程化校準流程參考</li>
+</ul>
+
+<div class="callout purple">
+  <strong>未來展望：</strong>本文為「線性注意力 / 遞迴架構的量化敏感性」提供了正向證據。後續可探索：其他遞迴架構（Mamba、RWKV、Linear Attention 變體）是否同樣不怕量化、gate 非線性選擇對量化魯棒性的影響、以及 NVFP4 在更大模型（100B+）上的擴展性。
+</div>
+</section>
+
+<!-- ============ REFS ============ -->
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>arXiv</strong>：<code>https://arxiv.org/abs/2609.04098</code>（v1, 2026-09-03）</li>
+  <li><strong>PDF</strong>：<code>https://arxiv.org/pdf/2609.04098v1</code></li>
+  <li><strong>作者</strong>：Sergii Kozyrev, Davyd Maiboroda</li>
+  <li><strong>機構</strong>：minima-ai</li>
+  <li><strong>Checkpoint</strong>：<code>https://huggingface.co/minima-ai/mnma_qwen3.8_27b_nvfp4</code></li>
+  <li><strong>相關方法</strong>：NVFP4, Gated DeltaNet, Qwen3.8-27B, FP8 KV-cache, Mamba, Linear Attention, Blackwell tensor cores</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-09-07 ｜ 研究來源：arXiv 2609.04098v1（經 arXiv API 驗證）<br>
+  本報告基於公開論文資料整理，數學符號以 MathJax 渲染。由 <code>research-daily</code> agent 自動生成（headless 模式）。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>
