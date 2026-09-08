@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text-AB — 對齊自由 DiT 語音配音與全雙工對話合成研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout { display: grid; grid-template-columns: 260px 1fr; max-width: 1280px; margin: 0 auto; gap: 0; }
+  aside.toc { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 32px 20px 32px 24px; border-right: 1px solid var(--border); background: var(--surface); font-size: 14px; }
+  aside.toc h3 { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin: 0 0 14px 0; font-weight: 700; }
+  aside.toc nav ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+  aside.toc nav ol > li { counter-increment: toc; margin: 0 0 2px 0; }
+  aside.toc nav > ol > li > a::before { content: counter(toc) ". "; color: var(--text-muted); font-weight: 600; }
+  aside.toc nav a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--text-soft); text-decoration: none; transition: all 0.15s; }
+  aside.toc nav a:hover { background: var(--accent-soft); color: var(--accent); }
+  aside.toc nav ol ol { padding-left: 14px; margin: 2px 0 6px 0; }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  aside.toc .back-link { display: block; font-size: 12px; color: var(--accent); text-decoration: none; margin-bottom: 18px; font-weight: 600; }
+  aside.toc .back-link:hover { text-decoration: underline; }
+  main { padding: 48px 56px 80px; max-width: 900px; min-width: 0; }
+  header.report-header { margin-bottom: 48px; padding-bottom: 28px; border-bottom: 2px solid var(--border); }
+  header.report-header .eyebrow { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; }
+  header.report-header h1 { font-size: 34px; line-height: 1.25; margin: 0 0 12px 0; font-weight: 800; letter-spacing: -0.02em; }
+  header.report-header .subtitle { font-size: 17px; color: var(--text-muted); margin: 0; }
+  header.report-header .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+  header.report-header .meta span { background: var(--code-bg); padding: 4px 10px; border-radius: 6px; color: var(--text-soft); }
+  h2 { font-size: 26px; font-weight: 700; margin: 56px 0 8px 0; padding-bottom: 10px; border-bottom: 1px solid var(--border); letter-spacing: -0.01em; scroll-margin-top: 20px; }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 19px; font-weight: 700; margin: 32px 0 10px 0; color: var(--text); scroll-margin-top: 20px; }
+  h4 { font-size: 16px; font-weight: 700; margin: 22px 0 8px 0; color: var(--text-soft); }
+  p { margin: 0 0 14px 0; }
+  .paper-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 24px 28px; margin: 16px 0 28px 0; box-shadow: var(--shadow); }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline { font-size: 15px; color: var(--text-muted); margin: 6px 0 16px 0; font-style: italic; }
+  table.info { width: 100%; border-collapse: collapse; margin: 12px 0 8px 0; font-size: 14px; }
+  table.info td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.info td:first-child { font-weight: 600; color: var(--text-soft); width: 110px; white-space: nowrap; }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 8px; padding: 14px 18px; margin: 18px 0; font-size: 15px; }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code { font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; color: var(--accent-2); }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; overflow-x: auto; margin: 16px 0; }
+  pre code { background: none; padding: 0; color: var(--text); font-size: 13.5px; line-height: 1.6; }
+  .math-block { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 22px; margin: 16px 0; overflow-x: auto; }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 680px; }
+  table.compare th, table.compare td { padding: 12px 16px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+  table.compare thead th { background: var(--code-bg); font-weight: 700; font-size: 13px; }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child { font-weight: 600; background: var(--surface); width: 150px; }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) { background: var(--surface); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  .badge.purple { background: var(--accent-2-soft); color: var(--accent-2); }
+  footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } aside.toc { display: none; } main { padding: 32px 20px 60px; } header.report-header h1 { font-size: 26px; } h2 { font-size: 22px; } }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <a class="back-link" href="../index.html">← 返回總覽</a>
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">Text-AB</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與創新</a></li>
+          <li><a href="#p1-app">應用場景</a></li>
+          <li><a href="#p1-res">代碼/資源</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion Models · Flow Matching · Speech</span>
+  <h1>Text-AB<br>對齊自由 DiT 語音配音與全雙工對話合成研究報告</h1>
+  <p class="subtitle">以 Diffusion Transformer + 流匹配為骨幹，DAC-VAE 高壓縮潛在空間 + cross-attention 端到端學對齊，3B 參數在 480k 小時語音上預訓練，逼近人聲的全雙工對話</p>
+  <div class="meta">
+    <span>📅 2026-09-09</span>
+    <span>🏷️ diffusion transformer · flow matching · speech synthesis · voice dubbing · full-duplex</span>
+    <span>🔬 Meta（Audiobox 團隊）</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> Alignment-Free Text-Audiobox for Voice Dubbing and Full-Duplex Dialogue Synthesis</h2>
+  <p class="tagline">Text-AB — 在 Audiobox 基礎上做三維升級：DAC-VAE 潛在空間（10× 壓縮）、對齊自由（cross-attention 學對齊取代強制對齊）、規模化（3B 參數 + 480k 小時預訓練）</p>
+  <table class="info">
+    <tr><td>標題</td><td>Alignment-Free Text-Audiobox for Voice Dubbing and Full-Duplex Dialogue Synthesis</td></tr>
+    <tr><td>作者</td><td>Sanyuan Chen, Min-Jae Hwang, Sho Inoue, Anna Sun, Bokai Yu, et al.</td></tr>
+    <tr><td>機構</td><td>Meta（Audiobox 系列工作團隊）</td></tr>
+    <tr><td>類別</td><td>cs.CL · eess.AS</td></tr>
+    <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.03992" target="_blank" rel="noopener">arXiv:2609.03992</a></td></tr>
+    <tr><td>特性</td><td><span class="badge blue">DiT + Flow Matching</span> <span class="badge purple">DAC-VAE</span> <span class="badge green">Alignment-Free</span> <span class="badge amber">3B / 480k hrs</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>語音合成（speech synthesis）正經歷從<strong>自回歸（autoregressive）</strong>離散 token 模型向<strong>連續潛在擴散（continuous latent diffusion）</strong>模型的範式轉移。Audiobox 是 Meta 的代表性工作，採用「文本 + 語音描述 → 潛在擴散生成」的統一框架。然而，Audiobox（及多數 TTS 系統）仍受制於幾個結構性限制：潛在表示壓縮率不足、依賴強制對齊（forced alignment）與顯式時長預測、以及模型與資料規模有限。</p>
+
+<p>Text-AB（Alignment-Free Text-Audiobox）針對 Audiobox 做了<strong>三個維度的實質升級</strong>：</p>
+<ol>
+  <li><strong>潛在空間升級 — DAC-VAE 取代 EnCodec</strong>：採用 DAC-VAE 特徵，將 48 kHz 波形編碼為 25 Hz 的潛在序列，相較先前的 EnCodec 表示提供<strong>超過 10 倍的壓縮率</strong>，同時<strong>提升</strong>重合成質量（更高壓縮更不失真）。</li>
+  <li><strong>對齊自由 — cross-attention 學對齊</strong>：移除強制對齊器與顯式時長預測器，改以<strong>off-the-shelf 文本編碼器</strong>提供文本特徵，透過 <strong>cross-attention</strong> 讓模型從資料中端到端學習文本-語音對齊。這簡化了管線、消除了對齊工具的誤差累積。</li>
+  <li><strong>規模化 — 3B 參數 + 480k 小時</strong>：大幅擴展模型（3B 參數）與預訓練資料（480k 小時單語語音），並在三個下游任務上做監督微調：跨語言語音配音、全雙工對話合成、情緒全雙工對話。</li>
+</ol>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>Text-AB 的核心主張是<strong>「對齊自由」</strong>——把文本-語音的時間對齊從「外顯的、需專用工具的、顯式預測的」步驟，轉為「內隱的、由 cross-attention 從大規模資料中端到端學習的」能力。配合更高壓縮的 DAC-VAE 潛在空間（降低序列長度、加速擴散取樣）與 3B 規模（更強的對齊與表達建模能力），這三者在<strong>擴散 DiT + 流匹配</strong>骨幹上協同，使 Text-AB 在真實配音基準上取得相對最新內部配音系統的<strong>階躍式（step-change）提升</strong>。
+</div>
+
+<div class="callout purple">
+  <strong>定位 — 三維協同升級而非單點改進：</strong>既有工作多在單一維度改進（如更好的 VAE、或更好的對齊器、或更大模型）。Text-AB 的貢獻在於<strong>同時</strong>升級潛在表示、對齊機制、與規模，並指出三者協同：高壓縮潛在空間讓擴散序列更短（使對齊自由在計算上可行），cross-attention 對齊自由消除了管線誤差累積（讓大模型規模化的紅利不被對齊誤差抵消），而規模化又反過來支撐了 cross-attention 從資料中學好對齊所需的能力。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout green">
+  <strong>直覺範例 — 同聲傳譯員的「聽記說」：</strong>想像一位頂尖同聲傳譯員。舊系統像是一位需要<strong>兩個助手</strong>的譯員：助手 A 先把講稿逐字標好每個字要講多久（強制對齊 + 時長預測），助手 B 把講稿轉成音素，譯員再照著助手準備好的時間表念出來——助手若標錯，整段就歪了。<br><br>
+  Text-AB 像是一位<strong>不需要助手</strong>的大師級譯員：他直接看文本（文本編碼器），一邊聽了海量的錄音（480k 小時預訓練），自然就學會「這句話的這個字，該在什麼時候、用什麼語調說出來」（cross-attention 學對齊）。而且他用的「速記符號」（DAC-VAE 潛在表示）比舊的精簡 10 倍以上，所以他反應更快，質量還更高。
+</div>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>潛在空間：DAC-VAE 編碼</strong>：
+    <ul>
+      <li>以 DAC-VAE 將 48 kHz 原始波形 $\mathbf{x}$ 編碼為 25 Hz 的潛在序列 $\mathbf{z} = \text{Enc}(\mathbf{x})$。</li>
+      <li>相較 EnCodec 表示，壓縮率提升 10 倍以上（序列長度大幅縮短），且重合成質量 $\hat{\mathbf{x}} = \text{Dec}(\mathbf{z})$ 更高。</li>
+      <li>短序列降低擴散模型的計算成本，使對齊自由的 cross-attention 在計算上可行。</li>
+    </ul>
+  </li>
+  <li><strong>文本條件：off-the-shelf 文本編碼器</strong>：
+    <ul>
+      <li>以現成文本編碼器將輸入文本編碼為文本特徵序列 $\{\mathbf{t}_j\}$。</li>
+      <li>不依賴音素級強制對齊，也不預測顯式時長——文本-語音的時間對齊交由 cross-attention 學習。</li>
+    </ul>
+  </li>
+  <li><strong>骨幹：Diffusion Transformer + Flow Matching</strong>：
+    <ul>
+      <li>以 DiT 為生成骨幹，在潛在空間 $\mathbf{z}$ 上做擴散生成。</li>
+      <li>訓練目標為<strong>流匹配（flow matching）</strong>：學習從高斯先驗到潛在語音分佈的向量場，以確定性 ODE 路徑取樣（相較隨機 SDE 更穩定、取樣效率更高）。</li>
+      <li>文本特徵 $\{\mathbf{t}_j\}$ 透過 cross-attention 注入 DiT，模型在去噪過程中學習文本-語音的對齊。</li>
+    </ul>
+  </li>
+  <li><strong>對齊自由機制 — cross-attention 學對齊</strong>：
+    <ul>
+      <li>DiT 的每層 cross-attention 以文本特徵為 key/value、以當前語音潛在為 query，使模型在生成每個語音幀時自動關注對應的文本位置。</li>
+      <li>對齊是<strong>從資料中內隱學習</strong>的，不需外顯對齊標註或強制對齊器，消除了管線誤差累積。</li>
+    </ul>
+  </li>
+  <li><strong>規模化預訓練</strong>：
+    <ul>
+      <li>3B 參數 DiT，在 480k 小時單語語音上預訓練流匹配向量場。</li>
+      <li>大規模預訓練賦予模型足夠的對齊與表達建模能力，支撐對齊自由的 cross-attention 學好對齊。</li>
+    </ul>
+  </li>
+  <li><strong>下游任務監督微調</strong>：
+    <ul>
+      <li><strong>跨語言語音配音</strong>：將源語音的內容替換為目標語言文本，保留說話人音色。</li>
+      <li><strong>全雙工對話合成</strong>：原生建模輪替（turn-taking）、回應詞（back-channeling）、與情緒動態。</li>
+      <li><strong>情緒全雙工對話</strong>：加入情緒條件，提升情緒對齊與情緒互動質量。</li>
+    </ul>
+  </li>
+  <li><strong>推理：one-shot + 長生成 + 多階段重排</strong>：
+    <ul>
+      <li>one-shot 生成支援最長約 1 分鐘語音。</li>
+      <li>透過 <strong>multi-diffusion scheme</strong> 支援任意長形生成（分段擴散 + 邊界拼接）。</li>
+      <li><strong>多階段重排（multi-stage reranking）</strong>：基於自動指標對多個生成候選重排，提升質量。</li>
+    </ul>
+  </li>
+  <li><strong>與既有方法的對比</strong>：
+    <ul>
+      <li><strong>vs Audiobox</strong>：更高壓縮潛在（10×）、對齊自由（移除強制對齊）、更大規模（3B / 480k hrs），在真實配音基準取得階躍式提升。</li>
+      <li><strong>vs 最新內部配音系統</strong>：在韻律相似度、音色相似度、自然度、可分享性上大幅超越。</li>
+      <li><strong>vs 顯式對齊 TTS</strong>：消除對齊器誤差累積，管線更簡潔。</li>
+    </ul>
+  </li>
+</ol>
+
+<div class="callout amber">
+  <strong>關鍵設計 — 為何「對齊自由」可行：對齊是湧現能力而非外掛模組。</strong>強制對齊器源於早期小模型時代——模型能力不足以自行學對齊，需外掛工具。但當模型規模達 3B、資料達 480k 小時，cross-attention 有足夠容量從海量文本-語音對中<strong>內隱學會</strong>對齊。這與 LLM 從需外掛分詞/句法工具到端到端學習的趨勢一致：規模化使原本需外掛的能力成為模型的湧現能力。
+</div>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>潛在空間：DAC-VAE 編解碼</h4>
+<p>給定 48 kHz 波形 $\mathbf{x} \in \mathbb{R}^{T_s}$，DAC-VAE 編碼為 25 Hz 潛在序列：</p>
+<div class="math-block">
+$$ \mathbf{z} = \text{Enc}_{\text{DAC-VAE}}(\mathbf{x}) \in \mathbb{R}^{L \times d_z}, \quad L = \frac{T_s}{48000} \times 25 \approx \frac{T_s}{1920} $$
+</div>
+<p>相較 EnCodec 的幀率 $f_{\text{old}}$，DAC-VAE 幀率 $f_{\text{new}} = 25$ Hz 提供超過 10 倍壓縮（$f_{\text{old}}/f_{\text{new}} > 10$）。解碼重建 $\hat{\mathbf{x}} = \text{Dec}_{\text{DAC-VAE}}(\mathbf{z})$，質量優於 EnCodec。</p>
+
+<h4>文本條件：cross-attention 注入</h4>
+<p>文本經編碼器得特徵 $\{\mathbf{t}_j\}_{j=1}^{J}$。DiT 第 $\ell$ 層的 cross-attention 以語音潛在 query、文本 key/value：</p>
+<div class="math-block">
+$$ \text{CrossAttn}^{(\ell)}(\mathbf{z}_t, \mathbf{t}) = \text{softmax}\!\left(\frac{(\mathbf{W}_Q \mathbf{z}_t)(\mathbf{W}_K \mathbf{t})^\top}{\sqrt{d_k}}\right) \mathbf{W}_V \mathbf{t} $$
+</div>
+<p>attention 權重 $\alpha_{i,j}$ 即模型學到的<strong>軟對齊</strong>：語音幀 $i$ 對文本位置 $j$ 的關注度。對齊無需外顯監督，從資料中湧現。</p>
+
+<h4>流匹配訓練目標</h4>
+<p>定義從高斯先驗 $p_0 = \mathcal{N}(\mathbf{0}, \mathbf{I})$ 到潛在語音分佈 $p_1$ 的機率路徑。條件流匹配的線性插值構造：</p>
+<div class="math-block">
+$$ \mathbf{z}_t = (1-t)\,\mathbf{z}_0 + t\,\mathbf{z}_1, \quad \mathbf{z}_0 \sim \mathcal{N}(\mathbf{0}, \mathbf{I}), \quad \mathbf{z}_1 \sim p_1(\cdot \mid \mathbf{t}) $$
+</div>
+<p>目標向量場 $u_t = \mathbf{z}_1 - \mathbf{z}_0$，DiT 參數化的向量場 $v_\theta(\mathbf{z}_t, t, \mathbf{t})$ 以流匹配損失訓練：</p>
+<div class="math-block">
+$$ \mathcal{L}_{\text{FM}}(\theta) = \mathbb{E}_{t,\, \mathbf{z}_0,\, \mathbf{z}_1}\!\left[ \big\| v_\theta(\mathbf{z}_t, t, \mathbf{t}) - (\mathbf{z}_1 - \mathbf{z}_0) \big\|^2 \right] $$
+</div>
+
+<h4>推理：ODE 取樣</h4>
+<p>訓練完成後，從 $\mathbf{z}_0 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ 求解確定性 ODE 得 $\mathbf{z}_1$：</p>
+<div class="math-block">
+$$ \frac{d\mathbf{z}_t}{dt} = v_\theta(\mathbf{z}_t, t, \mathbf{t}), \quad t: 0 \to 1, \quad \hat{\mathbf{x}} = \text{Dec}_{\text{DAC-VAE}}(\mathbf{z}_1) $$
+</div>
+<p>流匹配的確定性 ODE 相較擴散 SDE 路徑更穩定、取樣步數更少。</p>
+
+<h4>長生成：multi-diffusion</h4>
+<p>對超長文本，分段生成 $\{\mathbf{z}^{(s)}\}$ 並在邊界做重疊-相加式拼接，使任意長度生成連貫：</p>
+<div class="math-block">
+$$ \mathbf{z}_{\text{long}} = \text{OverlapAdd}\!\left(\{\text{ODE-Solve}(v_\theta, \mathbf{z}_0^{(s)}, \mathbf{t}^{(s)})\}_s\right) $$
+</div>
+
+<h4>多階段重排</h4>
+<p>對多個生成候選 $\{\hat{\mathbf{z}}_1^{(m)}\}_m$，以自動指標 $R(\cdot)$ 重排選最佳：</p>
+<div class="math-block">
+$$ \hat{\mathbf{z}}_1^* = \arg\max_{m} R\!\left(\text{Dec}(\hat{\mathbf{z}}_1^{(m)})\right) $$
+</div>
+
+<h3 id="p1-exp">實驗結果</h3>
+
+<h4>主要設定</h4>
+<table class="info">
+  <tr><td>模型規模</td><td>3B 參數 DiT</td></tr>
+  <tr><td>預訓練資料</td><td>480k 小時單語語音</td></tr>
+  <tr><td>潛在空間</td><td>DAC-VAE，48 kHz → 25 Hz（&gt;10× 壓縮）</td></tr>
+  <tr><td>生成骨幹</td><td>Diffusion Transformer + Flow Matching</td></tr>
+  <tr><td>下游任務</td><td>跨語言配音、全雙工對話、情緒全雙工對話</td></tr>
+  <tr><td>對比基線</td><td>最新內部配音系統、最新內部對話模型</td></tr>
+</table>
+
+<h4>定量／定性結果</h4>
+<div class="callout green">
+  <strong>關鍵結果：</strong>
+  <ul>
+    <li><strong>跨語言配音</strong>（真實配音基準）：相對最新內部配音系統，在韻律相似度、音色相似度、自然度、可分享性上取得<strong>階躍式（step-change）提升</strong>。</li>
+    <li><strong>全雙工對話</strong>：短對話上<strong>逼近人聲錄音</strong>；長對話的人聲相似度與表達力大幅超越最新內部模型。</li>
+    <li><strong>情緒對話</strong>：情緒條件顯著提升情緒對齊與情緒互動質量（相對無條件基線）。</li>
+    <li><strong>原生建模</strong>輪替、回應詞、情緒動態。</li>
+  </ul>
+</div>
+
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>面向</th>
+      <th>Audiobox / 顯式對齊 TTS</th>
+      <th>最新內部系統</th>
+      <th>Text-AB</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>潛在壓縮</td><td>EnCodec（基準）</td><td>—</td><td><strong>DAC-VAE &gt;10×</strong></td></tr>
+    <tr><td>對齊機制</td><td>強制對齊 + 時長預測</td><td>—</td><td><strong>cross-attention 學對齊</strong></td></tr>
+    <tr><td>模型規模</td><td>較小</td><td>—</td><td><strong>3B / 480k hrs</strong></td></tr>
+    <tr><td>管線誤差累積</td><td>有（對齊器誤差）</td><td>—</td><td><strong>無（端到端）</strong></td></tr>
+    <tr><td>配音質量</td><td>—</td><td>基準</td><td><strong>階躍式提升</strong></td></tr>
+    <tr><td>全雙工對話</td><td>—</td><td>基準</td><td><strong>逼近人聲 / 大幅超越</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout amber">
+  <strong>結果解讀：</strong>「階躍式提升」與「逼近人聲」是強宣稱，反映三維協同升級的綜合效果。值得注意的是，提升不只來自規模化——對齊自由消除了管線誤差累積、DAC-VAE 壓縮使擴散可行，這兩個結構性改進是規模化紅利得以兌現的前提。
+</div>
+
+<h4>消融與機制驗證（依方法學推論）</h4>
+<table class="info">
+  <tr><td>DAC-VAE vs EnCodec</td><td>更高壓縮使序列更短，擴散計算下降；重合成質量提升</td></tr>
+  <tr><td>對齊自由 vs 強制對齊</td><td>移除強制對齊消除誤差累積；大模型 + cross-attention 從資料學對齊</td></tr>
+  <tr><td>規模化（3B / 480k）</td><td>規模化支撐 cross-attention 學好對齊；小模型對齊自由會退化</td></tr>
+  <tr><td>multi-diffusion 長生成</td><td>移除則長文本生成邊界不連貫</td></tr>
+  <tr><td>多階段重排</td><td>移除則質量上限下降（無候選篩選）</td></tr>
+</table>
+
+<h3 id="p1-contrib">貢獻與創新</h3>
+<ol>
+  <li><strong>對齊自由的語音擴散</strong>：移除強制對齊與顯式時長預測，以 cross-attention 從大規模資料端到端學文本-語音對齊，消除了管線誤差累積，對齊成為模型的湧現能力。</li>
+  <li><strong>DAC-VAE 高壓縮潛在空間</strong>：48 kHz → 25 Hz，超過 10 倍壓縮且重合成質量提升，使擴散在計算上可行並加速取樣。</li>
+  <li><strong>規模化（3B / 480k 小時）</strong>：在 DiT + 流匹配骨幹上大幅擴展模型與資料，支撐對齊自由的湧現與高表達力。</li>
+  <li><strong>全雙工對話原生建模</strong>：原生建模輪替、回應詞、情緒動態，短對話逼近人聲，長對話大幅超越內部模型。</li>
+  <li><strong>三維協同的階躍式提升</strong>：高壓縮潛在 + 對齊自由 + 規模化協同，在真實配音基準取得相對最新內部系統的階躍式提升，證明結構性改進與規模化紅利協同。</li>
+</ol>
+
+<h3 id="p1-app">應用場景</h3>
+<ul>
+  <li><strong>跨語言影視配音</strong>：將影視內容配音至多語言，保留原說話人音色，提升韻律與自然度。</li>
+  <li><strong>全雙工語音助理</strong>：原生支援輪替與回應詞的對話助理，更自然的即時互動。</li>
+  <li><strong>情緒化對話合成</strong>：帶情緒條件的對話生成，適用於客服、陪伴、遊戲 NPC 等情緒互動場景。</li>
+  <li><strong>長形內容生成</strong>：透過 multi-diffusion 支援有聲書、播客等長形語音內容生成。</li>
+  <li><strong>高質量 TTS 基座</strong>：作為統一語音生成基座，下游微調至多種語音任務。</li>
+</ul>
+
+<div class="callout purple">
+  <strong>未來展望：</strong>對齊自由範式可推廣至其他需時間對齊的模態生成（如音樂-歌詞、影片-字幕對齊）。全雙工對話的原生建模可結合即時語音辨識實現真正的即時對話助理。multi-diffusion 與多階段重排的長生成範式可啟發其他長序列擴散生成。
+</div>
+
+<h3 id="p1-res">代碼/資源</h3>
+<table class="info">
+  <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.03992" target="_blank" rel="noopener">https://arxiv.org/abs/2609.03992</a></td></tr>
+  <tr><td>類別</td><td>cs.CL · eess.AS</td></tr>
+  <tr><td>作者</td><td>Sanyuan Chen, Min-Jae Hwang, Sho Inoue, Anna Sun, Bokai Yu 等（Meta）</td></tr>
+  <tr><td>下游任務</td><td>跨語言語音配音、全雙工對話合成、情緒全雙工對話</td></tr>
+  <tr><td>相關概念</td><td>Diffusion Transformer, flow matching, DAC-VAE, alignment-free, cross-attention alignment, voice dubbing, full-duplex dialogue, multi-diffusion, reranking, Audiobox</td></tr>
+</table>
+</section>
+
+<!-- ============ REFS ============ -->
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>論文</strong>：<a href="https://arxiv.org/abs/2609.03992" target="_blank" rel="noopener">arXiv:2609.03992 — Alignment-Free Text-Audiobox for Voice Dubbing and Full-Duplex Dialogue Synthesis</a></li>
+  <li><strong>作者</strong>：Sanyuan Chen, Min-Jae Hwang, Sho Inoue, Anna Sun, Bokai Yu 等（Meta，Audiobox 系列工作團隊）</li>
+  <li><strong>類別</strong>：cs.CL · eess.AS</li>
+  <li><strong>下游任務</strong>：跨語言語音配音、全雙工對話合成、情緒全雙工對話</li>
+  <li><strong>相關方法</strong>：Audiobox, DAC (Descript Audio Codec), EnCodec, Diffusion Transformer (DiT), Flow Matching / Conditional Flow Matching, forced alignment, duration prediction, cross-attention, full-duplex speech synthesis, voice conversion</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-09-09 ｜ 研究來源：arXiv 2609.03992（經驗證元資料）<br>
+  本報告基於公開論文摘要與既有技術知識整理，數學符號以 MathJax 渲染。實驗部分以論文摘要之定性宣稱（階躍式提升、逼近人聲）為主，未編造摘要未提供之具體數值。由 <code>research-daily</code> agent 自動生成（headless 模式）。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EditVid — 統一無訓練多樣化視頻編輯框架研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout { display: grid; grid-template-columns: 260px 1fr; max-width: 1280px; margin: 0 auto; gap: 0; }
+  aside.toc { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 32px 20px 32px 24px; border-right: 1px solid var(--border); background: var(--surface); font-size: 14px; }
+  aside.toc h3 { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin: 0 0 14px 0; font-weight: 700; }
+  aside.toc nav ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+  aside.toc nav ol > li { counter-increment: toc; margin: 0 0 2px 0; }
+  aside.toc nav > ol > li > a::before { content: counter(toc) ". "; color: var(--text-muted); font-weight: 600; }
+  aside.toc nav a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--text-soft); text-decoration: none; transition: all 0.15s; }
+  aside.toc nav a:hover { background: var(--accent-soft); color: var(--accent); }
+  aside.toc nav ol ol { padding-left: 14px; margin: 2px 0 6px 0; }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  aside.toc .back-link { display: block; font-size: 12px; color: var(--accent); text-decoration: none; margin-bottom: 18px; font-weight: 600; }
+  aside.toc .back-link:hover { text-decoration: underline; }
+  main { padding: 48px 56px 80px; max-width: 900px; min-width: 0; }
+  header.report-header { margin-bottom: 48px; padding-bottom: 28px; border-bottom: 2px solid var(--border); }
+  header.report-header .eyebrow { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; }
+  header.report-header h1 { font-size: 34px; line-height: 1.25; margin: 0 0 12px 0; font-weight: 800; letter-spacing: -0.02em; }
+  header.report-header .subtitle { font-size: 17px; color: var(--text-muted); margin: 0; }
+  header.report-header .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+  header.report-header .meta span { background: var(--code-bg); padding: 4px 10px; border-radius: 6px; color: var(--text-soft); }
+  h2 { font-size: 26px; font-weight: 700; margin: 56px 0 8px 0; padding-bottom: 10px; border-bottom: 1px solid var(--border); letter-spacing: -0.01em; scroll-margin-top: 20px; }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 19px; font-weight: 700; margin: 32px 0 10px 0; color: var(--text); scroll-margin-top: 20px; }
+  h4 { font-size: 16px; font-weight: 700; margin: 22px 0 8px 0; color: var(--text-soft); }
+  p { margin: 0 0 14px 0; }
+  .paper-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 24px 28px; margin: 16px 0 28px 0; box-shadow: var(--shadow); }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline { font-size: 15px; color: var(--text-muted); margin: 6px 0 16px 0; font-style: italic; }
+  table.info { width: 100%; border-collapse: collapse; margin: 12px 0 8px 0; font-size: 14px; }
+  table.info td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.info td:first-child { font-weight: 600; color: var(--text-soft); width: 110px; white-space: nowrap; }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 8px; padding: 14px 18px; margin: 18px 0; font-size: 15px; }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code { font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; color: var(--accent-2); }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; overflow-x: auto; margin: 16px 0; }
+  pre code { background: none; padding: 0; color: var(--text); font-size: 13.5px; line-height: 1.6; }
+  .math-block { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 22px; margin: 16px 0; overflow-x: auto; }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 680px; }
+  table.compare th, table.compare td { padding: 12px 16px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+  table.compare thead th { background: var(--code-bg); font-weight: 700; font-size: 13px; }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child { font-weight: 600; background: var(--surface); width: 150px; }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) { background: var(--surface); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  .badge.purple { background: var(--accent-2-soft); color: var(--accent-2); }
+  footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } aside.toc { display: none; } main { padding: 32px 20px 60px; } header.report-header h1 { font-size: 26px; } h2 { font-size: 22px; } }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <a class="back-link" href="../index.html">← 返回總覽</a>
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">EditVid</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與創新</a></li>
+          <li><a href="#p1-app">應用場景</a></li>
+          <li><a href="#p1-res">代碼/資源</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Image Editing · Video Generation</span>
+  <h1>EditVid<br>統一無訓練多樣化視頻編輯框架研究報告</h1>
+  <p class="subtitle">以稀疏因果記憶保局部連貫、對應式後注意 token 注入保長程身份、軟潛在混合保編輯局部性 —— 同一框架兼顧指令引導與參考引導的多元視頻編輯</p>
+  <div class="meta">
+    <span>📅 2026-09-09</span>
+    <span>🏷️ video editing · training-free · identity preservation · latent blending · instruction-guided</span>
+    <span>🔬 UMass Amherst et al.</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> One Editor, Many Edits: A Unified Training-Free Framework for Diverse Video Editing</h2>
+  <p class="tagline">EditVid — 一個無訓練框架同時支援指令引導與參考引導的多元視頻編輯，靠三個互補機制解決視頻編輯的三大難題：局部連貫、長程身份、編輯局部性</p>
+  <table class="info">
+    <tr><td>標題</td><td>One Editor, Many Edits: A Unified Training-Free Framework for Diverse Video Editing</td></tr>
+    <tr><td>作者</td><td>Adheesh Sunil Juvekar, Onkar Kishor Susladkar, Kiet A. Nguyen, Muntasir Wahed, Nabeel Bashir, et al.</td></tr>
+    <tr><td>機構</td><td>University of Massachusetts Amherst 等</td></tr>
+    <tr><td>類別</td><td>cs.CV · cs.AI</td></tr>
+    <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.04190" target="_blank" rel="noopener">arXiv:2609.04190</a></td></tr>
+    <tr><td>特性</td><td><span class="badge blue">Training-Free</span> <span class="badge purple">Unified</span> <span class="badge green">Identity-Preserving</span> <span class="badge amber">Instruction + Reference</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>視頻編輯（video editing）涵蓋極為多樣的編輯範式：風格轉換（style transfer）、屬性修改（attribute modification）、物件插入（object insertion）、部件級編輯（part-level editing）、主體替換（subject replacement）等。這些任務又可分為兩大引導模式：<strong>指令引導（instruction-guided）</strong>——以自然語言指令描述要做的修改；<strong>參考引導（reference-guided）</strong>——以一張參考圖提供要套用的外觀/身份。要在<strong>單一統一框架</strong>內同時高品質地支援這兩種模式與多種任務，是視頻編輯領域的開放難題。</p>
+
+<p>既有方法往往只針對單一範式或單一引導模式設計，或需要針對特定任務的訓練／微調。而視頻編輯相較圖像編輯多了<strong>時序連貫性</strong>的維度，使得三個核心挑戰同時浮現：</p>
+<ol>
+  <li><strong>局部連貫性（local coherence）</strong>：編輯後的視頻在相鄰幀之間必須時序一致，不能閃爍抖動；但又要允許該發生變化的區域變化。</li>
+  <li><strong>長程身份保持（long-range identity preservation）</strong>：被保留的主體在整段視頻中身份不能漂移，尤其在劇烈運動、遮擋、視角變化下，身份需跨幀穩定。</li>
+  <li><strong>編輯局部性（edit locality）</strong>：編輯應只作用於目標區域，不應擴散破壞背景或未編輯區域。</li>
+</ol>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>EditVid 提出，這三個挑戰可由三個<strong>互補的機制</strong>分別對應，且三者皆可在<strong>無訓練（training-free）</strong>前提下以即插即用方式組合進既有視頻擴散模型。三個機制是：<strong>稀疏因果記憶（sparse causal memory）</strong>保局部連貫、<strong>對應式後注意 token 注入（correspondence-based post-attention token injection）</strong>保長程身份、<strong>軟潛在混合（soft latent blending）</strong>保編輯局部性。同一套框架同時支援指令引導與參考引導，覆蓋風格轉換、屬性修改、物件插入、部件編輯、主體替換等多種任務。
+</div>
+
+<div class="callout purple">
+  <strong>定位 — 統一性來自「解耦的三機制」而非「大一統模型」：</strong>既有統一框架多走「一個大模型學所有任務」路線，需大量訓練且各任務互相遷就。EditVid 反其道：把視頻編輯的三大挑戰<strong>解耦</strong>到三個獨立機制，每個機制對應一個挑戰，組合起來即覆蓋多樣任務——這樣的統一性來自<strong>設計的完備性</strong>，而非模型容量，因而無需訓練。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout green">
+  <strong>直覺範例 — 電影剪輯師的三件法寶：</strong>想像一位剪輯師要改一段影片裡主角的衣服顏色（指令引導），同時要保持主角臉不變、背景不動、畫面不閃。他需要三件法寶：<br><br>
+  (1) <strong>稀疏因果記憶</strong>像是一疊「關鍵幀的記憶卡」——他不逐幀重畫，而是選幾張關鍵幀當錨點，相鄰幀只做小幅修正，這樣畫面就連貫不閃；<br>
+  (2) <strong>對應式 token 注入</strong>像是一張「主角臉的標準照」——他在每幀該出現臉的地方，把標準照的特徵「對位」貼回去，所以臉不會隨運動漂移；<br>
+  (3) <strong>軟潛在混合</strong>像是一張「鏤空遮罩」——他只把衣服那塊換掉，背景用原片，邊界做柔化過渡，所以只改該改的、不波及無辜。
+</div>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>基礎：視頻擴散模型 + 編輯引導</strong>：
+    <ul>
+      <li>以預訓練視頻擴散模型為骨幹，輸入原視頻（或其 latent）+ 編輯條件（指令文本或參考圖）。</li>
+      <li>指令引導：將編輯指令作為文本條件注入 cross-attention。</li>
+      <li>參考引導：將參考圖的視覺特徵作為額外條件注入。</li>
+    </ul>
+  </li>
+  <li><strong>機制一：稀疏因果記憶（sparse causal memory）— 保局部連貫</strong>：
+    <ul>
+      <li>不對每幀獨立去噪，而是維護一個<strong>稀疏的關鍵幀記憶集</strong>，相鄰幀的去噪參考記憶中的關鍵幀特徵，使時序上局部連貫。</li>
+      <li>「因果」指記憶只依賴過去已生成的幀（避免未來洩漏），「稀疏」指只選關鍵幀而非全部歷史（控制成本與避免過度平滑）。</li>
+      <li>作用：消除相鄰幀間的閃爍與抖動，同時允許該變化的區域變化。</li>
+    </ul>
+  </li>
+  <li><strong>機制二：對應式後注意 token 注入（correspondence-based post-attention token injection）— 保長程身份</strong>：
+    <ul>
+      <li>針對要保留的主體（如人物身份），建立參考身份的 token 特徵。</li>
+      <li>在擴散模型的 attention 層<strong>之後</strong>，依據跨幀的<strong>對應關係（correspondence）</strong>將身份 token 注入到當前幀對應的主體位置。</li>
+      <li>「後注意」指在 self/cross-attention 計算之後施加注入，避免干擾原 attention 的語意計算；「對應式」指依據時空對應把特徵放到正確位置，使身份跨幀穩定、不隨運動漂移。</li>
+    </ul>
+  </li>
+  <li><strong>機制三：軟潛在混合（soft latent blending）— 保編輯局部性</strong>：
+    <ul>
+      <li>在 latent 空間將「編輯後的 latent」與「原始 latent」依據編輯區域做<strong>軟混合</strong>：編輯區域取編輯結果，未編輯區域保留原 latent，邊界做軟過渡。</li>
+      <li>「軟」指用連續權重（非硬遮罩）過渡，避免硬邊界偽影；在 latent 空間混合使融合在語意層級一致。</li>
+      <li>作用：編輯只作用於目標區域，不擴散破壞背景或未編輯區域。</li>
+    </ul>
+  </li>
+  <li><strong>統一框架：兩種引導模式 × 多種任務</strong>：
+    <ul>
+      <li><strong>指令引導</strong>：文本指令驅動 cross-attention，三機制保連貫/身份/局部性，支援風格轉換、屬性修改、物件插入等。</li>
+      <li><strong>參考引導</strong>：參考圖特徵驅動外觀/身份，三機制同樣適用，支援主體替換、部件編輯等。</li>
+      <li>三機制對兩種模式通用，故同一框架覆蓋多元任務。</li>
+    </ul>
+  </li>
+  <li><strong>與既有方法的對比</strong>：
+    <ul>
+      <li><strong>vs 單任務訓練方法</strong>：針對單一範式訓練，遷移性差；EditVid 無訓練、統一多任務。</li>
+      <li><strong>vs 既有無訓練基線</strong>：在 FiVE 基準上，EditVid 達 78.16 FiVE-Acc，相對最強無訓練基線的 58.95 大幅領先；在 IVEBench 上具競爭力。</li>
+    </ul>
+  </li>
+</ol>
+
+<div class="callout amber">
+  <strong>關鍵設計 — 為何「後注意」注入而非「前注意」：</strong>在 attention 之前注入身份 token 會干擾 attention 自身的語意匹配計算，可能讓模型誤把身份特徵當成注意力查詢的內容；在 attention 之後注入，則是在語意計算完成後「疊加」身份訊號，既保留原 attention 的編輯語意，又在輸出特徵上強化身份，兩者解耦、互不干擾。
+</div>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>視頻擴散的條件去噪</h4>
+<p>給定原視頻 latent $\mathbf{z}_0$，視頻擴散模型在條件 $c$（指令文本或參考特徵）下從噪聲 $\mathbf{z}_T \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ 去噪：</p>
+<div class="math-block">
+$$ \mathbf{z}_{t-1} = \text{Denoise}_\theta(\mathbf{z}_t, t, c), \quad t = T, T\!-\!1, \dots, 1 $$
+</div>
+<p>編輯後的 $\mathbf{z}_0^{\text{edit}}$ 即為結果。挑戰在於直接去噪會導致連貫性、身份、局部性問題。</p>
+
+<h4>機制一：稀疏因果記憶</h4>
+<p>設關鍵幀集合 $\mathcal{K} \subset \{1,\dots,F\}$（稀疏選取）。當前幀 $f$ 的去噪以記憶中的關鍵幀特徵為條件：</p>
+<div class="math-block">
+$$ \mathbf{z}_{t-1}^{(f)} = \text{Denoise}_\theta\!\left(\mathbf{z}_t^{(f)},\ t,\ c,\ \{\mathbf{z}_{t}^{(k)}\}_{k \in \mathcal{K},\, k < f}\right) $$
+</div>
+<p>「因果」體現在只依賴 $k < f$（過去關鍵幀），「稀疏」體現在 $|\mathcal{K}| \ll F$。這使相鄰幀共享記憶錨點，局部連貫。</p>
+
+<h4>機制二：對應式後注意 token 注入</h4>
+<p>設參考身份的 token 特徵為 $\{\mathbf{r}_j\}$。對當前幀 $f$ 的 attention 輸出 $\mathbf{a}^{(f)}$，依時空對應 $\pi_f$（將參考位置映射到當前幀位置）在 attention 之後注入：</p>
+<div class="math-block">
+$$ \tilde{\mathbf{a}}^{(f)} = \mathbf{a}^{(f)} + \lambda \cdot \text{Inject}\!\left(\{\mathbf{r}_j\},\ \pi_f\right) $$
+</div>
+<p>其中 $\lambda$ 為注入強度，$\text{Inject}$ 依對應 $\pi_f$ 將身份特徵放到正確時空位置。在 attention 之後施加，不干擾原 attention 的語意計算，使身份跨幀穩定。</p>
+
+<h4>機制三：軟潛在混合</h4>
+<p>設編輯區域的軟權重圖 $M \in [0,1]^{F \times H \times W}$（編輯區域趨近 1、未編輯趨近 0、邊界過渡）。在 latent 空間混合編輯結果與原 latent：</p>
+<div class="math-block">
+$$ \mathbf{z}_0^{\text{out}} = M \odot \mathbf{z}_0^{\text{edit}} + (1 - M) \odot \mathbf{z}_0^{\text{orig}} $$
+</div>
+<p>軟權重使邊界平滑過渡，latent 空間混合保證語意層級一致，編輯局部於目標區域。</p>
+
+<h4>三機制聯合</h4>
+<div class="math-block">
+$$ \mathbf{z}_0^{\text{out}} = \text{SoftBlend}\!\Big(\text{PostAttnInject}\!\big(\text{SparseCausal}(\mathbf{z}_T, c)\big)\Big) $$
+</div>
+<p>三機制串接：稀疏因果記憶保連貫 → 後注意注入保身份 → 軟潛在混合保局部性，對指令引導與參考引導通用。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+
+<h4>主要設定</h4>
+<table class="info">
+  <tr><td>任務</td><td>多樣化視頻編輯（風格轉換、屬性修改、物件插入、部件編輯、主體替換）</td></tr>
+  <tr><td>引導模式</td><td>指令引導（instruction-guided）+ 參考引導（reference-guided）</td></tr>
+  <tr><td>訓練狀態</td><td>無訓練（training-free）</td></tr>
+  <tr><td>評測基準</td><td>FiVE（FiVE-Acc 指標）、IVEBench</td></tr>
+  <tr><td>對比基線</td><td>多個無訓練視頻編輯方法（最強基線 FiVE-Acc 58.95）</td></tr>
+  <tr><td>使用者研究</td><td>與 7 個競爭方法對比偏好率</td></tr>
+</table>
+
+<h4>定量結果</h4>
+<div class="callout green">
+  <strong>關鍵數字：</strong>
+  <ul>
+    <li>FiVE 基準：EditVid 達 <strong>78.16 FiVE-Acc</strong>，最強無訓練基線僅 58.95（領先約 19 分）</li>
+    <li>IVEBench：具競爭力結果</li>
+    <li>使用者研究：EditVid 獲 <strong>51.8% 整體偏好率</strong>（對 7 個競爭方法）</li>
+  </ul>
+</div>
+
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>面向</th>
+      <th>單任務訓練方法</th>
+      <th>既有無訓練基線</th>
+      <th>EditVid</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>訓練需求</td><td>需任務專屬訓練</td><td>無</td><td><strong>無</strong></td></tr>
+    <tr><td>統一性</td><td>單一範式</td><td>部分多任務</td><td><strong>指令+參考，多任務</strong></td></tr>
+    <tr><td>局部連貫</td><td>依賴訓練</td><td>有限</td><td><strong>稀疏因果記憶</strong></td></tr>
+    <tr><td>長程身份</td><td>易漂移</td><td>易漂移</td><td><strong>後注意 token 注入</strong></td></tr>
+    <tr><td>編輯局部性</td><td>易擴散</td><td>易擴散</td><td><strong>軟潛在混合</strong></td></tr>
+    <tr><td>FiVE-Acc</td><td>—</td><td>58.95（最強基線）</td><td><strong>78.16</strong></td></tr>
+    <tr><td>使用者偏好</td><td>—</td><td>—</td><td><strong>51.8%</strong>（vs 7 方法）</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout amber">
+  <strong>結果解讀：</strong>FiVE-Acc 78.16 vs 58.95 的差距（約 19 分）顯著，且這是在「無訓練」前提下取得——說明三機制的解耦設計在統一性與品質上雙雙領先。51.8% 使用者偏好率（過半）進一步印證主觀品質優勢。
+</div>
+
+<h4>消融與機制驗證（依方法學推論）</h4>
+<table class="info">
+  <tr><td>移除稀疏因果記憶</td><td>相鄰幀閃爍抖動，時序連貫性下降</td></tr>
+  <tr><td>移除後注意 token 注入</td><td>主體身份跨幀漂移，尤其運動/遮擋下</td></tr>
+  <tr><td>移除軟潛在混合</td><td>編輯擴散至背景，破壞未編輯區域</td></tr>
+  <tr><td>前注意 vs 後注意注入</td><td>前注意干擾 attention 語意計算，後注意解耦更穩定</td></tr>
+</table>
+
+<h3 id="p1-contrib">貢獻與創新</h3>
+<ol>
+  <li><strong>統一無訓練框架覆蓋多元視頻編輯</strong>：同一框架同時支援指令引導與參考引導，覆蓋風格轉換、屬性修改、物件插入、部件編輯、主體替換等多種任務，無需訓練。</li>
+  <li><strong>解耦的三機制對應三大挑戰</strong>：稀疏因果記憶保局部連貫、對應式後注意 token 注入保長程身份、軟潛在混合保編輯局部性，三機制互補且對兩種引導模式通用。</li>
+  <li><strong>對應式後注意注入</strong>：在 attention 之後依時空對應注入身份 token，解耦身份保持與語意編輯，避免干擾 attention 計算。</li>
+  <li><strong>稀疏因果記憶</strong>：以稀疏關鍵幀為錨點、因果依賴過去，平衡時序連貫與計算成本。</li>
+  <li><strong>無訓練下大幅領先</strong>：FiVE-Acc 78.16 vs 最強基線 58.95，使用者偏好率過半，證明設計完備性可替代訓練。</li>
+</ol>
+
+<h3 id="p1-app">應用場景</h3>
+<ul>
+  <li><strong>創意視頻後製</strong>：風格轉換、屬性修改、物件插入等創意編輯，無需訓練即可套用於既有視頻擴散模型。</li>
+  <li><strong>主體替換與換裝</strong>：參考引導下做人物/主體替換、服裝更換，身份跨幀保持穩定。</li>
+  <li><strong>部件級精細編輯</strong>：針對物體局部（如車輪、眼睛）做部件級修改，編輯局部於目標區域。</li>
+  <li><strong>無訓練即可部署的編輯工具</strong>：作為即插即用模組整合進視頻生成管線，降低部署門檻。</li>
+  <li><strong>多任務統一介面</strong>：為下游應用提供單一框架處理多樣編輯需求，簡化系統架構。</li>
+</ul>
+
+<div class="callout purple">
+  <strong>未來展望：</strong>三機制的解耦設計可獨立改進：更強的時空對應估計提升 token 注入精度、自適應稀疏度選擇優化因果記憶、與可編輯區域自動分割結合實現全自動局部性控制。統一框架亦可擴展至音頻驅動編輯、長視頻敘事編輯等場景。
+</div>
+
+<h3 id="p1-res">代碼/資源</h3>
+<table class="info">
+  <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.04190" target="_blank" rel="noopener">https://arxiv.org/abs/2609.04190</a></td></tr>
+  <tr><td>類別</td><td>cs.CV · cs.AI</td></tr>
+  <tr><td>作者</td><td>Adheesh Sunil Juvekar, Onkar Kishor Susladkar, Kiet A. Nguyen, Muntasir Wahed, Nabeel Bashir 等（UMass Amherst 等）</td></tr>
+  <tr><td>評測基準</td><td>FiVE（FiVE-Acc）、IVEBench</td></tr>
+  <tr><td>相關概念</td><td>video editing, training-free, instruction-guided, reference-guided, sparse causal memory, post-attention token injection, correspondence, soft latent blending, identity preservation, edit locality</td></tr>
+</table>
+</section>
+
+<!-- ============ REFS ============ -->
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>論文</strong>：<a href="https://arxiv.org/abs/2609.04190" target="_blank" rel="noopener">arXiv:2609.04190 — One Editor, Many Edits: A Unified Training-Free Framework for Diverse Video Editing</a></li>
+  <li><strong>作者</strong>：Adheesh Sunil Juvekar, Onkar Kishor Susladkar, Kiet A. Nguyen, Muntasir Wahed, Nabeel Bashir 等（University of Massachusetts Amherst 等）</li>
+  <li><strong>類別</strong>：cs.CV · cs.AI</li>
+  <li><strong>評測基準</strong>：FiVE（FiVE-Acc）、IVEBench</li>
+  <li><strong>相關方法</strong>：video diffusion editing, instruction-guided editing, reference-guided editing, null-text inversion, cross-frame attention, identity-preserving generation, latent blending, training-free video editing</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-09-09 ｜ 研究來源：arXiv 2609.04190（經驗證元資料）<br>
+  本報告基於公開論文摘要與既有技術知識整理，數學符號以 MathJax 渲染。實驗數值（FiVE-Acc 78.16 vs 58.95、51.8% 偏好率）取自論文摘要。由 <code>research-daily</code> agent 自動生成（headless 模式）。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

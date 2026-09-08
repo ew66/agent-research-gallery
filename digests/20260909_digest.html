@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日科研摘要 — 2026-09-09</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --code-bg: #f4f4f5;
+    --digest-badge: #7c3aed;
+    --digest-badge-soft: #ede9fe;
+    --report-badge: #059669;
+    --report-badge-soft: #d1fae5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --code-bg: #26262a;
+      --digest-badge: #a78bfa;
+      --digest-badge-soft: #2e1065;
+      --report-badge: #34d399;
+      --report-badge-soft: #064e3b;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+  header.digest-header {
+    margin-bottom: 40px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--digest-badge);
+    background: var(--digest-badge-soft);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  header.digest-header h1 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px 0;
+  }
+  header.digest-header .meta {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0 0 12px 0;
+    font-variant-numeric: tabular-nums;
+  }
+  header.digest-header .stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--text-soft);
+  }
+  header.digest-header .stats span {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .back-link {
+    display: inline-block;
+    margin-top: 16px;
+    font-size: 14px;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .back-link:hover { text-decoration: underline; }
+  section.direction {
+    margin-bottom: 40px;
+  }
+  section.direction > h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  section.direction > p.direction-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0 0 16px 0;
+  }
+  .item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  .item-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .item-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+    line-height: 1.4;
+    flex: 1;
+  }
+  .item-title:hover { text-decoration: underline; }
+  .score-badge {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .score-high { background: var(--report-badge-soft); color: var(--report-badge); }
+  .score-mid { background: #fef3c7; color: #b45309; }
+  @media (prefers-color-scheme: dark) {
+    .score-mid { background: #422006; color: #fbbf24; }
+  }
+  .item-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 8px 0;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .item-meta .source-type {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .item-summary {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin: 0;
+    line-height: 1.55;
+  }
+  .deep-dive-link {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--report-badge);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .deep-dive-link:hover { text-decoration: underline; }
+  .empty {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 16px 0;
+  }
+  footer {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 600px) {
+    .container { padding: 32px 16px 60px; }
+    header.digest-header h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="digest-header">
+    <span class="eyebrow">Daily Digest</span>
+    <h1>每日科研摘要 — 2026-09-09</h1>
+    <p class="meta">2026-09-09 · 自動科研 agent 產出</p>
+    <div class="stats">
+      <span>發現 25</span>
+      <span>深度報告 3</span>
+      <span>去重排除 0</span>
+    </div>
+    <a class="back-link" href="../index.html">← 返回 Gallery</a>
+  </header>
+
+  <section class="direction">
+    <h2>Diffusion Models</h2>
+    <p class="direction-desc">Score-based / flow-based generative modeling：diffusion、flow matching、rectified flow、consistency model、DiT、score distillation、CFG、sampling acceleration</p>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="../reports/20260909_TextAB_DiT_FlowMatching_Speech.html">Alignment-Free Text-Audiobox for Voice Dubbing and Full-Duplex Dialogue Synthesis</a>
+          <span class="score-badge score-high">7.78</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CL·eess.AS]</span><span>rel7·nov10·imp6</span></div>
+        <p class="item-summary">DiT + flow-matching 骨幹，DAC-VAE 潛在空間（48kHz→25Hz，&gt;10× 壓縮）+ cross-attention 端到端學對齊取代強制對齊；3B 參數預訓練於 480k 小時語音，跨語言配音取得階躍式提升，全雙工對話逼近人聲。</p>
+        <a class="deep-dive-link" href="../reports/20260909_TextAB_DiT_FlowMatching_Speech.html">→ 深度研究報告</a>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.05328">Embedded Graph Flows for Categorical Graph Generation</a>
+          <span class="score-badge score-high">7.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">EGF 學習類別連續嵌入，以置換等變圖 transformer 將高斯雜訊傳輸至嵌入端點；QM9 上 FCD 0.150 優於 DiGress 與 GruM。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04822">Minimax Lower Bound for Estimating Diffusion-based Local Intrinsic Dimension</a>
+          <span class="score-badge score-high">7.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[stat.ML·cs.LG]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">為擴散式局部內在維度（FLIPD）建立 minimax 下界 $(n\sigma^d)^{-1}$；流形維度估計誤差 $O(\sigma^2)$，最小尺度達非參數率 $n^{-2\alpha/(2\alpha+d)}$。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.02543">LightBridge: Feed-Forward Generative Relighting for 3D Gaussian Splatting</a>
+          <span class="score-badge score-high">7.78</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.GR·eess.IV]</span><span>rel7·nov10·imp6</span></div>
+        <p class="item-summary">前饋式潛在橋接擴散將重打光建模為潛在空間 source→target 傳輸，一步抽取 2D token；點 transformer 跨完整 3DGS 傳播，單 pass 預測重打光資產。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.02511">Telligram: Text-Driven Calligram Generation via Diffusion-Guided Skeleton Optimization</a>
+          <span class="score-badge score-mid">6.89</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.GR]</span><span>rel6·nov10·imp4</span></div>
+        <p class="item-summary">無輸入輪廓的文字驅動 calligram 生成；兩階段 VSD 骨架優化（語意佔據先驗）+ 可讀性約束字形實現，無訓練、低調參。</p>
+      </div>
+  </section>
+
+  <section class="direction">
+    <h2>Model Compression &amp; Quantization</h2>
+    <p class="direction-desc">Post-training / QAT 壓縮：PTQ、QAT、W4A4、W8A8、INT4、SpinQuant/QuaRot、AWQ、GPTQ、SmoothQuant、outlier handling、low-bit</p>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="../reports/20260909_FlowTT_TensorTrain_Embedding_GPU.html">FlowTT: Exploiting Computation Flow Reuse in Irregular Tensor-Train Embedding</a>
+          <span class="score-badge score-high">8.67</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.DC·cs.AR]</span><span>rel9·nov10·imp6</span></div>
+        <p class="item-summary">將 TT 嵌入查找重構為前綴共享計算流；流對齊分組 + 融合執行（晶片內駐留）+ 持久化執行緒 + L2 檢查點；Meta 基準推理 ↓42.2%、訓練 ↓49.2%、峰值記憶體最低。</p>
+        <a class="deep-dive-link" href="../reports/20260909_FlowTT_TensorTrain_Embedding_GPU.html">→ 深度研究報告</a>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.05152">Compression Beyond the Uncompressed: A Two-Stage Training Recipe for Soft Context Compression in RAG</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CL]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">DEX-Comp 兩階段：純蒸餾暖啟動（僅正確回應）+ 硬探索 RL（僅在 RAG 失敗查詢上）；16× 壓縮、4–24× 加速，性能可比或超越未壓縮 RAG。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04947">MCPO: Modality-Contrastive Preference Optimization for Multimodal Chain-of-Thought Compression</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV·cs.AI]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">兩階段長度壓縮：步級 NCMI 剪枝移除視覺無關推理步 + 非對稱多模態長度偏好損失；CoT 長度 ↓69.5%、端到端 ↑3.34×，&lt;900 樣本即效。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04830">Communication-Efficient Personalized Federated Learning via Layer-Wise Multi-Threshold Random Sketching</a>
+          <span class="score-badge score-high">8.00</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel8·nov10·imp5</span></div>
+        <p class="item-summary">逐層多閾值隨機素描：每層自有量化閾值集，適應層級統計、多區間細粒度低 bit 描述；改善 one-bit 壓縮的通訊-精度權衡。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04852">KVMem: Virtualizing Million-Token Agent Workspaces on a Consumer GPU</a>
+          <span class="score-badge score-high">8.44</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel8·nov10·imp7</span></div>
+        <p class="item-summary">KV 上下文虛擬化：溢出歷史以分頁 KV 跨 GPU/主機/NVMe 保存，輕量注意力索引選相關塊；24GB RTX 5090 跑 Qwen3.8-27B NVFP4 + MTP，1M token 工作區，~50 token/s。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.02514">AceSpec: An Asymmetric Edge-Cloud Collaborative Framework for Communication-Efficient LLM Inference</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.DC]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">非對稱邊雲投機解碼：邊緣小模型草擬、雲端驗證；概率狀態快取把網路級 pipeline flush 轉為 $O(1)$ 本地查表；3.52× 吞吐，50 Kbps WAN 下仍近峰值。</p>
+      </div>
+  </section>
+
+  <section class="direction">
+    <h2>Efficient Inference</h2>
+    <p class="direction-desc">大模型服務加速：speculative decoding、FlashAttention、continuous batching、prefix caching、KV cache、MoE、sparse inference、chunked prefill</p>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04852">KVMem: Virtualizing Million-Token Agent Workspaces on a Consumer GPU</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel9·nov10·imp7</span></div>
+        <p class="item-summary">KV 上下文虛擬化系統，分頁 KV 跨 GPU/主機/NVMe；DeepSWE 長上下文測試任務成功率 43.8%→48.4%；消費級 GPU 跑 1M token agent 工作區。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.01338">mzCache: On-Device LLM Memory Management under Multitasking</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.OS·cs.DC·cs.LG]</span><span>rel9·nov10·imp7</span></div>
+        <p class="item-summary">裝置端 LLM 多工記憶體管理：細粒度共享緩衝分區 + 混合 swap/後向驅逐策略；SoC 統一記憶體實現 GPU 零等待 + 並行 CPU 回復；TTFT 2.1–5.5× 提升。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.00993">AInfer-PD: Communication-Safe In-Place Prefill-Decode Multiplexing for Distributed MoE Rollouts</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.DC]</span><span>rel9·nov10·imp7</span></div>
+        <p class="item-summary">將原地 P/D 多工擴展至分散式 MoE rollout：跨 rank 協調 collective 順序、DeepEP P/D 兩路徑獨立通訊狀態；rollout 完成時間較 SGLang ↓24.8–32.9%。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.01821">Scaling Inference Prefill with High-Radix Photonic Interconnects</a>
+          <span class="score-badge score-mid">6.76</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.DC·cs.AR]</span><span>rel8·nov10·imp7</span></div>
+        <p class="item-summary">量化 3D 整合光互連對 MoE 推理 prefill 的收益；高批次壓力下延遲 2.1–3.2× 改善，通訊受限配置 2.8–5.8×；1152-GPU 規模 TTFT 2.2–4.5× 加速。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.02514">AceSpec: An Asymmetric Edge-Cloud Collaborative Framework for Communication-Efficient LLM Inference</a>
+          <span class="score-badge score-mid">6.93</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.DC]</span><span>rel9·nov10·imp6</span></div>
+        <p class="item-summary">邊雲投機解碼：未飽和邊緣算力預建概率狀態快取，網路級 flush 轉 $O(1)$ 本地查表；非對稱通訊協議 + Lagrangian 資源分配；3.52× 吞吐。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04881">From Deep to Shallow: Unconstrained and Efficient Layer Merging Strategy</a>
+          <span class="score-badge score-mid">6.04</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">深度壓縮層合併：無解析解的卷積（含 padding）也能合併且不增大 kernel；跨架構/資料集驗證，嵌入式平台實測加速。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.03318">Iapetus: Content-Aware Hierarchical Scheduling for Collaborative ViT Inference in LEO Satellite Networks</a>
+          <span class="score-badge score-mid">6.04</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.DC]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">星座協同 ViT 推理的內容感知分層排程：token 壓縮 + 層卸載軌跡聯合規劃；5 tasks/s 下完成 91.6%，延遲 ↓53.0%、能耗 ↓70.8%。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.03844">Flip, Don't Shuffle: Watermarking LLMs at the Speed of Inference</a>
+          <span class="score-badge score-mid">6.04</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CR·cs.CL·cs.LG]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">無狀態伯努利浮水印（SBW）：每 token 獨立伯努利試驗決定綠名單，$O(1)$ 成員判定、單 kernel 零中間分配；端到端 &lt;1% 開銷，與 KGW/SynthID 統計等效。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04705">Sustainable Edge Vision via Empirically Calibrated DVFS: Eliminating Thermal Throttling</a>
+          <span class="score-badge score-mid">5.51</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.AR·cs.CV·cs.LG]</span><span>rel6·nov10·imp4</span></div>
+        <p class="item-summary">被動散熱邊緣 SoC 的經驗校準 DVFS 排程器：時域守衛 + 絕對溫界 + 導數觸發；Raspberry Pi 5 跑 YOLOv8n 消除所有熱節流，幀率 +6.8%、每幀能耗 −1.9%。</p>
+      </div>
+  </section>
+
+  <section class="direction">
+    <h2>Image Editing</h2>
+    <p class="direction-desc">擴散式圖像編輯與可控生成：ControlNet、DragDiffusion、prompt-to-prompt、null-text inversion、concept editing、identity preservation、mask-free、DreamBooth</p>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="../reports/20260909_EditVid_TrainingFree_Video_Editing.html">One Editor, Many Edits: A Unified Training-Free Framework for Diverse Video Editing</a>
+          <span class="score-badge score-high">8.67</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV·cs.AI]</span><span>rel9·nov10·imp6</span></div>
+        <p class="item-summary">無訓練統一視頻編輯框架 EditVid：稀疏因果記憶保局部連貫 + 對應式後注意 token 注入保長程身份 + 軟潛在混合保編輯局部性；FiVE-Acc 78.16 vs 58.95，使用者偏好 51.8%。</p>
+        <a class="deep-dive-link" href="../reports/20260909_EditVid_TrainingFree_Video_Editing.html">→ 深度研究報告</a>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04151">Persistent Identity Preservation in Generative Image Models: A Benchmark and Evaluation System</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">系統性基準化主體驅動生成/編輯/修復/多主體的身份保持；揭示強圖像品質≠強身份保真，迭代編輯/小主體/嚴重退化/多主體下身份退化加劇；持久身份層跨模型一致改善。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04120">BooM-VVT: Boosting Mask-Free Video Virtual Try-On with Image-Level Pseudo Data</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">無遮罩視頻虛擬試穿：影像級偽資料學無遮罩定位 + 服裝敏感關鍵幀採樣 + Frame-Shared 3D-RoPE 時空對應；OmniView 多視角資料集支撐複雜視角試穿。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.02543">LightBridge: Feed-Forward Generative Relighting for 3D Gaussian Splatting</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.GR·eess.IV]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">前饋式 3DGS 重打光：潛在橋接擴散建模 source→target 傳輸 + 點 transformer 跨完整 3DGS 傳播；單 pass 預測重打光資產，免場景特定優化。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04500">STyMo: Fast and Controllable Few-Shot Motion Style Transfer</a>
+          <span class="score-badge score-high">7.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.GR·cs.CV]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">少樣本動作風格轉移：風格解耦為靜態（時不變姿勢）+ 時序（逐幀動態）兩成分；1–2 分鐘訓練，姿勢強度/時序誇張/分區風格可運行時調控 + OOD 風格化閘門。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04911">TourPhysics: Bringing Physics to World Models for Exploration and Manipulation from a Single Image</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel6·nov10·imp5</span></div>
+        <p class="item-summary">單圖初始化的物理世界模型：確定性模擬 + 視頻生成分工，模擬器幾何/外觀記憶/生成控制分離；參考錨定記憶以幾何跨視角對應檢索靜態外觀，長程重訪降外觀漂移。</p>
+      </div>
+  </section>
+
+  <footer>
+    <p>由 <code>research-daily</code> agent 自動生成 · 模型 GLM-5.2 · 詳見 <code>runs/2026-09-09.log</code></p>
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowTT — 張量列嵌入查找的計算流重用 GPU 執行框架研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  aside.toc .back-link {
+    display: block;
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    margin-bottom: 18px;
+    font-weight: 600;
+  }
+  aside.toc .back-link:hover { text-decoration: underline; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 680px;
+  }
+  table.compare th, table.compare td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--code-bg);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child {
+    font-weight: 600;
+    background: var(--surface);
+    width: 150px;
+  }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) {
+    background: var(--surface);
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  .badge.purple { background: var(--accent-2-soft); color: var(--accent-2); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <a class="back-link" href="../index.html">← 返回總覽</a>
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">FlowTT</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與創新</a></li>
+          <li><a href="#p1-app">應用場景</a></li>
+          <li><a href="#p1-res">代碼/資源</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Model Compression · Tensor-Train Decomposition</span>
+  <h1>FlowTT<br>張量列嵌入查找的計算流重用 GPU 執行框架研究報告</h1>
+  <p class="subtitle">將張量列（TT）嵌入查找重構為前綴共享的不規則計算流 —— 透過流對齊分組、融合執行路徑與持久化執行緒排程，在壓縮的基礎上進一步榨取 GPU 吞吐</p>
+  <div class="meta">
+    <span>📅 2026-09-09</span>
+    <span>🏷️ tensor-train · embedding compression · GPU kernel · prefix-sharing · recommendation</span>
+    <span>🔬 Hanyang University</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> FlowTT: Exploiting Computation Flow Reuse in Irregular Tensor-Train Embedding</h2>
+  <p class="tagline">FlowTT — 指出 TT 壓縮只是「參數省了」，但 GPU 查找效率反而因中間結果反覆離晶片物化而惡化；透過暴露前綴共享的計算流，把 TT gather 重寫成一組可重用的不規則流</p>
+  <table class="info">
+    <tr><td>標題</td><td>FlowTT: Exploiting Computation Flow Reuse in Irregular Tensor-Train Embedding</td></tr>
+    <tr><td>作者</td><td>Jongmin Seok, Chae Eun Rhee</td></tr>
+    <tr><td>機構</td><td>Hanyang University, Seoul, Korea</td></tr>
+    <tr><td>類別</td><td>cs.DC · cs.AR</td></tr>
+    <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.03459" target="_blank" rel="noopener">arXiv:2609.03459</a></td></tr>
+    <tr><td>特性</td><td><span class="badge blue">Tensor-Train</span> <span class="badge purple">Prefix-Sharing</span> <span class="badge green">GPU Kernel</span> <span class="badge amber">Flow Reuse</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>推薦系統的核心是<strong>嵌入表（embedding table）</strong>：每個使用者、每個商品、每個類別都對應一個高維向量。當詞表規模達到數百萬甚至數十億時，嵌入表動輒佔去整個模型數十 GB 的記憶體，成為部署與訓練的主要瓶頸。<strong>張量列分解（Tensor-Train decomposition, TT）</strong>是壓縮嵌入表的經典手段：它把一個巨大的嵌入矩陣 $V \in \mathbb{R}^{V \times d}$ 分解成一連串小的<strong>核心張量（TT-cores）</strong>$G_1, G_2, \dots, G_N$，每個核心只儲存一小塊，於是參數量從 $V \cdot d$ 大幅降到 $\sum_k r_{k-1} \cdot n_k \cdot r_k$，其中 $r_k$ 是低秩的 TT-rank。</p>
+
+<p>然而，壓縮了「儲存」不等於壓縮了「計算」。問題出在<strong>嵌入查找（embedding lookup）</strong>的執行方式：要取得一個索引 $i$ 的嵌入向量，必須把它的多維座標 $(i_1, i_2, \dots, i_N)$ 逐個餵入對應的 TT-core，做一連串的張量縮併（contraction），逐步把中間結果從一個核心傳到下一個。在 GPU 上，這意味著每做一步縮併，中間的張量就要被<strong>寫回全域記憶體（global memory）</strong>，下一步再從全域記憶體讀回來——這種反覆的「離晶片物化（off-chip materialization）」會產生大量的全域記憶體往返，嚴重拖垮吞吐。</p>
+
+<p>更棘手的是<strong>不規則性（irregularity）</strong>：一批查詢索引中，不同索引在每個維度上可能共享或不共享座標片段（前綴），這種共享是零散的、輸入相依的，傳統的批次執行無法捕捉。結果是 TT 壓縮雖省了參數，卻常常讓<strong>推理延遲不降反升</strong>——「壓縮的紅利被執行效率的退化吃掉了」。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>FlowTT 觀察到，TT 嵌入查找的計算本質上是一組<strong>前綴共享的不規則計算流（prefix-shared irregular computation flows）</strong>。如果一批索引在第 $k$ 維之前有相同的前綴，它們在 TT-core $1..k$ 上的縮併結果是完全相同的，理論上只需算一次。FlowTT 把查找重構為「流」的集合，<strong>顯式暴露這些前綴共享</strong>，再透過流對齊的分組、融合的執行路徑（讓中間結果留在晶片上）與持久化執行緒排程（在負載傾斜下仍保住重用），把冗餘的 TT-core 運算、全域記憶體流量與負載不均衡一次砍掉。
+</div>
+
+<div class="callout purple">
+  <strong>定位 — 補上 TT 壓縮缺失的「執行」半邊：</strong>既有 TT 嵌入工作（如 TT-Rec, EcoRec）主要聚焦在「如何用 TT 分解壓縮參數並維持精度」，把執行交給通用框架的逐核心縮併。FlowTT 補上的是<strong>系統層</strong>的那一半：當壓縮已經做完，如何在 GPU 上真正高效地執行這些壓縮後的查找。它把問題從「參數壓縮」推進到「計算流重用」。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout green">
+  <strong>直覺範例 — 圖書館找書的「共同書架」：</strong>想像一個圖書館，書按「樓層→區→排→格」四層編號。TT 分解相當於把「完整書目」拆成四本小目錄，每本只管一層。要找一本書，你得翻第一本目錄找到樓層對應的頁，把結果記在紙上，再去翻第二本目錄……每次都要把中間結果抄到紙上（全域記憶體），再讀回來。<br><br>
+  問題是：如果你要找的一批書有 100 本，其中 60 本在同一樓層、同一區，你卻傻傻地<strong>每本都重新從第一本目錄翻起</strong>，把同樣的中間結果抄了 60 遍。<br><br>
+  FlowTT 的做法是：先看這批書的編號，找出它們<strong>從哪一層開始分岔</strong>（前綴共享），把共享前綴的書分到一組，<strong>共同的前綴只翻一次、只抄一次</strong>，分岔之後才各自往下走；而且抄寫時盡量<strong>留在手邊的便條紙（晶片記憶體）</strong>上，不來回跑書桌與檔案櫃（全域記憶體）。
+</div>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>TT 嵌入查找的計算流重構</strong>：
+    <ul>
+      <li>給定一批查詢索引 $\{i^{(b)}\}_{b=1}^{B}$，每個索引分解為多維座標 $(i_1^{(b)}, i_2^{(b)}, \dots, i_N^{(b)})$。</li>
+      <li>傳統做法逐索引、逐核心縮併：$\mathbf{h}_1 = G_1[i_1]$，$\mathbf{h}_k = \mathbf{h}_{k-1} \times G_k[i_k]$，中間張量 $\mathbf{h}_k$ 每步寫回全域記憶體。</li>
+      <li>FlowTT 把每個索引的查找視為一條「計算流」$\mathcal{F}^{(b)} = (\text{path through } G_1, G_2, \dots, G_N)$，並識別流之間的<strong>前綴共享</strong>：若兩索引在座標 $(i_1, \dots, i_k)$ 上完全相同，它們在 $G_1..G_k$ 上的流是重合的。</li>
+    </ul>
+  </li>
+  <li><strong>流對齊的前綴分組（flow-aligned prefix-based index grouping）</strong>：
+    <ul>
+      <li>對一批索引按其多維座標做前綴樹／字典序式的分組：找出共享最長前綴的索引聚成同組，使組內在 $G_1..G_k$ 上的縮併只需計算一次。</li>
+      <li>分組是<strong>輸入相依、動態</strong>的（每批不同），需在 GPU 上高效完成分組與流的合併。</li>
+      <li>這一步直接消除了組內冗餘的 TT-core 運算與全域記憶體流量。</li>
+    </ul>
+  </li>
+  <li><strong>融合的 TT-embedding 執行路徑（fused execution path with on-chip intermediate retention）</strong>：
+    <ul>
+      <li>把多個核心的縮併<strong>融合進單一 kernel</strong>，中間結果 $\mathbf{h}_k$ 保留在<strong>晶片上（on-chip，如暫存器/共享記憶體）</strong>，不再每步寫回全域記憶體。</li>
+      <li>融合路徑結合前綴分組：共享前綴的索引在晶片上共用一份中間結果，分岔時才各自分支。</li>
+      <li>這消除了「中間結果反覆離晶片物化」這個主要延遲來源。</li>
+    </ul>
+  </li>
+  <li><strong>持久化執行緒排程（persistent-thread scheduling）</strong>：
+    <ul>
+      <li>採用持久化執行緒模型：執行緒塊（thread block）長駐，連續處理多個流／分組，避免 kernel 啟動與資料結構重建的開銷。</li>
+      <li>配合<strong>分塊工作竊取（chunk-based work stealing）</strong>：當某些流因前綴共享多而工作量少、另一些因座標分散而工作量大時，空閒的執行緒塊可從忙碌塊竊取分塊工作，緩解負載傾斜。</li>
+    </ul>
+  </li>
+  <li><strong>L2 檢查點（L2 checkpointing）</strong>：
+    <ul>
+      <li>在負載傾斜／工作竊取下，把可重用的中間結果或核心存取<strong>檢查點到 L2 cache 層級</strong>，使被竊取的工作仍能命中已算好的前綴結果，保住重用不因排程重排而喪失。</li>
+      <li>這一步確保「流重用」在動態排程下依然成立。</li>
+    </ul>
+  </li>
+  <li><strong>與既有 TT 嵌入方法的對比</strong>：
+    <ul>
+      <li><strong>vs 通用逐核心縮併（TT-Rec 等）</strong>：通用框架逐核心物化中間結果，無前綴重用；FlowTT 融合執行 + 前綴分組，砍掉冗餘運算與全域流量。</li>
+      <li><strong>vs EcoRec</strong>：EcoRec 對 TT 嵌入查找做了部分系統優化，但仍未顯式暴露前綴共享計算流；FlowTT 透過流重構 + 持久化排程 + L2 檢查點，在 Meta 推薦基準上達到更低延遲與更低推理峰值記憶體。</li>
+    </ul>
+  </li>
+</ol>
+
+<div class="callout amber">
+  <strong>關鍵設計 — 為何是「計算流」而非「批次張量」：</strong>傳統批次執行把一批查找當作一個規整的張量運算，假設所有索引結構對稱；但 TT 嵌入查找的不規則性恰恰在於不同索引的前綴共享模式不同，這是資料相依的。把查找表達為「流」並顯式分組，等於把<strong>資料相依的共享結構</strong>提升為一等公民，讓排程與融合能據此優化——這是規整張量視角做不到的。
+</div>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>張量列分解的嵌入表示</h4>
+<p>給定嵌入表 $V \in \mathbb{R}^{V \times d}$，將詞表大小 $V$ 分解為多維形狀 $V = n_1 \times n_2 \times \dots \times n_N$。TT 分解把每個嵌入向量表示為 $N$ 個 TT-core 的連乘：</p>
+<div class="math-block">
+$$ V[i] = G_1[i_1] \, G_2[i_2] \, \cdots \, G_N[i_N], \quad G_k[i_k] \in \mathbb{R}^{r_{k-1} \times r_k} $$
+</div>
+<p>其中 $i = (i_1, \dots, i_N)$ 是索引的多維座標，$r_0 = r_N = 1$（邊界秩），$r_1, \dots, r_{N-1}$ 是 TT-rank。參數量從 $V \cdot d$ 降到 $\sum_{k=1}^{N} r_{k-1} \cdot n_k \cdot r_k$。</p>
+
+<h4>逐核心縮併的計算流</h4>
+<p>取得索引 $i$ 的嵌入需依序縮併各核心：</p>
+<div class="math-block">
+$$ \mathbf{h}_0 = 1, \quad \mathbf{h}_k = \mathbf{h}_{k-1} \, G_k[i_k] \in \mathbb{R}^{1 \times r_k}, \quad V[i] = \mathbf{h}_N \in \mathbb{R}^{1 \times d} $$
+</div>
+<p>傳統執行中，每個 $\mathbf{h}_k$ 都要寫回全域記憶體再讀回，產生 $N$ 次全域往返。</p>
+
+<h4>前綴共享與流重用</h4>
+<p>對一批索引 $\{i^{(b)}\}$，若索引 $b$ 與 $b'$ 在前 $k$ 維座標相同（$i_1^{(b)}=i_1^{(b')}, \dots, i_k^{(b)}=i_k^{(b')}$），則它們在 $G_1..G_k$ 上的縮併結果完全一致：</p>
+<div class="math-block">
+$$ \mathbf{h}_j^{(b)} = \mathbf{h}_j^{(b')}, \quad \forall j \le k $$
+</div>
+<p>FlowTT 把共享前綴的索引聚成組 $\mathcal{G}$，組內前 $k$ 步只計算一次：</p>
+<div class="math-block">
+$$ \text{cost}(\mathcal{G}) = \underbrace{\sum_{j=1}^{k} \text{contraction}(G_j)}_{\text{共享前綴，算一次}} + \underbrace{|\mathcal{G}| \cdot \sum_{j=k+1}^{N} \text{contraction}(G_j)}_{\text{分岔後各自算}} $$
+</div>
+<p>對比傳統逐索引計算的 $\text{cost} = |\mathcal{G}| \cdot \sum_{j=1}^{N} \text{contraction}(G_j)$，前綴重用把前 $k$ 步的計算與全域流量降低到 $1/|\mathcal{G}|$。</p>
+
+<h4>融合執行下的晶片內駐留</h4>
+<p>融合 kernel 把 $\mathbf{h}_1 \to \mathbf{h}_2 \to \dots \to \mathbf{h}_N$ 的鏈狀縮併留在晶片上（暫存器/共享記憶體），全域記憶體往返從 $N$ 次降為一次最終寫出：</p>
+<div class="math-block">
+$$ \underbrace{N \text{ 次 global R/W}}_{\text{傳統逐核心}} \quad \longrightarrow \quad \underbrace{1 \text{ 次 global W}}_{\text{融合 + 晶片內駐留}} $$
+</div>
+
+<h4>負載平衡與工作竊取</h4>
+<p>設分組後各組工作量為 $W_g$，受前綴共享程度影響而傾斜。持久化執行緒塊集合 $\{B_m\}$ 以分塊為單位竊取：</p>
+<div class="math-block">
+$$ \text{load}(B_m) = \sum_{g \in \text{assigned}(B_m)} W_g, \quad \text{steal: } B_{\text{idle}} \leftarrow \text{chunk of } W_g \text{ from } B_{\text{busy}} $$
+</div>
+<p>L2 檢查點保證被竊取的分塊仍能命中已算好的前綴 $\mathbf{h}_k$，使重用不因重排而喪失。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+
+<h4>主要設定</h4>
+<table class="info">
+  <tr><td>任務</td><td>TT 壓縮嵌入表的 GPU 查找（推薦模型 embedding lookup）</td></tr>
+  <tr><td>基準</td><td>Meta 合成推薦基準：Meta-240、Meta-480、Meta-788</td></tr>
+  <tr><td>對比基線</td><td>EcoRec（最強 TT 嵌入系統基線）及其他既有方法</td></tr>
+  <tr><td>評測指標</td><td>推理延遲、訓練延遲、推理峰值記憶體</td></tr>
+  <tr><td>核心創新</td><td>前綴分組 + 融合執行 + 持久化排程 + L2 檢查點</td></tr>
+</table>
+
+<h4>定量結果</h4>
+<div class="callout green">
+  <strong>關鍵數字：</strong>在 Meta 合成推薦基準上，FlowTT 一致地達到最低延遲。在 batch size 32,768 下，相對 EcoRec：
+  <ul>
+    <li>推理延遲降低最多 <strong>42.2%</strong></li>
+    <li>訓練延遲降低最多 <strong>49.2%</strong></li>
+    <li>同時達到最低的推理峰值記憶體使用</li>
+  </ul>
+</div>
+
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>面向</th>
+      <th>傳統逐核心縮併</th>
+      <th>EcoRec</th>
+      <th>FlowTT</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>前綴共享利用</td><td>無</td><td>部分</td><td><strong>顯式流重用</strong></td></tr>
+    <tr><td>中間結果駐留</td><td>離晶片物化</td><td>部分融合</td><td><strong>晶片內駐留</strong></td></tr>
+    <tr><td>負載傾斜處理</td><td>無</td><td>有限</td><td><strong>工作竊取 + L2 檢查點</strong></td></tr>
+    <tr><td>推理延遲（bs=32768）</td><td>—</td><td>基線</td><td><strong>↓ 42.2%</strong></td></tr>
+    <tr><td>訓練延遲（bs=32768）</td><td>—</td><td>基線</td><td><strong>↓ 49.2%</strong></td></tr>
+    <tr><td>推理峰值記憶體</td><td>—</td><td>基線</td><td><strong>最低</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout amber">
+  <strong>結果解讀：</strong>訓練階段的延遲降幅（49.2%）大於推理（42.2%），推測因訓練涉及更大批次與反向傳播，前綴共享與晶片駐留的收益在更大計算量下更顯著。峰值記憶體的降低則直接源於融合執行消除了中間張量的全域物化。
+</div>
+
+<h4>消融與機制驗證（依方法學推論）</h4>
+<table class="info">
+  <tr><td>前綴分組 vs 無分組</td><td>移除前綴分組則冗餘 TT-core 運算與全域流量回升，延遲退化</td></tr>
+  <tr><td>融合執行 vs 逐核心</td><td>移除融合則中間結果離晶片物化，全域往返恢復</td></tr>
+  <tr><td>持久化排程 vs 動態啟動</td><td>移除持久化則 kernel 啟動與資料結構重建開銷顯現</td></tr>
+  <tr><td>工作竊取 + L2 檢查點</td><td>移除則負載傾斜下重用喪失、尾延遲上升</td></tr>
+</table>
+
+<h3 id="p1-contrib">貢獻與創新</h3>
+<ol>
+  <li><strong>首次將 TT 嵌入查找重構為前綴共享的計算流</strong>：把資料相依的前綴共享結構提升為一等公民，使流重用、分組與排程能據此優化，超越規整張量視角。</li>
+  <li><strong>流對齊的前綴分組</strong>：動態、輸入相依地將共享前綴的索引聚組，組內前 $k$ 步只算一次，直接消除冗餘 TT-core 運算與全域記憶體流量。</li>
+  <li><strong>融合執行路徑與晶片內中間駐留</strong>：把多核心縮併融合進單一 kernel，中間結果留在暫存器/共享記憶體，把 $N$ 次全域往返降為一次。</li>
+  <li><strong>持久化執行緒 + 分塊工作竊取 + L2 檢查點</strong>：在負載傾斜下保住流重用，兼顧高吞吐與低尾延遲。</li>
+  <li><strong>系統層補足 TT 壓縮的執行半邊</strong>：指出「壓縮參數」之外「高效執行壓縮查找」同等重要，在 Meta 基準上推理降 42.2%、訓練降 49.2% 且峰值記憶體最低。</li>
+</ol>
+
+<h3 id="p1-app">應用場景</h3>
+<ul>
+  <li><strong>推薦系統嵌入服務</strong>：為大規模 CTR/CVR 模型的億級嵌入表提供壓縮且高效的 GPU 查找，降低服務延遲與顯存佔用。</li>
+  <li><strong>訓練加速</strong>：在 TT 壓縮推薦模型的訓練中，前向 + 反向的 embedding lookup 占大頭，FlowTT 同時加速訓練（降 49.2%）。</li>
+  <li><strong>邊緣部署的壓縮模型</strong>：在顯存受限的裝置上，TT 壓縮 + FlowTT 高效執行使大嵌入表可部署。</li>
+  <li><strong>通用 TT 分解張量運算</strong>：前綴共享計算流的重用思想可推廣至其他 TT 分解應用（如參數化量子電路、高維函數逼近）的 GPU 執行。</li>
+  <li><strong>不規則記憶體存取優化</strong>：流重構 + 工作竊取的範式可啟發其他具資料相依共享結構的不規則 GPU kernel 設計。</li>
+</ul>
+
+<div class="callout purple">
+  <strong>未來展望：</strong>FlowTT 將「計算流重用」引入 TT 嵌入，為後續開啟多個方向：自適應前綴分組策略（依硬體 cache 層級動態調整分組粒度）、與其他壓縮格式（如 block-sparse、混合精度嵌入）的聯合執行優化、以及在分散式推薦訓練中跨節點的流重用。
+</div>
+
+<h3 id="p1-res">代碼/資源</h3>
+<table class="info">
+  <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.03459" target="_blank" rel="noopener">https://arxiv.org/abs/2609.03459</a></td></tr>
+  <tr><td>類別</td><td>cs.DC · cs.AR</td></tr>
+  <tr><td>作者</td><td>Jongmin Seok, Chae Eun Rhee（Hanyang University）</td></tr>
+  <tr><td>評測基準</td><td>Meta-240, Meta-480, Meta-788（Meta 合成推薦基準）</td></tr>
+  <tr><td>相關概念</td><td>Tensor-Train decomposition, embedding lookup, TT-core contraction, prefix sharing, fused kernel, persistent thread, work stealing, L2 checkpointing, EcoRec</td></tr>
+</table>
+</section>
+
+<!-- ============ REFS ============ -->
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>論文</strong>：<a href="https://arxiv.org/abs/2609.03459" target="_blank" rel="noopener">arXiv:2609.03459 — FlowTT: Exploiting Computation Flow Reuse in Irregular Tensor-Train Embedding</a></li>
+  <li><strong>作者</strong>：Jongmin Seok, Chae Eun Rhee（Hanyang University, Seoul, Korea）</li>
+  <li><strong>類別</strong>：cs.DC · cs.AR</li>
+  <li><strong>評測基準</strong>：Meta-240, Meta-480, Meta-788（Meta 合成推薦基準）</li>
+  <li><strong>相關方法</strong>：Tensor-Train decomposition (Oseledets), TT-Rec, EcoRec, fused kernel design, persistent-thread scheduling, work stealing, L2 cache checkpointing, recommendation embedding serving</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-09-09 ｜ 研究來源：arXiv 2609.03459（經驗證元資料）<br>
+  本報告基於公開論文摘要與既有技術知識整理，數學符號以 MathJax 渲染。實驗數值（推理 ↓42.2%、訓練 ↓49.2%）取自論文摘要。由 <code>research-daily</code> agent 自動生成（headless 模式）。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,95 @@
+==================================================
+research-daily run log
+==================================================
+started: 2026-09-09 07:00:53
+model: GLM-5.2
+directions_due: Diffusion Models, Model Compression & Quantization, Efficient Inference, Image Editing (all daily)
+limits: max_tokens=200000, max_deep_dives=3, deep_dive_score_threshold=7.0, dedup_window_days=14
+
+## Phase 0 — Bootstrap
+- Read research-directions.yaml: OK (4 directions, all cadence=daily)
+- Dedup set: built from runs/2026-09-07.log + runs/2026-09-08.log (within 14-day window).
+- git pull --rebase: Already up to date.
+
+Dedup set (arxiv IDs seen in last 14 days):
+  Diffusion: 2609.04649, 2609.04646, 2609.04525, 2608.30782, 2608.29160, 2608.29281,
+              2608.29107, 2609.00198, 2609.04751, 2609.04282, 2609.04976, 2609.04531,
+              2609.04603, 2609.04709, 2609.04710, 2609.04921, 2609.05028, 2609.05234,
+              2609.04034, 2609.05382, 2608.25305, 2609.04837, 2609.04253, 2609.04501,
+              2607.23492, 2605.26491, 2603.27520
+  Compression: 2609.04031, 2609.04098, 2608.30564, 2609.00450, 2609.01587, 2608.28911,
+                2608.27875, 2608.29667, 2609.04526, 2609.04490, 2609.04748, 2609.05081,
+                2609.04895, 2609.04263, 2609.05334, 2609.04274, 2609.04565, 2605.14047
+  Efficient Inference: 2609.04105, 2609.00355, 2608.30310, 2609.03949, 2609.03235,
+                2609.03181, 2609.00891, 2609.04575, 2608.30427, 2609.04971, 2609.04453,
+                2609.04910, 2609.05274, 2609.04609, 2609.04952, 2609.04434, 2607.26627,
+                2608.31082, 2606.19667, 2606.29629, 2605.15913
+  Image Editing: 2608.09322, 2608.04820, 2609.04942, 2609.05171, 2609.04976, 2609.04603,
+                2609.04709, 2609.04939, 2609.05028, 2609.05415, 2609.04726, 2604.26883,
+                2605.26491
+
+## Phase 1 — Discovery
+- arXiv RSS feeds (export.arxiv.org/rss) returned EMPTY channel (lastBuildDate Sep 8, mid-day
+  refresh gap, 0 items). Fell back to arXiv listing API (export.arxiv.org/api/query, sortBy=
+  submittedDate desc) — HTTP 200 for all 5 categories. (Same fallback strategy as prior runs;
+  websearch NOT used as primary because it fabricates arxiv IDs — documented in 09-07 log.)
+- Fetched api/query for: cs.CV (120), cs.LG (120), cs.CL (120), cs.DC (80), cs.GR (80).
+- 483 unique entries after cross-category dedup. Freshest pub dates: 2026-09-04 (210), 09-03 (152).
+- Filtered per direction by regex keyword match against title+abstract. All items below are
+  arXiv-API-verified (real IDs resolving to stated titles + full abstracts).
+
+## Phase 2 — Scoring
+NOTE on formula: skill gives composite=(0.4*rel+0.3*nov+0.2*imp)*10*weight, but weights
+sum to 0.9 and the table/threshold are 0-10. Normalized to 0-10 (same as 09-07/09-08 runs):
+composite=(0.4*rel+0.3*nov+0.2*imp)/0.9*weight. novelty by arxiv ID YYMM: 2609(Sep)=10;
+2608=8; 2607=6; <=2606=4.
+
+=== DIFFUSION MODELS (weight 1.0) ===
+[2609.03992] 09-03 Text-AB: alignment-free DiT+flow-matching voice dubbing (3B, 480k hrs)  rel7 nov10 imp6 => 7.78 ✓
+[2609.05328] 09-04 Embedded Graph Flows: Gaussian->embedding transport for graph gen       rel7 nov10 imp5 => 7.56 ✓
+[2609.04822] 09-04 Minimax lower bound for diffusion-based local intrinsic dimension         rel7 nov10 imp5 => 7.56 ✓
+[2609.02543] 09-02 LightBridge: latent-bridge diffusion relighting for 3DGS                rel7 nov10 imp6 => 7.78 ✓ (cross-listed Image Editing)
+[2609.02511] 09-02 Telligram: VSD skeleton optimization for calligram generation           rel6 nov10 imp4 => 6.89
+[2609.04861] 09-04 GenDA: bidirectional discrete diffusion for genomic masking             rel5 nov10 imp4 => 6.44
+
+=== MODEL COMPRESSION & QUANTIZATION (weight 1.0) ===
+[2609.03459] 09-03 FlowTT: flow-aware GPU exec for TT-decomposed embedding tables           rel9 nov10 imp6 => 8.67 ✓ DEEPDIVE
+[2609.05152] 09-04 DEX-Comp: two-stage RL recipe for soft context compression in RAG        rel8 nov10 imp6 => 8.22 ✓
+[2609.04947] 09-04 MCPO: modality-contrastive pref-opt for multimodal CoT compression       rel8 nov10 imp6 => 8.22 ✓
+[2609.04830] 09-04 Layer-wise multi-threshold random sketching for PFL (low-bit)           rel8 nov10 imp5 => 8.00 ✓
+[2609.04852] 09-04 KVMem: paged KV virtualization for million-token agents (cross-listed)   rel8 nov10 imp7 => 8.44 ✓ (cross-listed Efficient)
+[2609.02514] 09-02 AceSpec: asymmetric edge-cloud speculative decoding (cross-listed Eff)  rel8 nov10 imp6 => 8.22 (Efficient primary)
+[2609.05339] 09-04 Memory portability across model upgrades (tangential)                    rel4 nov10 imp4 => 6.00
+
+=== EFFICIENT INFERENCE (weight 0.8) ===
+[2609.04852] 09-04 KVMem: KV-context virtualization, 1M tokens on consumer GPU              rel9 nov10 imp7 => 7.11 ✓
+[2609.01338] 09-01 mzCache: on-device LLM memory mgmt under multitasking (2.1-5.5x TTFT)   rel9 nov10 imp7 => 7.11 ✓
+[2609.00993] 09-01 AInfer-PD: in-place P/D multiplexing for distributed MoE rollouts         rel9 nov10 imp7 => 7.11 ✓
+[2609.01821] 09-01 Scaling inference prefill with high-radix photonic interconnects (MoE)  rel8 nov10 imp7 => 6.76
+[2609.02514] 09-02 AceSpec: edge-cloud spec-decode, O(1) cache lookups (3.52x)              rel9 nov10 imp6 => 6.93
+[2609.04881] 09-04 From Deep to Shallow: unconstrained layer merging (depth compression)   rel7 nov10 imp5 => 6.04
+[2609.03318] 09-03 Iapetus: content-aware hierarchical scheduling for collaborative ViT    rel7 nov10 imp5 => 6.04
+[2609.03844] 09-03 Stateless Bernoulli Watermarking: O(1)/token, <1% overhead               rel7 nov10 imp5 => 6.04
+[2609.04705] 09-04 Sustainable edge vision via empirically calibrated DVFS                 rel6 nov10 imp4 => 5.51
+
+=== IMAGE EDITING (weight 1.0) ===
+[2609.04190] 09-03 EditVid: training-free unified framework for diverse video editing       rel9 nov10 imp6 => 8.67 ✓ DEEPDIVE
+[2609.04151] 09-03 Persistent identity preservation in generative image models (benchmark) rel8 nov10 imp6 => 8.22 ✓
+[2609.04120] 09-03 BooM-VVT: mask-free video virtual try-on with image-level pseudo data    rel8 nov10 imp6 => 8.22 ✓
+[2609.02543] 09-02 LightBridge: feed-forward generative relighting for 3DGS                rel8 nov10 imp6 => 8.22 ✓ (cross-listed Diffusion)
+[2609.04500] 09-03 STyMo: fast controllable few-shot motion style transfer                 rel7 nov10 imp5 => 7.56 ✓
+[2609.04911] 09-04 TourPhysics: physics-grounded world model from a single image           rel6 nov10 imp5 => 7.11 ✓
+
+Dedup Excluded (0 new this run — all of this cycle's fresh items are 09-01..09-04 submissions
+not present in the 09-07/09-08 dedup set; the 74 IDs from prior runs did not recur).
+
+## Phase 3 — Deep-dive selection
+Eligible (>=7.0): 18 items (after dedup). Top 3 by composite, tie-broken toward DIRECTION
+DIVERSITY (covering 3 distinct directions, matching the 09-07/09-08 run approach):
+  1. FlowTT [2609.03459]        8.67  Compression  -> reports/20260909_FlowTT_TensorTrain_Embedding_GPU.html
+  2. EditVid [2609.04190]       8.67  Image Edit   -> reports/20260909_EditVid_TrainingFree_Video_Editing.html
+  3. Text-AB [2609.03992]       7.78  Diffusion    -> reports/20260909_TextAB_DiT_FlowMatching_Speech.html
+Token budget: ~25k/deep-dive est; 3 = ~75k << 200k cap. Proceeding with all 3.
+NOTE: Diffusion direction is thin this cycle (core flow-matching/diffusion papers from
+09-04 were already deep-dived in the 09-08 run and sit in the dedup window). Text-AB chosen
+as the strongest remaining diffusion candidate (DiT + flow-matching architecture, 3B params).

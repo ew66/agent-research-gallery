@@ -12,6 +12,7 @@ Automated daily by the `research-daily` agent (launchd 07:00). See `research-dir
 
 ## Daily Digests
 
+- [Daily Digest — 2026-09-09](https://ew66.github.io/notes-gallery/digests/20260909_digest.html) — 4 方向 25 篇新論文 + 3 篇深度報告（FlowTT / EditVid / Text-AB）；arXiv API 驗證 (2026-09-09)
 - [Daily Digest — 2026-09-08](https://ew66.github.io/notes-gallery/digests/20260908_digest.html) — 4 方向 55 篇新論文 + 3 篇深度報告（Scale-QLoRA / SeamFlow / PriorEdit3D）；arXiv RSS 驗證 (2026-09-08)
 - [Daily Digest — 2026-09-07](https://ew66.github.io/notes-gallery/digests/20260907_digest.html) — 4 方向 30 篇新論文 + 3 篇深度報告（DSAQuant / Minima NVFP4 / PixelIR）(2026-09-07)
 
@@ -19,6 +20,9 @@ Automated daily by the `research-daily` agent (launchd 07:00). See `research-dir
 
 ### Featured
 
+- [FlowTT: Exploiting Computation Flow Reuse in Irregular Tensor-Train Embedding](https://ew66.github.io/notes-gallery/reports/20260909_FlowTT_TensorTrain_Embedding_GPU.html) — 將 TT 嵌入查找重構為前綴共享計算流；流對齊分組 + 融合執行 + 持久化執行緒 + L2 檢查點；推理 ↓42.2%、訓練 ↓49.2% (2026-09-09)
+- [EditVid: A Unified Training-Free Framework for Diverse Video Editing](https://ew66.github.io/notes-gallery/reports/20260909_EditVid_TrainingFree_Video_Editing.html) — 稀疏因果記憶 + 對應式後注意 token 注入 + 軟潛在混合；FiVE-Acc 78.16 vs 58.95，使用者偏好 51.8% (2026-09-09)
+- [Text-AB: Alignment-Free Text-Audiobox for Voice Dubbing and Full-Duplex Dialogue Synthesis](https://ew66.github.io/notes-gallery/reports/20260909_TextAB_DiT_FlowMatching_Speech.html) — DAC-VAE &gt;10× 壓縮潛在 + cross-attention 端到端學對齊；3B/480k hrs 預訓練，跨語言配音階躍式提升、全雙工對話逼近人聲 (2026-09-09)
 - [Scale-QLoRA: Code-Invariant Adapter Merging for Native 4-bit Microscaling LLMs](https://ew66.github.io/notes-gallery/reports/20260908_ScaleQLoRA_NVFP4_Adapter_Merging.html) — 凍結 E2M1 代碼平面、僅調適尺度場，使 NVFP4/MXFP4 下 LoRA 合併為位元精確恆等；3.9× 訓練加速、~125× 任務切換 (2026-09-08)
 - [SeamFlow: Structure-Aware Flow Matching for UV Unwrapping](https://ew66.github.io/notes-gallery/reports/20260908_SeamFlow_Flow_Matching_UV_Unwrap.html) — 將離散網格切割重構為邊概率空間的連續流匹配，高斯先驗→接縫分佈；消除投影誤差與順序偏差 (2026-09-08)
 - [PriorEdit3D: Learning 3D Editing without Paired Supervision via Generative Prior Distillation](https://ew66.github.io/notes-gallery/reports/20260908_PriorEdit3D_3D_Editing_GenPriorDistill.html) — 蒸餾圖像編輯器+VLM+圖生3D 教師先驗，前饋式指令 3D 編輯；3D 感知分佈匹配正則化防幾何塌陷 (2026-09-08)
