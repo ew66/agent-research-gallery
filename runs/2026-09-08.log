@@ -1,0 +1,117 @@
+==================================================
+research-daily run log
+==================================================
+started: 2026-09-08 (re-run; prior 07:01 attempt only completed Phase 0/1 header)
+model: GLM-5.2
+directions_due: Diffusion Models, Model Compression & Quantization, Efficient Inference, Image Editing (all daily)
+limits: max_tokens=200000, max_deep_dives=3, deep_dive_score_threshold=7.0, dedup_window_days=14
+
+## Phase 0 — Bootstrap
+- Read research-directions.yaml: OK (4 directions, all cadence=daily)
+- Dedup set: built from runs/2026-09-07.log (30 arxiv IDs across 4 directions) within 14-day window.
+- git pull --rebase: Already up to date.
+
+Dedup set (arxiv IDs from 2026-09-07 run):
+  Diffusion: 2609.04649, 2609.04646, 2609.04525, 2608.30782, 2608.29160, 2608.29281, 2608.29107, 2609.00198
+  Compression: 2609.04031, 2609.04098, 2608.30564, 2609.00450, 2609.01587, 2608.28911, 2608.27875, 2608.29667
+  Efficient Inference: 2609.04105, 2609.00355, 2608.30310, 2609.03949, 2609.03235, 2609.03181, 2609.00891, 2609.04575, 2608.30427
+  Image Editing: 2608.09322, 2608.04820
+
+## Phase 1 — Discovery
+- NOTE: export.arxiv.org API was persistently rate-limited (HTTP 429 "Rate exceeded") for the
+  entire session — likely an IP-level ban carried over from earlier launchd invocations. Retried
+  after 30s/90s/150s cooldowns; all returned 429. Semantic Scholar Graph API also 429.
+- websearch intentionally NOT used as the primary discovery source: yesterday's run (2026-09-07)
+  documented that websearch FABRICATES arxiv IDs (flagged "xxxxx" placeholders). System also
+  limits websearch to one call per message. So websearch is unreliable for verified paper IDs.
+- FELL BACK to arXiv RSS feeds (http://export.arxiv.org/rss/<cat>) — a DIFFERENT endpoint on the
+  same host that was NOT rate-limited (HTTP 200 for all 5 categories). RSS returns the freshest
+  submissions per category with REAL arxiv IDs + full abstracts (in <content:encoded>).
+- Fetched RSS for: cs.CV (174 items), cs.LG (228), cs.CL (151), cs.DC (20), cs.GR (8).
+- Filtered per direction by keyword match against title+abstract. All items below are arXiv-RSS-
+  verified (real IDs resolving to the stated titles + abstracts).
+- Also tested OpenAlex API (api.openalex.org, different host, HTTP 200) as a secondary source;
+  used title_and_abstract.search but signal-to-noise was poor (journal articles, sparse abstracts).
+  Kept arXiv RSS as primary due to superior relevance + recency.
+
+## Phase 2 — Scoring
+NOTE on formula: skill gives composite=(0.4*rel+0.3*nov+0.2*imp)*10*weight, but weights
+sum to 0.9 and the table/threshold are 0-10. Normalized to 0-10 (same as 09-07 run):
+composite=(0.4*rel+0.3*nov+0.2*imp)/0.9*weight.
+novelty by arxiv ID YYMM: 2609(this month, Sep 2026)=10; 2608(last month)=8; 2607=6; <=2606=4.
+
+=== DIFFUSION MODELS (weight 1.0) ===
+[2609.04751] 09 SeamFlow: structure-aware flow matching on edge probs for UV unwrap   rel9 nov10 imp6 => 8.67 ✓ DEEPDIVE
+[2609.04282] 09 Step Back: reflection-aware preference optimization for visual gen       rel8 nov10 imp6 => 8.22 ✓
+[2609.04976] 09 RefDiT: local attribute guidance in reference-based image generation    rel8 nov10 imp5 => 8.00 ✓
+[2609.04531] 09 Distilled continuous diffusion LMs write code in few steps              rel7 nov10 imp6 => 7.78 ✓
+[2609.04603] 09 Eval framework for multi-view image generation/editing via DiTs        rel7 nov10 imp5 => 7.56 ✓
+[2609.04709] 09 AngelFingerprint: traceable white-box watermark for text-guided editing rel7 nov10 imp5 => 7.56 ✓
+[2609.04710] 09 Simulation-free unbalanced dynamic optimal transport (flow matching)   rel7 nov10 imp5 => 7.56 ✓
+[2609.04921] 09 One diffusion model two roles: trajectory planning + scenario gen     rel6 nov10 imp5 => 7.11 ✓
+[2609.05028] 09 Compositional reward models for conditional medical image gen          rel6 nov10 imp5 => 7.11 ✓
+[2609.05234] 09 Measured Sliders: continuous controls from differentiable image meas  rel6 nov10 imp5 => 7.11 ✓
+[2609.04034] 09 Editable Visual Design (diffusion-based editing)                      rel6 nov10 imp4 => 6.89
+[2609.05382] 09 Reflection-aware generative novel view synthesis                      rel6 nov10 imp4 => 6.89
+[2608.25305] 08 MulVec: training-free zero-shot composed image generation             rel7 nov8  imp5 => 6.89
+[2609.04837] 09 PAPT++: risk-aware adversarial tuning + T2I for SDG (tangential)       rel5 nov10 imp5 => 6.67
+[2609.04253] 09 AVENUE: audio-video editing understanding & eval                     rel5 nov10 imp4 => 6.44
+[2609.04501] 09 EyeMakeYou: identity-conditioned diffusion for eye states            rel5 nov10 imp4 => 6.44
+[2607.23492] 07 Robust training-free concept erasure with preservation               rel7 nov6  imp5 => 6.22
+[2605.26491] 05 Listwise reward-aware alignment for diffusion models                 rel6 nov4  imp5 => 5.11
+[2603.27520] 03 TokenDial: continuous attribute control for T2V in visual dial        rel6 nov4  imp5 => 5.11
+
+=== MODEL COMPRESSION & QUANTIZATION (weight 1.0) ===
+[2609.04526] 09 Scale-QLoRA: code-invariant adapter merging for native 4-bit NVFP4   rel9 nov10 imp7 => 8.89 ✓ DEEPDIVE
+[2609.04490] 09 When Quantization Breaks Memory: recurrent-state write-back           rel9 nov10 imp6 => 8.67 ✓
+[2609.04748] 09 Same Request Different Answer: quant amplifies cache divergence      rel9 nov10 imp6 => 8.67 ✓
+[2609.05081] 09 Deep Microcompression: structured pruning + bit-packed QAT for MCU  rel8 nov10 imp6 => 8.22 ✓
+[2609.04895] 09 Cache-Aware Joint Router Adaptation for memory-efficient MoE         rel8 nov10 imp6 => 8.22 ✓
+[2609.04263] 09 Quality Recovery for Quantized KV Caches via low-rank attention      rel8 nov10 imp6 => 8.22 ✓
+[2609.05334] 09 Lightweight ViT compression for on-device plant disease detection     rel7 nov10 imp5 => 7.56 ✓
+[2609.04274] 09 Multi-scale image representation compression                       rel6 nov10 imp5 => 7.11 ✓
+[2609.04565] 09 Extremely Sparse Supervision (tangential - reasoning, not quant)    rel4 nov10 imp5 => 6.22
+[2605.14047] 05 Evolving layer-specific scalar functions for HW-aware transformer    rel7 nov4  imp5 => 5.56
+
+=== EFFICIENT INFERENCE (weight 0.8) ===
+[2609.04971] 09 BeaconKV: KV cache compression via beacon queries for reasoning LM   rel9 nov10 imp7 => 7.11 ✓ DEEPDIVE
+[2609.04453] 09 Expert Pruning in over-dispersed MoE (load-balancing critique)       rel8 nov10 imp6 => 6.58
+[2609.04910] 09 Fast Gauss Sums via Flash Attention (kernel method accel)            rel8 nov10 imp6 => 6.58
+[2609.05274] 09 Speculative Uncertainty: draft-model gate for agentic coding         rel8 nov10 imp6 => 6.58
+[2609.04895] 09 Cache-Aware Joint Router Adaptation for memory-efficient MoE         rel8 nov10 imp6 => 6.58
+[2609.04748] 09 Same Request Different Answer: quant amplifies cache divergence      rel8 nov10 imp6 => 6.58
+[2609.04263] 09 Quality Recovery for Quantized KV Caches via low-rank attention     rel7 nov10 imp6 => 6.22
+[2609.04609] 09 CIERA: cross-iteration exponent reuse for lossless allgather MoE    rel7 nov10 imp6 => 6.22
+[2609.04952] 09 GreenPipe: power modeling for containerized DNN inference on k8s    rel6 nov10 imp5 => 5.69
+[2609.04434] 09 What Attention Recalls and Recurrence Controls in hybrid LMs        rel6 nov10 imp5 => 5.69
+[2607.26627] 07 Revisiting Lossy Verification in Speculative Decoding               rel8 nov6  imp6 => 5.51
+[2608.31082] 08 Agentic Context Cracking: token-efficient data reasoning agents     rel7 nov8  imp5 => 5.51
+[2606.19667] 06 CacheWeaver: cache-aware evidence ordering for grounded RAG         rel7 nov6  imp5 => 4.98
+[2606.29629] 06 Energy-Efficient Multimodal Inference Serving with DATE-serve       rel6 nov6  imp5 => 4.62
+[2605.15913] 05 Generalization of Block Attention via auto segmentation             rel6 nov4  imp5 => 4.09
+
+=== IMAGE EDITING (weight 1.0) ===
+[2609.04942] 09 Learning 3D Editing w/o Paired Supervision via generative prior distill rel9 nov10 imp6 => 8.67 ✓ DEEPDIVE
+[2609.05171] 09 WeAgent-MMGenEdit: full-stack recipe for multimodal agentic image gen+edit rel8 nov10 imp6 => 8.22 ✓
+[2609.04976] 09 RefDiT: local attribute guidance in reference-based image generation rel8 nov10 imp5 => 8.00 ✓
+[2609.04603] 09 Eval framework for multi-view image generation/editing via DiTs     rel7 nov10 imp5 => 7.56 ✓
+[2609.04709] 09 AngelFingerprint: traceable white-box watermark for text-guided edit rel7 nov10 imp5 => 7.56 ✓
+[2609.04939] 09 LensStyle: controllable stylized lens effect rendering              rel7 nov10 imp5 => 7.56 ✓
+[2609.05028] 09 Compositional reward models for conditional medical image gen       rel6 nov10 imp5 => 7.11 ✓
+[2609.05415] 09 UniMate: unified model to animate diverse skeletons (tangential)    rel5 nov10 imp4 => 6.44
+[2609.04726] 09 Bridging modalities: SAR-to-optical translation (tangential)       rel5 nov10 imp4 => 6.44
+[2604.26883] 04 SEAL: semantic-aware single-image sticker personalization           rel7 nov4  imp5 => 5.56
+[2605.26491] 05 Listwise reward-aware alignment for diffusion models               rel6 nov4  imp5 => 5.11
+
+Dedup Excluded (3 items — appeared in 2026-09-07 run, within dedup window):
+  [2609.04649] Diffusion -- ReaDiT Guidance: DiT feature readout for image/video control
+  [2609.04646] Diffusion -- Importance-Aware Low-Rank Distillation of DiTs via SVD
+  [2609.04575] Efficient Inference -- Training-Free Halving of Activated Experts in fine-grained MoE
+
+## Phase 3 — Deep-dive selection
+Eligible (>=7.0): 26 items (after dedup). Top 3 by composite, tie-broken toward DIRECTION DIVERSITY
+(covering 3 distinct directions, matching the 09-07 run's approach):
+  1. Scale-QLoRA [2609.04526]        8.89  Compression -> reports/20260908_ScaleQLoRA_NVFP4_Adapter_Merging.html
+  2. SeamFlow [2609.04751]           8.67  Diffusion   -> reports/20260908_SeamFlow_Flow_Matching_UV_Unwrap.html
+  3. Learning 3D Editing [2609.04942] 8.67  Image Edit  -> reports/20260908_PriorEdit3D_3D_Editing_GenPriorDistill.html
+Token budget: ~25k/deep-dive est; 3 = ~75k << 200k cap. Proceeding with all 3.

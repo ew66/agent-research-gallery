@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SeamFlow — 結構感知流匹配的藝術家級 UV 展開研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  aside.toc .back-link {
+    display: block;
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    margin-bottom: 18px;
+    font-weight: 600;
+  }
+  aside.toc .back-link:hover { text-decoration: underline; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 680px;
+  }
+  table.compare th, table.compare td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--code-bg);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child {
+    font-weight: 600;
+    background: var(--surface);
+    width: 150px;
+  }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) {
+    background: var(--surface);
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  .badge.purple { background: var(--accent-2-soft); color: var(--accent-2); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <a class="back-link" href="../index.html">← 返回總覽</a>
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">SeamFlow</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與創新</a></li>
+          <li><a href="#p1-app">應用場景</a></li>
+          <li><a href="#p1-res">代碼/資源</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion Models · Flow Matching</span>
+  <h1>SeamFlow<br>結構感知流匹配的藝術家級 UV 展開研究報告</h1>
+  <p class="subtitle">將離散 3D 網格切割重新表述為邊機率空間中的連續流匹配 —— 同時兼顧語意連貫性與拓撲感知</p>
+  <div class="meta">
+    <span>📅 2026-09-08</span>
+    <span>🏷️ flow matching · UV unwrapping · 3D mesh cutting · ODE · generative 3D</span>
+    <span>🔬 NTU Singapore × Meshy</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> SeamFlow: Structure-Aware Flow Matching on Edge Probabilities for Artist-Like UV Unwrapping</h2>
+  <p class="tagline">SeamFlow — 將離散的網格切割問題連續鬆弛為高維邊機率空間中的流匹配，透過演化網路耦合局部拓撲與全局形狀先驗，生成藝術家級的語意連貫縫線</p>
+  <table class="info">
+    <tr><td>標題</td><td>SeamFlow: Structure-Aware Flow Matching on Edge Probabilities for Artist-Like UV Unwrapping</td></tr>
+    <tr><td>作者</td><td>Yuming Zhao, Zangyueyang Xian, Qijian Zhang, Rendong Liang, Qin Jia, Ying He</td></tr>
+    <tr><td>類別</td><td>cs.CV</td></tr>
+    <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.04751">arXiv:2609.04751</a></td></tr>
+    <tr><td>專案頁</td><td><a href="https://meshy-dev.github.io/seamflow">meshy-dev.github.io/seamflow</a></td></tr>
+    <tr><td>特性</td><td><span class="badge blue">Flow Matching</span> <span class="badge purple">Edge Tokenization</span> <span class="badge green">Topology-Aware</span> <span class="badge amber">Artist-Like</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>3D 曲面切割（surface cutting）與 UV 展開（UV unwrapping）是電腦圖學中歷史悠久的基礎問題。一個 3D 網格要能被「攤平」成 2D 紋理座標圖，必須先在曲面上選定一組「縫線（seam）」將封閉曲面切開成拓撲圓盤，再對切開後的曲面做參數化（parameterization）以最小化變形（distortion）。這兩步緊密耦合：縫線的位置與走向直接決定了 UV 展開的變形量，也決定了紋理貼圖在 3D 模型上的視覺接縫是否突兀。</p>
+
+<p>傳統幾何優化方法（如基於圖割、最短路徑、諧波映射的系列方法）主要聚焦於<strong>最小化參數化變形</strong>，卻往往忽略了縫線佈局在<strong>視覺語意</strong>上的連貫性 —— 也就是「縫線是否落在模型的自然語意邊界上」（例如衣服的接縫、物體的零件分界、角色的肢體段）。結果是即便變形很低，縫線卻可能橫跨角色的臉部或物體的紋理主體，造成貼圖接縫在視覺上極不自然，需要美術師手動修整。</p>
+
+<p>近期的<strong>自回歸生成式方法（autoregressive generative methods）</strong>嘗試從資料中學習藝術家級的縫線佈局，改善了語意連貫性，但受限於對網格拓撲的<strong>局部感知不足</strong>，常造成不準確的局部切割。自回歸方法通常將縫線生成建模為序列決策，需要將 3D 結構投影到序列空間、並依人為順序生成，這引入了兩個根本缺陷：<strong>3D 空間投影誤差</strong>（序列化過程丟失了網格的真實拓撲鄰接關係）與<strong>人工序列順序偏置</strong>（不同的生成順序會得到不同結果）。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>SeamFlow 將離散的網格切割問題<strong>重新表述為高維邊機率空間中的連續流匹配</strong>。透過連續鬆弛（continuous relaxation），SeamFlow 學習一個從高斯先驗到目標縫線機率分佈的<strong>確定性映射</strong>。一個演化網路（evolution network）將局部拓撲 token 與全局形狀先驗耦合，並透過求解常微分方程（ODE）引導機率流平滑演化。這樣一來，SeamFlow 透過<strong>邊 token 化</strong>提升了拓撲感知，同時<strong>消除了 3D 空間投影誤差與人工序列順序偏置</strong>。
+</div>
+
+<div class="callout purple">
+  <strong>定位 — 同時補足兩條路線的短板：</strong>傳統幾何方法「有變形最小化、無語意連貫」；自回歸生成方法「有語意連貫、無拓撲感知」。SeamFlow 以流匹配統一兩者：在連續邊機率空間中一次生成整張縫線機率圖，既具生成模型的語意先驗，又透過邊 token 直接編碼網格拓撲，從根本上避免了序列化帶來的資訊損失。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout green">
+  <strong>直覺範例 — 服裝打版師的「整體裁剪」：</strong>想像一位服裝打版師要在一件 3D 衣服模型上畫出縫線。傳統幾何方法像是一位只盯著「布料變形最小」的工程師，他會把縫線畫在最短路徑上，結果縫線可能穿過胸前的印花。自回歸方法像是一位必須「一格一格、按固定順序」決定要不要剪的學徒，他雖然學過藝術家的裁剪風格，但因為只能依序看局部，常常在不該剪的地方剪了、該剪的地方漏了。<br><br>
+  SeamFlow 則像是一位能<strong>同時俯瞰整件衣服、又能感知每條邊的局部拓撲</strong>的資深師傅：他把「要不要在每條邊上剪」這件事表達成一張覆蓋整個網格的<strong>機率場</strong>，然後讓這個機率場從一片混沌（高斯雜訊）<strong>連續、平滑地演變</strong>成清晰的縫線圖。沒有順序問題，沒有投影失真，每條邊都在自己的拓撲鄰接關係下被決定。
+</div>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>連續鬆弛 — 離散切割 → 邊機率空間</strong>：
+    <ul>
+      <li>給定一個三角網格 $\mathcal{M} = (\mathcal{V}, \mathcal{E})$，傳統切割是在邊集合 $\mathcal{E}$ 上選一個子集 $\mathcal{S} \subseteq \mathcal{E}$ 作為縫線，這是離散組合優化。</li>
+      <li>SeamFlow 將每條邊 $e \in \mathcal{E}$ 賦予一個連續機率 $p_e \in [0,1]$，整個縫線決策被鬆弛為一個高維連續向量 $\mathbf{p} \in [0,1]^{|\mathcal{E}|}$，即<strong>邊機率空間</strong>。</li>
+      <li>訓練時以藝術家標註的縫線作為目標分佈（目標機率接近 0/1 的硬標籤），推理末端再以閾值（或取 argmax 於連通性約束下）還原為離散縫線。</li>
+    </ul>
+  </li>
+  <li><strong>流匹配 — 高斯先驗 → 縫線機率分佈</strong>：
+    <ul>
+      <li>採用 Flow Matching 框架：定義一條從簡單先驗 $p_0 = \mathcal{N}(\mathbf{0}, \mathbf{I})$（高斯）到目標資料分佈 $p_1$（縫線機率分佈）的<strong>機率路徑</strong>。</li>
+      <li>學習一個向量場 $v_\theta(\mathbf{x}_t, t, \mathcal{M})$，引導取樣粒子沿 ODE 從 $t=0$ 演化到 $t=1$，最終 $\mathbf{x}_1$ 即生成的縫線機率圖。</li>
+      <li>相比擴散模型的隨機 SDE，Flow Matching 的確定性 ODE 路徑更穩定、取樣效率更高，且無需噪聲排程的細調。</li>
+    </ul>
+  </li>
+  <li><strong>演化網路 — 局部拓撲 token + 全局形狀先驗</strong>：
+    <ul>
+      <li><strong>邊 token 化（edge tokenization）</strong>：將每條邊及其鄰接的頂點、面、二環鄰接等局部拓撲特徵編碼為一個 token，使網路能直接在原始網格拓撲上推理，而非在投影後的序列上。</li>
+      <li><strong>全局形狀先驗</strong>：以全局形狀編碼（如整體網格的形狀描述子、零件分割先驗）作為條件，注入語意層級的縫線偏好。</li>
+      <li>演化網路在每個 ODE 步將當前機率狀態 $\mathbf{x}_t$、時間 $t$、局部拓撲 token、全局先驗耦合，輸出該步的向量場 $v_\theta$。</li>
+    </ul>
+  </li>
+  <li><strong>ODE 求解 — 平滑機率流</strong>：
+    <ul>
+      <li>給定向量場，以數值 ODE 求解器（如 Euler 或高階方法）從 $\mathbf{x}_0 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ 積分到 $\mathbf{x}_1$。</li>
+      <li>由於在連續空間演化，機率場平滑過渡，避免離散跳躍帶來的碎裂縫線；末端再投影回離散縫線。</li>
+    </ul>
+  </li>
+  <li><strong>與兩類既有方法的對比</strong>：
+    <ul>
+      <li><strong>vs 傳統幾何優化</strong>：幾何方法以變形最小為目標，缺乏語意先驗；SeamFlow 以生成模型學習藝術家級縫線分佈，具語意連貫性，同時末端仍可接幾何參數化以保低變形。</li>
+      <li><strong>vs 自回歸生成</strong>：自回歸方法需序列化網格、依固定順序生成，引入 3D 投影誤差與順序偏置；SeamFlow 在邊機率空間一次生成全圖，無序列、無投影，且邊 token 直接編碼拓撲，局部切割更準確。</li>
+    </ul>
+  </li>
+</ol>
+
+<div class="callout amber">
+  <strong>關鍵設計 — 為何是「邊機率」而非「序列」：</strong>網格的邊集合 $\mathcal{E}$ 天然是一個無序集合，每條邊的決策依賴其鄰接拓撲。將決策空間定義在邊機率上，等於直接在網格的原始圖結構上做生成，保留了完整的拓撲鄰接資訊；而序列化必然要選一個遍歷順序，這個順序與真實拓撲無關，是人為引入的偏置。SeamFlow 的連續鬆弛進一步讓生成過程可微、可與 ODE 求解器結合，這是離散組合優化做不到的。
+</div>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>連續鬆弛：離散切割到邊機率</h4>
+<p>給定三角網格 $\mathcal{M} = (\mathcal{V}, \mathcal{E})$，$|\mathcal{E}| = E$。離散切割是選子集 $\mathcal{S} \subseteq \mathcal{E}$，可表為指示向量 $\mathbf{s} \in \{0,1\}^{E}$。SeamFlow 以連續鬆弛取代：</p>
+<div class="math-block">
+$$ \mathbf{s} \in \{0,1\}^{E} \quad \xrightarrow{\text{continuous relaxation}} \quad \mathbf{p} \in [0,1]^{E}, \quad p_e = \Pr[e \in \mathcal{S}] $$
+</div>
+<p>整個縫線生成被建模為在 $E$ 維機率空間中生成一個分佈 $p_1(\mathbf{p} \mid \mathcal{M})$，其樣本對應藝術家級縫線。</p>
+
+<h4>流匹配的機率路徑</h4>
+<p>定義一條從高斯先驗 $p_0 = \mathcal{N}(\mathbf{0}, \mathbf{I}_E)$ 到目標分佈 $p_1$ 的機率路徑 $\{p_t\}_{t \in [0,1]}$。一個常見的線性插值構造（conditional flow matching）為：</p>
+<div class="math-block">
+$$ \mathbf{x}_t = (1 - t)\,\mathbf{x}_0 + t\,\mathbf{x}_1, \quad \mathbf{x}_0 \sim \mathcal{N}(\mathbf{0}, \mathbf{I}_E), \quad \mathbf{x}_1 \sim p_1(\cdot \mid \mathcal{M}) $$
+</div>
+<p>其對應的條件向量場（目標向量場）為：</p>
+<div class="math-block">
+$$ u_t(\mathbf{x}_t \mid \mathbf{x}_1) = \mathbf{x}_1 - \mathbf{x}_0 $$
+</div>
+
+<h4>向量場學習與 ODE</h4>
+<p>SeamFlow 訓練一個神經網路 $v_\theta(\mathbf{x}_t, t, \mathcal{M})$ 去回歸目標向量場，以流匹配損失：</p>
+<div class="math-block">
+$$ \mathcal{L}_{\text{FM}}(\theta) = \mathbb{E}_{t, \mathbf{x}_0, \mathbf{x}_1}\!\left[ \big\| v_\theta(\mathbf{x}_t, t, \mathcal{M}) - (\mathbf{x}_1 - \mathbf{x}_0) \big\|^2 \right] $$
+</div>
+<p>訓練完成後，取樣透過求解確定性 ODE：</p>
+<div class="math-block">
+$$ \frac{d\mathbf{x}_t}{dt} = v_\theta(\mathbf{x}_t, t, \mathcal{M}), \quad \mathbf{x}_0 \sim \mathcal{N}(\mathbf{0}, \mathbf{I}_E), \quad t: 0 \to 1 $$
+</div>
+<p>終點 $\mathbf{x}_1$ 經飽和（如 sigmoid）與閾值化還原為離散縫線 $\hat{\mathbf{s}} \in \{0,1\}^{E}$。</p>
+
+<h4>演化網路：局部拓撲 token + 全局先驗</h4>
+<p>向量場 $v_\theta$ 由演化網路計算，其輸入融合三類資訊：</p>
+<div class="math-block">
+$$ v_\theta(\mathbf{x}_t, t, \mathcal{M}) = \text{EvoNet}\!\Big( \underbrace{\{\tau_e\}_{e \in \mathcal{E}}}_{\text{局部拓撲 token}},\ \underbrace{z_{\text{global}}}_{\text{全局形狀先驗}},\ \mathbf{x}_t,\ t \Big) $$
+</div>
+<p>其中邊 token $\tau_e$ 編碼邊 $e$ 的局部鄰接（頂點座標、相鄰面、二環鄰接等），$z_{\text{global}}$ 為整體形狀編碼。透過在 token 層級做訊息傳遞，網路直接在網格圖結構上推理，避免序列化投影。</p>
+
+<h4>離散還原與參數化耦合</h4>
+<p>生成的連續機率經閾值化還原為縫線，再接傳統參數化（如 Tutte / LSCM / ARAP）計算 UV：</p>
+<div class="math-block">
+$$ \hat{\mathbf{s}} = \mathbb{1}\!\big[\sigma(\mathbf{x}_1) > \tau\big], \quad \text{UV} = \text{Parameterize}(\mathcal{M}, \hat{\mathbf{s}}) $$
+</div>
+<p>其中 $\sigma$ 為飽和函數，$\tau$ 為閾值。變形最小化由參數化步驟承擔，語意連貫性由流匹配生成的縫線承擔，兩者分工互補。</p>
+
+<h4>整體流程</h4>
+<div class="math-block">
+$$ \theta^* = \arg\min_\theta \mathcal{L}_{\text{FM}}(\theta) \quad \Longrightarrow \quad \text{推理：ODE 求解 } \mathbf{x}_0 \to \mathbf{x}_1 \to \hat{\mathbf{s}} \to \text{UV} $$
+</div>
+
+<h3 id="p1-exp">實驗結果</h3>
+
+<h4>主要設定</h4>
+<table class="info">
+  <tr><td>任務</td><td>3D 曲面切割與 UV 展開（artist-like seam generation）</td></tr>
+  <tr><td>輸入</td><td>三角網格 $\mathcal{M} = (\mathcal{V}, \mathcal{E})$</td></tr>
+  <tr><td>輸出</td><td>縫線 $\hat{\mathbf{s}}$ + UV 參數化</td></tr>
+  <tr><td>生成框架</td><td>Flow Matching（確定性 ODE）</td></tr>
+  <tr><td>對比基線</td><td>傳統幾何優化方法、自回歸生成式方法</td></tr>
+  <tr><td>評測面向</td><td>語意連貫性（semantic coherence）、參數化變形（distortion）</td></tr>
+</table>
+
+<h4>定性結論</h4>
+<p>論文摘要宣稱 SeamFlow 達到「<strong>exceptional semantic coherence</strong>（卓越的語意連貫性）」與「<strong>remarkably low parameterization distortion</strong>（顯著低的參數化變形）」。由於摘要未給出具體數值指標，以下以定性方式描述其優勢。</p>
+
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>面向</th>
+      <th>傳統幾何優化</th>
+      <th>自回歸生成</th>
+      <th>SeamFlow</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>語意連貫性</td><td>弱（僅優化變形）</td><td>中（有語意先驗）</td><td><strong>強</strong>（生成式 + 邊 token）</td></tr>
+    <tr><td>拓撲感知</td><td>強（直接在網格上）</td><td>弱（序列化投影）</td><td><strong>強</strong>（邊 token 直接編碼）</td></tr>
+    <tr><td>3D 投影誤差</td><td>無</td><td>有（序列化失真）</td><td><strong>無</strong></td></tr>
+    <tr><td>序列順序偏置</td><td>無</td><td>有（依生成順序）</td><td><strong>無</strong></td></tr>
+    <tr><td>局部切割準確度</td><td>—</td><td>受限</td><td><strong>提升</strong></td></tr>
+    <tr><td>參數化變形</td><td>低（直接優化）</td><td>中</td><td><strong>顯著低</strong>（語意縫線 + 參數化）</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout green">
+  <strong>關鍵發現：</strong>SeamFlow 同時在「語意連貫性」與「參數化變形」兩個傳統上互相拉鋸的面向上取得優異表現。這源於其設計：流匹配生成的縫線具藝術家級語意先驗（解決幾何方法的短板），而邊 token 化讓局部切割準確（解決自回歸方法的短板），最終再以幾何參數化保住低變形。
+</div>
+
+<div class="callout amber">
+  <strong>相對自回歸方法的三重優勢：</strong>(1) 無 3D 空間投影誤差 —— 直接在邊機率空間生成，不需將網格序列化；(2) 無人工序列順序偏置 —— 整張縫線機率圖一次生成，與遍歷順序無關；(3) 更強的拓撲感知 —— 邊 token 直接編碼鄰接關係，局部切割更準確。
+</div>
+
+<h4>消融與機制驗證（依方法學推論）</h4>
+<table class="info">
+  <tr><td>連續鬆弛 vs 離散</td><td>連續機率空間使 ODE 求解與梯度學習可行，離散則無法做流匹配</td></tr>
+  <tr><td>邊 token vs 序列 token</td><td>邊 token 保留拓撲鄰接，序列 token 丟失之；移除邊 token 則局部切割退化</td></tr>
+  <tr><td>全局先驗</td><td>注入形狀先驗提升語意連貫性，移除則縫線偏離自然語意邊界</td></tr>
+  <tr><td>ODE vs 隨機 SDE</td><td>確定性 ODE 路徑穩定、取樣高效，避免擴散模型噪聲排程的細調負擔</td></tr>
+</table>
+
+<h3 id="p1-contrib">貢獻與創新</h3>
+<ol>
+  <li><strong>首次將流匹配應用於 3D 網格切割</strong>：將離散的網格切割問題重新表述為高維邊機率空間中的連續流匹配，開闢了「生成式 UV 縫線」的新範式，有別於傳統幾何優化與自回歸生成兩條路線。</li>
+  <li><strong>邊機率的連續鬆弛</strong>：將離散組合的縫線選擇鬆弛為連續機率向量，使可微學習、ODE 求解與流匹配訓練成為可能，同時末端可還原為離散縫線。</li>
+  <li><strong>演化網路耦合局部拓撲 token 與全局形狀先驗</strong>：透過邊 token 化直接在網格圖結構上推理，保留完整拓撲鄰接；全局先驗注入語意層級的縫線偏好，兼顧局部準確與全局連貫。</li>
+  <li><strong>消除 3D 投影誤差與序列順序偏置</strong>：相比自回歸方法，SeamFlow 在邊機率空間一次生成整張縫線圖，無需序列化網格，從根本上避免投影失真與人為順序偏置。</li>
+  <li><strong>語意連貫性 + 低變形的雙重達成</strong>：實驗顯示 SeamFlow 同時具備卓越語意連貫性與顯著低的參數化變形，打破了傳統上兩者互相拉鋸的取捨。</li>
+</ol>
+
+<h3 id="p1-app">應用場景</h3>
+<ul>
+  <li><strong>3D 內容創作管線</strong>：為遊戲、影視、AR/VR 資產自動生成藝術家級 UV 縫線，降低美術師手動修整成本。</li>
+  <li><strong>UV 展開與紋理貼圖</strong>：作為紋理貼圖前置的縫線生成步驟，產生語意連貫的縫線佈局，使貼圖接縫落在自然邊界。</li>
+  <li><strong>遊戲與資產管線自動化</strong>：整合入 3D 資產處理管線，批次處理大量網格的 UV 展開，提升管線吞吐。</li>
+  <li><strong>生成式 3D</strong>：與 3D 生成模型（如 text-to-3D、image-to-3D）串接，為生成網格自動賦予可用的 UV，補齊生成式 3D 管線的最後一哩。</li>
+  <li><strong>數位典藏與逆向工程</strong>：為掃描重建的網格生成合理的 UV 縫線，便於紋理修復與重繪。</li>
+</ul>
+
+<div class="callout purple">
+  <strong>未來展望：</strong>SeamFlow 將流匹配引入網格切割，為後續研究開啟多個方向：將邊機率流匹配推廣至四邊網格、與可微參數化端到端聯合訓練、以更豐富的全局先驗（如零件分割、語意分割）引導縫線、以及探索流匹配在更廣泛 3D 幾何生成任務（如網格簡化、拓撲修復）上的應用。
+</div>
+
+<h3 id="p1-res">代碼/資源</h3>
+<table class="info">
+  <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.04751">https://arxiv.org/abs/2609.04751</a></td></tr>
+  <tr><td>專案頁</td><td><a href="https://meshy-dev.github.io/seamflow">https://meshy-dev.github.io/seamflow</a></td></tr>
+  <tr><td>類別</td><td>cs.CV</td></tr>
+  <tr><td>作者</td><td>Yuming Zhao, Zangyueyang Xian, Qijian Zhang, Rendong Liang, Qin Jia, Ying He</td></tr>
+  <tr><td>相關概念</td><td>Flow Matching, ODE, UV unwrapping, seam generation, mesh parameterization, edge tokenization, continuous relaxation</td></tr>
+</table>
+</section>
+
+<!-- ============ REFS ============ -->
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>arXiv</strong>：<code>https://arxiv.org/abs/2609.04751</code></li>
+  <li><strong>專案頁</strong>：<code>https://meshy-dev.github.io/seamflow</code></li>
+  <li><strong>作者</strong>：Yuming Zhao, Zangyueyang Xian, Qijian Zhang, Rendong Liang, Qin Jia, Ying He</li>
+  <li><strong>類別</strong>：cs.CV</li>
+  <li><strong>相關方法</strong>：Flow Matching (Lipman et al.), Conditional Flow Matching, UV unwrapping (Tutte, LSCM, ARAP), seam generation, autoregressive mesh cutting, edge tokenization, ODE solvers</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-09-08 ｜ 研究來源：arXiv 2609.04751（經驗證元資料）<br>
+  本報告基於公開論文摘要與既有技術知識整理，數學符號以 MathJax 渲染。實驗部分以定性描述為主，未編造摘要未提供之具體數值。由 <code>research-daily</code> agent 自動生成（headless 模式）。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

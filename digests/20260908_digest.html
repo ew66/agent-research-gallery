@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日科研摘要 — 2026-09-08</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --code-bg: #f4f4f5;
+    --digest-badge: #7c3aed;
+    --digest-badge-soft: #ede9fe;
+    --report-badge: #059669;
+    --report-badge-soft: #d1fae5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --code-bg: #26262a;
+      --digest-badge: #a78bfa;
+      --digest-badge-soft: #2e1065;
+      --report-badge: #34d399;
+      --report-badge-soft: #064e3b;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+  header.digest-header {
+    margin-bottom: 40px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--digest-badge);
+    background: var(--digest-badge-soft);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  header.digest-header h1 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px 0;
+  }
+  header.digest-header .meta {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0 0 12px 0;
+    font-variant-numeric: tabular-nums;
+  }
+  header.digest-header .stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--text-soft);
+  }
+  header.digest-header .stats span {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .back-link {
+    display: inline-block;
+    margin-top: 16px;
+    font-size: 14px;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .back-link:hover { text-decoration: underline; }
+  section.direction {
+    margin-bottom: 40px;
+  }
+  section.direction > h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  section.direction > p.direction-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0 0 16px 0;
+  }
+  .item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  .item-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .item-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+    line-height: 1.4;
+    flex: 1;
+  }
+  .item-title:hover { text-decoration: underline; }
+  .score-badge {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .score-high { background: var(--report-badge-soft); color: var(--report-badge); }
+  .score-mid { background: #fef3c7; color: #b45309; }
+  @media (prefers-color-scheme: dark) {
+    .score-mid { background: #422006; color: #fbbf24; }
+  }
+  .item-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 8px 0;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .item-meta .source-type {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .item-summary {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin: 0;
+    line-height: 1.55;
+  }
+  .deep-dive-link {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--report-badge);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .deep-dive-link:hover { text-decoration: underline; }
+  .empty {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 16px 0;
+  }
+  footer {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 600px) {
+    .container { padding: 32px 16px 60px; }
+    header.digest-header h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="digest-header">
+    <span class="eyebrow">Daily Digest</span>
+    <h1>每日科研摘要 — 2026-09-08</h1>
+    <p class="meta">2026-09-08 · 自動科研 agent 產出</p>
+    <div class="stats">
+      <span>發現 55</span>
+      <span>深度報告 3</span>
+      <span>去重排除 3</span>
+    </div>
+    <a class="back-link" href="../index.html">← 返回 Gallery</a>
+  </header>
+
+    <section class="direction">
+    <h2>Diffusion Models</h2>
+    <p class="direction-desc">Score-based / flow-based generative modeling：diffusion、flow matching、rectified flow、consistency model、DiT、score distillation、CFG、sampling acceleration</p>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="../reports/20260908_SeamFlow_Flow_Matching_UV_Unwrap.html">SeamFlow: Structure-Aware Flow Matching on Edge Probabilities for Artist-Like UV Unwrapping</a>
+          <span class="score-badge score-high">8.67</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel9·nov10·imp6</span></div>
+        <p class="item-summary">SeamFlow: structure-aware flow matching on edge probs for UV unwrap</p>
+        <a class="deep-dive-link" href="../reports/20260908_SeamFlow_Flow_Matching_UV_Unwrap.html">→ 深度研究報告</a>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04282">Step Back to Move Forward: Reflection-Aware Preference Optimization for Visual Generation</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">Step Back: reflection-aware preference optimization for visual generation</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04976">RefDiT: Local Attribute Guidance in Reference-Based Image Generation</a>
+          <span class="score-badge score-high">8.00</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel8·nov10·imp5</span></div>
+        <p class="item-summary">RefDiT: local attribute guidance in reference-based image generation</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04531">Distilled Continuous Diffusion Language Models Can Write Code in Few Steps---or One</a>
+          <span class="score-badge score-high">7.78</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel7·nov10·imp6</span></div>
+        <p class="item-summary">Distilled continuous diffusion LMs write code in few steps</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04603">An Evaluation Framework for Generating Multi-View Images of a Person in a Scene</a>
+          <span class="score-badge score-high">7.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">Eval framework for multi-view image generation/editing via DiTs</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04709">AngelFingerprint: A Traceable, Explainable, and White-Box Stealthy Watermark for Text-Guided Image Editing</a>
+          <span class="score-badge score-high">7.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">AngelFingerprint: traceable white-box watermark for text-guided editing</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04710">Simulation-free Unbalanced Dynamic Optimal Transport with General Growth Penalty</a>
+          <span class="score-badge score-high">7.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">Simulation-free unbalanced dynamic optimal transport (flow matching theory)</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04921">One Diffusion Model, Two Roles: Guided Trajectory Planning and Safety-Critical Scenario Generation in Closed-Loop Simulation</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel6·nov10·imp5</span></div>
+        <p class="item-summary">One diffusion model two roles: trajectory planning + scenario gen</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.05028">Compositional Reward Models for Conditional Medical Image Generation</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel6·nov10·imp5</span></div>
+        <p class="item-summary">Compositional reward models for conditional medical image gen</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.05234">Measured Sliders: Learning Continuous Controls from Differentiable Image Measurements</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel6·nov10·imp5</span></div>
+        <p class="item-summary">Measured Sliders: continuous controls from differentiable image measures</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04034">Editable Visual Design</a>
+          <span class="score-badge score-mid">6.89</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel6·nov10·imp4</span></div>
+        <p class="item-summary">Editable Visual Design (diffusion-based editing)</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.05382">Reflection-aware Generative Novel View Synthesis</a>
+          <span class="score-badge score-mid">6.89</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel6·nov10·imp4</span></div>
+        <p class="item-summary">Reflection-aware generative novel view synthesis</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2608.25305">MulVec: Fine-Grained Role-Aware Matching for Training-Free Zero-Shot Composed Image Retrieval</a>
+          <span class="score-badge score-mid">6.89</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>上月</span><span>[cs.CV]</span><span>rel7·nov8·imp5</span></div>
+        <p class="item-summary">MulVec: training-free zero-shot composed image generation</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04837">PAPT++: Risk-Aware Adversarial Tuning and Generation for Single Domain Generalization</a>
+          <span class="score-badge score-mid">6.67</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel5·nov10·imp5</span></div>
+        <p class="item-summary">PAPT++: risk-aware adversarial tuning + T2I for SDG (tangential)</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04253">AVENUE: Audio-Video EditiNg Understanding and Evaluation</a>
+          <span class="score-badge score-mid">6.44</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel5·nov10·imp4</span></div>
+        <p class="item-summary">AVENUE: audio-video editing understanding &amp; eval</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04501">EyeMakeYou: Identity-, Task-, and Subjective-State-Conditioned Diffusion for High-Frequency Gaze Synthesis</a>
+          <span class="score-badge score-mid">6.44</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel5·nov10·imp4</span></div>
+        <p class="item-summary">EyeMakeYou: identity-conditioned diffusion for eye states</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2607.23492">To Erase, or Not to Erase: Robust Training-Free Concept Erasure with Preservation aware Adaptive Ranked Subspace Expansion</a>
+          <span class="score-badge score-mid">6.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>3月內</span><span>[cs.LG]</span><span>rel7·nov6·imp5</span></div>
+        <p class="item-summary">Robust training-free concept erasure with preservation</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2605.26491">Beyond Pairwise Preferences: Listwise Reward-Aware Alignment for Diffusion Models</a>
+          <span class="score-badge score-mid">5.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>較舊</span><span>[cs.CV]</span><span>rel6·nov4·imp5</span></div>
+        <p class="item-summary">Listwise reward-aware alignment for diffusion models</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2603.27520">TokenDial: Continuous Attribute Control for Text-to-Video Generation in Visual Dial Space</a>
+          <span class="score-badge score-mid">5.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>較舊</span><span>[cs.CV]</span><span>rel6·nov4·imp5</span></div>
+        <p class="item-summary">TokenDial: continuous attribute control for T2V in visual dial</p>
+        
+      </div>
+  </section>
+
+  <section class="direction">
+    <h2>Model Compression &amp; Quantization</h2>
+    <p class="direction-desc">PTQ / QAT 壓縮：W4A4、W8A8、INT4、rotation/SpinQuant/QuaRot、AWQ、GPTQ、SmoothQuant、outlier handling、low-bit</p>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="../reports/20260908_ScaleQLoRA_NVFP4_Adapter_Merging.html">Scale-QLoRA: Code-Invariant Adapter Merging for Native 4-bit Microscaling LLMs</a>
+          <span class="score-badge score-high">8.89</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel9·nov10·imp7</span></div>
+        <p class="item-summary">Scale-QLoRA: code-invariant adapter merging for native 4-bit NVFP4 LLMs</p>
+        <a class="deep-dive-link" href="../reports/20260908_ScaleQLoRA_NVFP4_Adapter_Merging.html">→ 深度研究報告</a>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04490">When Quantization Breaks Memory: Recurrent-State Write-Back in Low-Precision Temporal Inference</a>
+          <span class="score-badge score-high">8.67</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel9·nov10·imp6</span></div>
+        <p class="item-summary">When Quantization Breaks Memory: recurrent-state write-back in low-precision</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04748">Same Request, Different Answer: Quantization Amplifies Cache-Induced Divergence in LLM Serving</a>
+          <span class="score-badge score-high">8.67</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel9·nov10·imp6</span></div>
+        <p class="item-summary">Same Request Different Answer: quantization amplifies cache-induced divergence</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.05081">Deep Microcompression: Structured Pruning and Bit-packed Quantization for Microcontrollers</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">Deep Microcompression: structured pruning + bit-packed QAT for MCUs</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04895">Cache-Aware Joint Router Adaptation for Memory-Efficient MoE Inference</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CL]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">Cache-Aware Joint Router Adaptation for memory-efficient MoE inference</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04263">Quality Recovery for Quantized KV Caches via Low-Rank Attention Adaptation</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CL]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">Quality Recovery for Quantized KV Caches via low-rank attention adaptation</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.05334">Lightweight Vision Transformer Compression for On-Device Plant Disease Detection in Resource-Constrained Agricultural Field Conditions</a>
+          <span class="score-badge score-high">7.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">Lightweight ViT compression for on-device plant disease detection</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04274">Multi-scale Image Representation Compression</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel6·nov10·imp5</span></div>
+        <p class="item-summary">Multi-scale image representation compression</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04565">Extremely Sparse Supervision Incentivizes Reasoning Ability</a>
+          <span class="score-badge score-mid">6.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel4·nov10·imp5</span></div>
+        <p class="item-summary">Extremely Sparse Supervision (tangential - reasoning, not quant)</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2605.14047">Evolving Layer-Specific Scalar Functions for Hardware-Aware Transformer Adaptation</a>
+          <span class="score-badge score-mid">5.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>較舊</span><span>[cs.CV]</span><span>rel7·nov4·imp5</span></div>
+        <p class="item-summary">Evolving layer-specific scalar functions for HW-aware transformer adaptation</p>
+        
+      </div>
+  </section>
+
+  <section class="direction">
+    <h2>Efficient Inference</h2>
+    <p class="direction-desc">大型模型高效推理：speculative decoding、FlashAttention、continuous batching、prefix caching、KV cache、MoE、sparse inference、chunked prefill</p>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04971">BeaconKV: Key-Value Cache Compression Guided by Beacon Queries for Efficient Large Reasoning Model Inference</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel9·nov10·imp7</span></div>
+        <p class="item-summary">BeaconKV: KV cache compression guided by beacon queries for reasoning models</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04453">When Load-Balancing Goes Too Far: Expert Pruning in Over-Dispersed Mixture-of-Experts Models</a>
+          <span class="score-badge score-mid">6.58</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">Expert Pruning in over-dispersed MoE (load-balancing critique)</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04910">Fast Gauss Sums via Flash Attention</a>
+          <span class="score-badge score-mid">6.58</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">Fast Gauss Sums via Flash Attention (kernel method acceleration)</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.05274">How to Speculate about Uncertainty in Agentic Coding? A Draft-Model Gate Method</a>
+          <span class="score-badge score-mid">6.58</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">Speculative Uncertainty: draft-model gate for agentic coding</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04895">Cache-Aware Joint Router Adaptation for Memory-Efficient MoE Inference</a>
+          <span class="score-badge score-mid">6.58</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CL]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">Cache-Aware Joint Router Adaptation for memory-efficient MoE inference</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04748">Same Request, Different Answer: Quantization Amplifies Cache-Induced Divergence in LLM Serving</a>
+          <span class="score-badge score-mid">6.58</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">Same Request Different Answer: quantization amplifies cache divergence</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04263">Quality Recovery for Quantized KV Caches via Low-Rank Attention Adaptation</a>
+          <span class="score-badge score-mid">6.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CL]</span><span>rel7·nov10·imp6</span></div>
+        <p class="item-summary">Quality Recovery for Quantized KV Caches via low-rank attention</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04609">CIERA: Cross-Iteration Exponent Reuse for Lossless Allgather in Sharded MoE Training</a>
+          <span class="score-badge score-mid">6.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.DC]</span><span>rel7·nov10·imp6</span></div>
+        <p class="item-summary">CIERA: cross-iteration exponent reuse for lossless allgather in MoE training</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04952">GreenPipe: Power Modeling for Containerized DNN Inference on Kubernetes Edge Nodes</a>
+          <span class="score-badge score-mid">5.69</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.DC]</span><span>rel6·nov10·imp5</span></div>
+        <p class="item-summary">GreenPipe: power modeling for containerized DNN inference on k8s edge</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04434">What Attention Recalls and Recurrence Controls in Hybrid Language Models</a>
+          <span class="score-badge score-mid">5.69</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CL]</span><span>rel6·nov10·imp5</span></div>
+        <p class="item-summary">What Attention Recalls and Recurrence Controls in hybrid LMs</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2607.26627">Revisiting Lossy Verification in Speculative Decoding: Mechanisms, Trade-offs, and Failure Modes</a>
+          <span class="score-badge score-mid">5.51</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>3月內</span><span>[cs.CL]</span><span>rel8·nov6·imp6</span></div>
+        <p class="item-summary">Revisiting Lossy Verification in Speculative Decoding</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2608.31082">Agentic Context Cracking: Token-Efficient Data Reasoning Agents via Adaptive Structuring of Unstructured Data</a>
+          <span class="score-badge score-mid">5.51</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>上月</span><span>[cs.CL]</span><span>rel7·nov8·imp5</span></div>
+        <p class="item-summary">Agentic Context Cracking: token-efficient data reasoning agents</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2606.19667">CacheWeaver: Cache-Aware Evidence Ordering for Efficient Grounded RAG Inference</a>
+          <span class="score-badge score-mid">4.98</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>3月內</span><span>[cs.CL]</span><span>rel7·nov6·imp5</span></div>
+        <p class="item-summary">CacheWeaver: cache-aware evidence ordering for grounded RAG inference</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2606.29629">Energy-Efficient Multimodal Inference Serving with DATE-serve</a>
+          <span class="score-badge score-mid">4.62</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>3月內</span><span>[cs.DC]</span><span>rel6·nov6·imp5</span></div>
+        <p class="item-summary">Energy-Efficient Multimodal Inference Serving with DATE-serve</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2605.15913">Towards Generalization of Block Attention via Automatic Segmentation and Block Distillation</a>
+          <span class="score-badge score-mid">4.09</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>較舊</span><span>[cs.CL]</span><span>rel6·nov4·imp5</span></div>
+        <p class="item-summary">Generalization of Block Attention via auto segmentation + block decomp</p>
+        
+      </div>
+  </section>
+
+  <section class="direction">
+    <h2>Image Editing</h2>
+    <p class="direction-desc">擴散式圖像編輯與可控生成：ControlNet、DragDiffusion、prompt-to-prompt、null-text inversion、concept/identity editing、DreamBooth</p>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="../reports/20260908_PriorEdit3D_3D_Editing_GenPriorDistill.html">Learning 3D Editing without Paired Supervision via Generative Prior Distillation</a>
+          <span class="score-badge score-high">8.67</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel9·nov10·imp6</span></div>
+        <p class="item-summary">Learning 3D Editing without Paired Supervision via generative prior distillation</p>
+        <a class="deep-dive-link" href="../reports/20260908_PriorEdit3D_3D_Editing_GenPriorDistill.html">→ 深度研究報告</a>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.05171">WeAgent-MMGenEdit: A Full-Stack Recipe for Multimodal Agentic Image Generation and Editing</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">WeAgent-MMGenEdit: full-stack recipe for multimodal agentic image gen+edit</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04976">RefDiT: Local Attribute Guidance in Reference-Based Image Generation</a>
+          <span class="score-badge score-high">8.00</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel8·nov10·imp5</span></div>
+        <p class="item-summary">RefDiT: local attribute guidance in reference-based image generation</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04603">An Evaluation Framework for Generating Multi-View Images of a Person in a Scene</a>
+          <span class="score-badge score-high">7.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">Eval framework for multi-view image generation/editing via DiTs</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04709">AngelFingerprint: A Traceable, Explainable, and White-Box Stealthy Watermark for Text-Guided Image Editing</a>
+          <span class="score-badge score-high">7.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">AngelFingerprint: traceable white-box watermark for text-guided editing</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04939">LensStyle: Learning the Optical Aesthetics for Controllable Stylized Lens Effect Rendering</a>
+          <span class="score-badge score-high">7.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">LensStyle: controllable stylized lens effect rendering</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.05028">Compositional Reward Models for Conditional Medical Image Generation</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel6·nov10·imp5</span></div>
+        <p class="item-summary">Compositional reward models for conditional medical image gen (ControlNet)</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.05415">UniMate: One Unified Model to Animate Diverse Skeletons</a>
+          <span class="score-badge score-mid">6.44</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel5·nov10·imp4</span></div>
+        <p class="item-summary">UniMate: unified model to animate diverse skeletons (tangential)</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.04726">Bridging Modalities and Tasks: A Unified Hierarchical ViT for SAR-to-Optical Translation and Semantic Segmentation</a>
+          <span class="score-badge score-mid">6.44</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel5·nov10·imp4</span></div>
+        <p class="item-summary">Bridging modalities: SAR-to-optical translation (tangential)</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2604.26883">SEAL: Semantic-aware Single-image Sticker Personalization with a Large-scale Sticker-tag Dataset</a>
+          <span class="score-badge score-mid">5.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>較舊</span><span>[cs.CV]</span><span>rel7·nov4·imp5</span></div>
+        <p class="item-summary">SEAL: semantic-aware single-image sticker personalization (DreamBooth-style)</p>
+        
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2605.26491">Beyond Pairwise Preferences: Listwise Reward-Aware Alignment for Diffusion Models</a>
+          <span class="score-badge score-mid">5.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>較舊</span><span>[cs.CV]</span><span>rel6·nov4·imp5</span></div>
+        <p class="item-summary">Listwise reward-aware alignment for diffusion models</p>
+        
+      </div>
+  </section>
+
+  <footer>
+    <p>由 <code>research-daily</code> agent 自動生成 · 模型 GLM-5.2 · 詳見 <code>runs/2026-09-08.log</code></p>
+  </footer>
+</div>
+</body>
+</html>

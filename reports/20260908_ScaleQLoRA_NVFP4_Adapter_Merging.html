@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scale-QLoRA — 原生 4-bit 微縮格式 LLM 的代碼不變適配器合併研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  aside.toc .back-link {
+    display: block;
+    margin-bottom: 18px;
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  aside.toc .back-link:hover { text-decoration: underline; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 680px;
+  }
+  table.compare th, table.compare td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--code-bg);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child {
+    font-weight: 600;
+    background: var(--surface);
+    width: 150px;
+  }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) {
+    background: var(--surface);
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <a class="back-link" href="../index.html">← 返回報告索引</a>
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">Scale-QLoRA</a>
+        <ol>
+          <li><a href="#p1-info">基本資訊</a></li>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與創新</a></li>
+          <li><a href="#p1-app">應用場景</a></li>
+          <li><a href="#p1-code">代碼/資源</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Model Compression & Quantization</span>
+  <h1>Scale-QLoRA<br>原生 4-bit 微縮格式 LLM 的代碼不變適配器合併研究報告</h1>
+  <p class="subtitle">只調 per-block scale、凍結 E2M1 code plane —— 讓 LoRA 合併在 NVFP4/MXFP4 上成為位元恆等操作</p>
+  <div class="meta">
+    <span>📅 2026-09-08</span>
+    <span>🏷️ quantization · NVFP4 · MXFP4 · LoRA · QAT · W4A4 · microscaling</span>
+    <span>🔬 cs.LG (cross-list)</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+
+<div class="paper-card" id="p1-info">
+  <h2><span class="num">1.</span> Scale-QLoRA: Code-Invariant Adapter Merging for Native 4-bit Microscaling LLMs</h2>
+  <p class="tagline">Scale-QLoRA — 在原生 4-bit 微縮格式（NVFP4 / MXFP4）上，把 LoRA 適配「合併」從一個破壞性操作轉為位元恆等的代碼不變操作</p>
+  <table class="info">
+    <tr><td>標題</td><td>Scale-QLoRA: Code-Invariant Adapter Merging for Native 4-bit Microscaling LLMs</td></tr>
+    <tr><td>作者</td><td>Tung-Ling Li, Jiale Huang, Lee-Chi Wang, Janaki Ram Gotei</td></tr>
+    <tr><td>arXiv</td><td><code>https://arxiv.org/abs/2609.04526</code></td></tr>
+    <tr><td>分類</td><td>cs.LG（cross-list，announce type: cross）</td></tr>
+    <tr><td>發表</td><td>arXiv 2609.04526，2026 年 9 月</td></tr>
+    <tr><td>代碼</td><td>論文摘要未提及公開 GitHub repo</td></tr>
+    <tr><td>特性</td><td><span class="badge green">Code-Invariant Merge</span> <span class="badge blue">NVFP4 / MXFP4</span> <span class="badge amber">Scale-Only Adaptation</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+
+<p>將 LoRA adapter 合併回基底模型是標準的部署實踐：它消除了推理期 adapter 的 per-forward 開銷，留下單一可被任何 serving stack 載入的獨立 checkpoint。然而，在原生 4-bit 微縮格式（microscaling）的 checkpoint（如 <strong>NVFP4</strong>、<strong>MXFP4</strong>）上，這一步不再「免費」。</p>
+
+<p>問題的根源在於：合併後的權重必須透過量化器（quantizer）重新寫回，而這會<strong>重新推導</strong> checkpoint 的離散 E2M1 code plane（約佔 artifact 位元組數的 90%）。這意味著部署 artifact 被耦合到某一個特定的量化慣例（quantization convention），且其生命週期中後續任何觸及 code plane 的操作都可能讓它偏移。</p>
+
+<div class="callout amber">
+  <strong>更嚴重的後果：</strong>若草率處理，這一步不只是脆弱 —— 它會<strong>刪除</strong>適配成果，退化幅度高達 <strong>39 個百分點（39 pp）</strong>。原因在於：當基底已經「在格點上」（on-grid）時，重建的最優解就是基底本身，adapter 帶來的適配訊號會在重新量化過程中被抹平。
+</div>
+
+<p>Scale-QLoRA 提出了一個截然不同的路徑：<strong>只調整原生 per-block scale 欄位</strong>，在部署格點上訓練這些 scale，並<strong>凍結每一個 E2M1 code</strong>。在固定的原生格式、scale grid、block layout 與 code plane 之下，合併就成為一個<strong>位元恆等（bit-exact identity）</strong>操作，合併後的 artifact 是 code-invariant 的。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>不要去動那 90% 的 code plane。LoRA 的適配訊號完全可以由 per-block scale 欄位承載 —— 只要 scale 在部署格點上訓練、code 被凍結，合併就是一個零誤差的恆等映射，部署 artifact 的生命週期穩定性由此而來。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout purple">
+  <strong>直覺範例 — 兩種修圖師傅：</strong>想像一張已經用 4-bit 網點印刷輸出的海報（原生 4-bit microscaling checkpoint）。每個小方塊（block）有一個「墨色濃度旋鈕」（per-block scale），方塊內的網點圖案（E2M1 code）已經固定印好。<br><br>
+  <strong>傳統合併（naive merge）</strong>像是一位師傅把整張海報重新製版：他先算出加了 LoRA 修正後的連續色值，再重新輸出網點 —— 但重新製版會讓原本的網點圖案全部被覆蓋成新的，而且不同印刷廠（量化慣例）印出來的網點還不一樣。最糟的情況下，因為基底本來就是網點的最佳近似，重新製版的結果幾乎等於原圖，LoRA 的修正被抹掉了。<br><br>
+  <strong>Scale-QLoRA</strong>則是另一位師傅：他<strong>完全不碰網點圖案</strong>，只轉動每個方塊的墨色濃度旋鈕，把旋鈕調到能表現 LoRA 修正的程度。因為網點沒動，合併就是把旋鈕設定寫死 —— 零誤差、可回滾、任何印刷廠都讀得懂。
+</div>
+
+<h4>原生 4-bit 微縮格式結構</h4>
+<p>要理解 Scale-QLoRA，必須先理解原生 4-bit 微縮格式的資料結構。以 NVFP4 / MXFP4 為代表，這類格式將權重矩陣切分為多個連續的 <strong>block</strong>（例如每 32 個元素一塊），每個 block 由兩部分組成：</p>
+<ul>
+  <li><strong>E2M1 code plane（碼面）</strong>：每個元素以 4-bit E2M1 浮點編碼（1 符號 + 2 指數 + 1 尾數），可表示有限的一組離散值（如 $\{0, \pm0.5, \pm1, \pm1.5, \pm2\}$ 等）。這部分約佔 artifact 位元組數的 <strong>90%</strong>。</li>
+  <li><strong>Per-block scale（每塊縮放因子）</strong>：每個 block 伴隨一個共享的 scale 值（通常以 8-bit 格式儲存，如 E8M0 指數或 E4M3）。權重的真實值為 $W \approx S \cdot C$，其中 $S$ 為 block scale、$C$ 為 code。</li>
+</ul>
+<p>這種「粗粒度 code + 細粒度 scale」的設計讓 microscaling 格式能在低位元下保持比傳統 INT4 更好的數值動態範圍，是新一代硬體（NVIDIA Blackwell 等）原生支援的 4-bit 格式。</p>
+
+<h4>為何 naive merge 會重新推導 codes 並耦合到量化慣例</h4>
+<p>標準 LoRA 合併的流程是：$W_{\text{merged}} = W_{\text{base}} + \Delta W = W_{\text{base}} + BA$（$B, A$ 為 LoRA 低秩矩陣）。但在原生 4-bit checkpoint 上，$W_{\text{base}}$ 是以「scale + code」形式儲存的，合併後的連續值 $W_{\text{merged}}$ 必須<strong>重新通過量化器</strong>寫回成新的 scale + code。這會引發連鎖問題：</p>
+<ol>
+  <li><strong>Code plane 被重新推導</strong>：量化器對 $W_{\text{merged}}$ 重新做 round-to-grid，產生新的 E2M1 codes。這些新 codes 佔 artifact 的 90%，意味著部署 artifact 被實質「重製」。</li>
+  <li><strong>耦合到量化慣例</strong>：不同的 rounding 規則（nearest、stochastic、甚至不同硬體的實作差異）會產生不同的 codes。部署 artifact 從此被綁定到某一個量化慣例。</li>
+  <li><strong>生命週期不穩定</strong>：後續任何觸及 code plane 的操作（再量化、格式轉換、跨硬體部署）都可能讓 codes 再次偏移。</li>
+  <li><strong>適配被刪除（最嚴重）</strong>：因為 $W_{\text{base}}$ 已經是 on-grid 的，對 $W_{\text{merged}}$ 做最近鄰重建時，重建最優解會傾向回到 $W_{\text{base}}$ 的 grids，LoRA 帶來的 $\Delta W$ 適配訊號被抹平 —— 退化達 <strong>39 pp</strong>。</li>
+</ol>
+
+<h4>Scale-QLoRA 的 scale-only 適配</h4>
+<p>Scale-QLoRA 的核心設計原則：<strong>只調 scale，不動 code</strong>。具體而言：</p>
+<ol>
+  <li><strong>凍結 E2M1 code plane</strong>：基底模型的 codes 在整個訓練與合併過程中完全不變。</li>
+  <li><strong>在部署格點上訓練 per-block scale</strong>：將 LoRA 的適配能力限制在 scale 欄位的調整上。Scale 在原生格點（deployment grid）上訓練，確保訓練時所見即部署時所得。</li>
+  <li><strong>固定原生格式、scale grid、block layout</strong>：整個流程在單一、固定的原生格式內進行，不做跨格式轉換。</li>
+</ol>
+
+<h4>位元恆等的合併恆等式</h4>
+<p>在上述條件滿足時，合併成為<strong>位元恆等</strong>操作：</p>
+<ul>
+  <li>Code plane 未變，合併前後的 codes 完全一致（bit-exact）。</li>
+  <li>Scale 欄位已是訓練結果的部署值，合併就是把訓練後的 scale 直接寫入 checkpoint，無需重新量化。</li>
+  <li>合併後的 artifact 是 <strong>code-invariant</strong> 的 —— 它與基底共享同一個 code plane。</li>
+</ul>
+
+<h4>與 merge-aware QAT-LoRA 的結構性比較</h4>
+<p>論文將 Scale-QLoRA 與 <strong>merge-aware QAT-LoRA</strong> 進行比較。兩者在實驗中都是<strong>精度無損（accuracy-lossless）</strong>的，因此論文<strong>不主張兩者之間存在精度排序</strong>。它們的差異是<strong>結構性</strong>的：</p>
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>維度</th>
+      <th>Scale-QLoRA</th>
+      <th>Merge-aware QAT-LoRA</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>適配對象</td>
+      <td>僅 per-block scale</td>
+      <td>權重（含 code 與 scale）</td>
+    </tr>
+    <tr>
+      <td>Code plane</td>
+      <td>凍結，合併後 bit-exact 不變</td>
+      <td>透過量化器重新推導</td>
+    </tr>
+    <tr>
+      <td>合併操作</td>
+      <td>位元恆等（identity）</td>
+      <td>需重新量化，非恆等</td>
+    </tr>
+    <tr>
+      <td>部署 artifact 耦合</td>
+      <td>不耦合到量化慣例（code-invariant）</td>
+      <td>耦合到量化慣例</td>
+    </tr>
+    <tr>
+      <td>生命週期穩定性</td>
+      <td>高（code 不動）</td>
+      <td>低（code 可被後續操作搬動）</td>
+    </tr>
+    <tr>
+      <td>訓練期 STE</td>
+      <td>無需（code 凍結，無 round 端點需直通）</td>
+      <td>需要（code 經量化器，round 需 STE）</td>
+    </tr>
+    <tr>
+      <td>精度</td>
+      <td>accuracy-lossless</td>
+      <td>accuracy-lossless（與 Scale-QLoRA 無排序）</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout">
+  <strong>兩者差異的真正意義在於「生命週期定價」：</strong>QAT-LoRA 重新推導 code plane，意味著部署 artifact 的命運被綁在量化器的 rounding 規則上；Scale-QLoRA 保留 code plane，使 artifact 在整個生命週期中對 code-touching 事件免疫。這不是精度之爭，而是<strong>工程穩定性之爭</strong>。
+</div>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>原生 4-bit 微縮格式的反量化</h4>
+<p>設權重矩陣 $\mathbf{W}$ 被劃分為 $K$ 個 block，第 $k$ 個 block 的元素記為 $\mathbf{w}^{(k)} \in \mathbb{R}^{n_b}$（$n_b$ 為 block size，如 32）。microscaling 格式將每個 block 編碼為一個共享 scale $s^{(k)}$ 與一組 4-bit E2M1 codes $\mathbf{c}^{(k)}$：</p>
+<div class="math-block">
+$$ \hat{\mathbf{w}}^{(k)} = s^{(k)} \cdot \mathbf{c}^{(k)}, \quad \mathbf{c}^{(k)} \in \mathcal{G}_{\text{E2M1}}^{n_b} $$
+</div>
+<p>其中 $\mathcal{G}_{\text{E2M1}}$ 為 E2M1 浮點格點（4-bit，含符號、2 指數、1 尾數位元），是一個有限的離散值集合。整個權重的近似為：</p>
+<div class="math-block">
+$$ \mathbf{W} \approx \mathbf{S} \odot \mathbf{C}, \quad \mathbf{S} = [s^{(1)}, \dots, s^{(K)}], \quad \mathbf{C} = [\mathbf{c}^{(1)}, \dots, \mathbf{c}^{(K)}] $$
+</div>
+<p>其中 $\mathbf{S}$ 為 per-block scale 欄位，$\mathbf{C}$ 為 E2M1 code plane。code plane $\mathbf{C}$ 約佔 artifact 位元組數的 90%。</p>
+
+<h4>標準 LoRA 合併與重建最優問題</h4>
+<p>標準 LoRA 合併後的連續權重為：</p>
+<div class="math-block">
+$$ \mathbf{W}_{\text{merged}} = \mathbf{W}_{\text{base}} + \Delta \mathbf{W}, \quad \Delta \mathbf{W} = \mathbf{B}\mathbf{A}, \quad \mathbf{B} \in \mathbb{R}^{d \times r}, \mathbf{A} \in \mathbb{R}^{r \times d}, \ r \ll d $$
+</div>
+<p>在原生 4-bit checkpoint 上，$\mathbf{W}_{\text{base}} = \mathbf{S}_{\text{base}} \odot \mathbf{C}_{\text{base}}$ 已是 on-grid。合併後必須重新量化：$\mathbf{W}_{\text{merged}} \to (\mathbf{S}_{\text{new}}, \mathbf{C}_{\text{new}})$。最近鄰重建的目標為：</p>
+<div class="math-block">
+$$ \mathbf{C}_{\text{new}}^{(k)} = \arg\min_{\mathbf{c} \in \mathcal{G}_{\text{E2M1}}^{n_b}} \left\| \mathbf{w}_{\text{merged}}^{(k)} - s_{\text{new}}^{(k)} \cdot \mathbf{c} \right\|_2^2 $$
+</div>
+
+<div class="callout amber">
+  <strong>退化的數學根源：</strong>當 $\mathbf{W}_{\text{base}}$ 已在格點上（on-grid），且 $\Delta \mathbf{W}$ 相對於 block scale 為小量時，重建最優解 $\mathbf{C}_{\text{new}}^*$ 會趨近於 $\mathbf{C}_{\text{base}}$ —— 也就是說，<strong>重建最優解就是基底本身</strong>，LoRA 的 $\Delta \mathbf{W}$ 被抹平。這正是 naive merge 退化達 39 pp 的原因。
+</div>
+
+<h4>Scale-QLoRA：凍結 codes 使合併成為位元恆等</h4>
+<p>Scale-QLoRA 將適配限制在 scale 欄位。定義訓練目標為尋找新的 per-block scale $\mathbf{S}_{\text{adapt}}$，同時<strong>凍結</strong> $\mathbf{C}_{\text{base}}$：</p>
+<div class="math-block">
+$$ \mathbf{S}_{\text{adapt}} = \arg\min_{\mathbf{S}} \; \mathcal{L}\!\left( f_{\mathbf{S} \odot \mathbf{C}_{\text{base}}}; \mathcal{D} \right), \quad \text{subject to } \mathbf{C}_{\text{base}} = \text{const} $$
+</div>
+<p>其中 $f$ 為模型前向，$\mathcal{D}$ 為適配任務資料，$\mathcal{L}$ 為任務損失。訓練只在 deployment grid 上調整 $\mathbf{S}$。</p>
+
+<h4>合併的位元恆等性</h4>
+<p>合併後的 artifact 為 $(\mathbf{S}_{\text{adapt}}, \mathbf{C}_{\text{base}})$。由於 code plane 完全未變：</p>
+<div class="math-block">
+$$ \mathbf{C}_{\text{merged}} = \mathbf{C}_{\text{base}} \quad \text{(bit-exact)}, \quad \mathbf{S}_{\text{merged}} = \mathbf{S}_{\text{adapt}} $$
+</div>
+<p>合併操作 $\mathcal{M}$ 為恆等映射（在 code plane 上）：</p>
+<div class="math-block">
+$$ \mathcal{M}\!\left( \mathbf{S}_{\text{adapt}}, \mathbf{C}_{\text{base}} \right) = \left( \mathbf{S}_{\text{adapt}}, \mathbf{C}_{\text{base}} \right) \quad \Longrightarrow \quad \mathcal{M}\big|_{\mathbf{C}} = \mathbf{I} $$
+</div>
+<p>即合併在 code plane 上是位元恆等的，合併後 artifact 為 code-invariant。</p>
+
+<h4>與 QAT-LoRA 的結構性差異（形式化）</h4>
+<p>merge-aware QAT-LoRA 在訓練中考慮合併後的重新量化，其 forward 含 fake-quantization 且需 STE：</p>
+<div class="math-block">
+$$ \hat{\mathbf{W}}_{\text{QAT}} = Q\!\left( \mathbf{W}_{\text{base}} + \mathbf{B}\mathbf{A} \right) = \mathbf{S}_{\text{QAT}} \odot \mathbf{C}_{\text{QAT}}, \quad \mathbf{C}_{\text{QAT}} \neq \mathbf{C}_{\text{base}} $$
+</div>
+<p>其梯度需透過 Straight-Through Estimator 直通 $\text{round}(\cdot)$ 端點：</p>
+<div class="math-block">
+$$ \frac{\partial \mathbf{C}_{\text{QAT}}}{\partial \mathbf{W}} \approx \frac{\partial\, \text{round}(\mathbf{W})}{\partial \mathbf{W}} \;\stackrel{\text{STE}}{\approx}\; 1 $$
+</div>
+<p>而 Scale-QLoRA 因 $\mathbf{C}_{\text{base}}$ 凍結，<strong>訓練過程中完全不需要 STE</strong> —— 這也是其在 dense 8B 模型上每步快 3.9x 的數學原因。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+
+<h4>主要設定</h4>
+<table class="info">
+  <tr><td>模型數量</td><td>4 個模型</td></tr>
+  <tr><td>任務數量</td><td>4 個任務</td></tr>
+  <tr><td>原生格式</td><td>NVFP4 / MXFP4（native 4-bit microscaling）</td></tr>
+  <tr><td>對比方法</td><td>Scale-QLoRA vs merge-aware QAT-LoRA</td></tr>
+  <tr><td>評估維度</td><td>精度、生命週期敏感度、訓練效率、任務切換速度</td></tr>
+  <tr><td>代表性模型</td><td>dense 8B 模型（用於訓練效率基準）</td></tr>
+</table>
+
+<h4>精度結果</h4>
+<div class="callout green">
+  <strong>精度無損：</strong>在 4 個模型 × 4 個任務的全面評估中，Scale-QLoRA 與 merge-aware QAT-LoRA<strong>都是 accuracy-lossless</strong> 的。論文明確聲明<strong>不主張兩者之間存在精度排序</strong> —— 它們在精度上是等價的，差異純屬結構性。
+</div>
+
+<h4>生命週期敏感度（核心實驗）</h4>
+<p>論文將兩者差異定位為「生命週期定價」，並量化了 code-touching 事件對部署 artifact 的影響：</p>
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>生命週期事件</th>
+      <th>Scale-QLoRA（code 凍結）</th>
+      <th>QAT-LoRA（code 重推導）</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Nearest-rounding 實作差異</td>
+      <td>不受影響（code 不變）</td>
+      <td>在量測任務上約 <strong>~1 point</strong> 分歧</td>
+    </tr>
+    <tr>
+      <td>更極端的規則不匹配</td>
+      <td>不受影響（code 不變）</td>
+      <td>權重空間 artifact 可被驅至 <strong>~0%</strong></td>
+    </tr>
+    <tr>
+      <td>報告性質</td>
+      <td>—</td>
+      <td>作為<strong>敏感度上界</strong>報告，非部署頻率</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout amber">
+  <strong>敏感度的解讀：</strong>論文強調 ~0% 的極端結果是一個<strong>敏感度上界（sensitivity bound）</strong>，而非實際部署中會發生的頻率。它的意義在於揭示：一旦 code plane 被重新推導，部署 artifact 就暴露在 rounding 規則不匹配的風險下，極端情況可完全失效。Scale-QLoRA 透過凍結 code plane，從根本上消除了這類風險。
+</div>
+
+<h4>訓練效率</h4>
+<table class="info">
+  <tr><td>模型</td><td>dense 8B</td></tr>
+  <tr><td>Scale-QLoRA per-step 加速</td><td><strong>3.9x</strong>（相對於含 STE 的 QAT-LoRA）</td></tr>
+  <tr><td>加速來源</td><td>code plane 凍結 → 訓練中<strong>移除權重空間 STE</strong></td></tr>
+</table>
+<p>由於 $\mathbf{C}_{\text{base}}$ 在訓練中為常數，權重空間的 $\text{round}(\cdot)$ 端點不存在，因此<strong>完全不需要 Straight-Through Estimator</strong>。這消除了 QAT-LoRA 中每步必須的 STE 前向/反向開銷，在 dense 8B 模型上帶來 3.9x 的每步加速。</p>
+
+<h4>任務切換與生命週期操作</h4>
+<table class="info">
+  <tr><td>Scale-only task swap</td><td><strong>~125x</strong> 更快（相對於含 code plane 的完整 adapter 切換）</td></tr>
+  <tr><td>精確回滾（exact rollback）</td><td>✅ 啟用（code 不變，回滾只需還原 scale）</td></tr>
+  <tr><td>Code-plane 去重（deduplication）</td><td>✅ 啟用（多個適配共享同一 code plane，可去重儲存）</td></tr>
+</table>
+
+<div class="callout green">
+  <strong>關鍵發現：</strong>Scale-QLoRA 不僅在精度上與 QAT-LoRA 等價，更在工程維度上帶來三重紅利 —— <strong>訓練快 3.9x、任務切換快 ~125x、生命週期完全可回滾且可去重</strong>。這些紅利全部源自一個設計選擇：凍結 code plane，只調 scale。
+</div>
+
+<h4>實驗結果總覽</h4>
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>指標</th>
+      <th>Scale-QLoRA</th>
+      <th>Naive Merge</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>精度（vs QAT-LoRA）</td><td>accuracy-lossless（無排序）</td><td>退化達 <strong>39 pp</strong></td></tr>
+    <tr><td>Code plane 穩定性</td><td>bit-exact 不變</td><td>重新推導，耦合量化慣例</td></tr>
+    <tr><td>Nearest-rounding 分歧</td><td>無</td><td>~1 point</td></tr>
+    <tr><td>極端規則不匹配</td><td>無</td><td>~0%（敏感度上界）</td></tr>
+    <tr><td>訓練 per-step 效率（8B）</td><td><strong>3.9x</strong> 加速（無 STE）</td><td>—</td></tr>
+    <tr><td>Scale-only task swap</td><td><strong>~125x</strong> 更快</td><td>—</td></tr>
+    <tr><td>Exact rollback</td><td>✅</td><td>❌</td></tr>
+    <tr><td>Code-plane deduplication</td><td>✅</td><td>❌</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 id="p1-contrib">貢獻與創新</h3>
+<ol>
+  <li><strong>Code-invariant merging（代碼不變合併）</strong>：首次提出在原生 4-bit microscaling 格式上，透過凍結 E2M1 code plane、僅調 per-block scale，使 LoRA 合併成為<strong>位元恆等</strong>操作。這從根本上解決了 naive merge 退化達 39 pp 的問題。</li>
+  <li><strong>生命週期穩定性（lifecycle stability）</strong>：揭示並量化了 code-touching 事件對部署 artifact 的風險 —— nearest-rounding 分歧約 ~1 point，極端不匹配可至 ~0%。Scale-QLoRA 透過 code-invariance 使 artifact 在整個生命週期中對此類事件免疫。</li>
+  <li><strong>STE-free 訓練</strong>：因 code plane 凍結，訓練中完全移除權重空間的 Straight-Through Estimator，在 dense 8B 模型上實現每步 <strong>3.9x</strong> 加速。</li>
+  <li><strong>精確回滾（exact rollback）</strong>：code plane 不變使得回滾操作只需還原 scale 欄位，實現位元精確的回滾能力。</li>
+  <li><strong>快速任務切換與 code-plane 去重</strong>：多個適配任務共享同一 code plane，scale-only task swap 達 <strong>~125x</strong> 加速，並啟用 code-plane deduplication 以節省儲存。</li>
+  <li><strong>結構性而非精度的比較視角</strong>：明確聲明 Scale-QLoRA 與 merge-aware QAT-LoRA 在精度上等價（無排序），將兩者差異正確定位為<strong>生命週期定價</strong>問題，為後續 4-bit 部署研究提供了清晰的設計取捨框架。</li>
+</ol>
+
+<h3 id="p1-app">應用場景</h3>
+<ul>
+  <li><strong>原生 4-bit LLM 的生產部署</strong>：在 NVFP4 / MXFP4 硬體上部署 LLM 時，以 Scale-QLoRA 進行任務適配，確保合併後 artifact 穩定、不耦合特定量化慣例。</li>
+  <li><strong>多任務 serving（multi-task serving）</strong>：多個任務的 adapter 共享同一 code plane，僅以 scale 欄位區分，實現 ~125x 的快速任務切換，適合高吞吐多租戶推理服務。</li>
+  <li><strong>生產環境的回滾與去重</strong>：exact rollback 支援安全發布與快速回退；code-plane deduplication 在管理大量適配變體時顯著降低儲存成本。</li>
+  <li><strong>跨硬體 / 跨量化慣例部署</strong>：code-invariant artifact 不受 nearest-rounding 實作差異影響，適合在多種硬體後端、多種 serving stack 間移植。</li>
+  <li><strong>高效 LoRA 訓練</strong>：移除 STE 帶來 3.9x per-step 加速，降低 4-bit 適配訓練的算力門檻，尤其利好 dense 大模型。</li>
+  <li><strong>量化模型生命週期管理</strong>：為需長期維護、多次再量化或格式轉換的 4-bit 模型提供 code-plane 穩定性保障。</li>
+</ul>
+
+<div class="callout purple">
+  <strong>未來展望：</strong>Scale-QLoRA 確立了「凍結 code、只調 scale」作為 microscaling 格式適配的設計範式。後續可探索：scale 欄位位元配置的最佳化、與其他適配方法（如 prefix tuning、prompt tuning）的結合、在更低位元格式（如 2-bit / 1-bit microscaling）上的推廣、以及 code-plane deduplication 在大規模 adapter 倉儲中的實際壓縮比。
+</div>
+
+</section>
+
+<!-- ============ REFS ============ -->
+<section id="refs">
+<h2><span class="num">2.</span> 代碼 / 資源</h2>
+<ul>
+  <li><strong>arXiv</strong>：<code>https://arxiv.org/abs/2609.04526</code></li>
+  <li><strong>分類</strong>：cs.LG（cross-list，announce type: cross）</li>
+  <li><strong>作者</strong>：Tung-Ling Li, Jiale Huang, Lee-Chi Wang, Janaki Ram Gotei</li>
+  <li><strong>代碼</strong>：論文摘要未提及公開 GitHub 儲存庫</li>
+  <li><strong>相關技術</strong>：NVFP4, MXFP4, microscaling (MX) formats, E2M1 floating-point, LoRA, QAT-LoRA, Straight-Through Estimator (STE), adapter merging, per-block quantization</li>
+  <li><strong>相關硬體</strong>：NVIDIA Blackwell（NVFP4 原生支援）、OCP MX（MXFP4 標準）</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-09-08 ｜ 研究來源：arXiv 2609.04526（經驗證 metadata）<br>
+  本報告基於論文摘要與 microscaling / 量化技術背景知識整理，數學符號以 MathJax 渲染。摘要中未提供的具體實驗細節（如模型名稱、任務清單）以「4 個模型 × 4 個任務」概括呈現，未杜撰未驗證數字。由 <code>research-daily</code> agent 自動生成（headless 模式）。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

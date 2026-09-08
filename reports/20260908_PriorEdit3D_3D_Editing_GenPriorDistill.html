@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PriorEdit3D — 無成對監督的生成式先驗蒸餾 3D 編輯研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  aside.toc .back-link {
+    display: block;
+    margin-bottom: 18px;
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  aside.toc .back-link:hover { text-decoration: underline; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 680px;
+  }
+  table.compare th, table.compare td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--code-bg);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child {
+    font-weight: 600;
+    background: var(--surface);
+    width: 150px;
+  }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) {
+    background: var(--surface);
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  .badge.purple { background: var(--accent-2-soft); color: var(--accent-2); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <a class="back-link" href="../index.html">← 返回總覽</a>
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">PriorEdit3D</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與創新</a></li>
+          <li><a href="#p1-app">應用場景</a></li>
+          <li><a href="#p1-code">代碼/資源</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Image Editing · 3D</span>
+  <h1>PriorEdit3D<br>無成對監督的生成式先驗蒸餾 3D 編輯研究報告</h1>
+  <p class="subtitle">透過可微分渲染將視覺 / 語意 / 幾何先驗從基礎模型蒸餾進 3D 編輯模型 —— 解決成對 3D 監督稀缺的關鍵瓶頸</p>
+  <div class="meta">
+    <span>📅 2026-09-08</span>
+    <span>🏷️ 3D editing · generative prior distillation · differentiable rendering · VLM · instruction-guided</span>
+    <span>🔬 cs.CV</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> PriorEdit3D: Learning 3D Editing without Paired Supervision via Generative Prior Distillation</h2>
+  <p class="tagline">PriorEdit3D — 不依賴成對 3D 監督，從影像編輯模型、VLM 與 image-to-3D 教師蒸餾出前饋式指令 3D 編輯能力</p>
+  <table class="info">
+    <tr><td>標題</td><td>Learning 3D Editing without Paired Supervision via Generative Prior Distillation</td></tr>
+    <tr><td>作者</td><td>Hao Wen, Weibin Yun, Hongxing Fan, Haotian Lu, Rui Chen, Zehuan Huang</td></tr>
+    <tr><td>類別</td><td>cs.CV</td></tr>
+    <tr><td>arXiv</td><td><code>https://arxiv.org/abs/2609.04942</code></td></tr>
+    <tr><td>GitHub</td><td><code>https://github.com/thiamine128/PriorEdit3D</code></td></tr>
+    <tr><td>特性</td><td><span class="badge green">paired-supervision-free</span> <span class="badge blue">feed-forward</span> <span class="badge purple">3D-aware distribution matching</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>指令引導的 3D 編輯（instruction-guided 3D editing）是互動式內容創作的核心能力，但長期受困於一個根本瓶頸：<strong>高品質成對 3D 訓練資料的嚴重稀缺</strong>。要建立「編輯前 3D 資產 → 編輯後 3D 資產」的成對監督，需耗費大量人工或昂貴的重建流程，且難以涵蓋多樣化的編輯指令空間。</p>
+
+<p>既有方法嘗試以兩條路徑繞過此瓶頸，但各有致命缺陷：（1）<strong>測試時優化（test-time optimization）</strong>雖免成對監督，但每個編輯請求都要緩慢迭代，無法支撐即時互動；（2）<strong>偽成對資料（pseudo-pairs）</strong>經複雜管線構造，常引入<strong>結構漂移（structural drift）與幾何偽影（geometric artifacts）</strong>，使訓練出的模型在多視角下不一致。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>既然缺乏「成對 3D 監督」，何不<strong>直接從強大的基礎模型蒸餾出視覺、語意與幾何知識</strong>？影像編輯模型懂「如何依指令改圖」、VLM 懂「語意與身份一致性」、image-to-3D 教師懂「什麼是合理的 3D 資產流形」—— 三者透過可微分渲染匯流，即可在<strong>無成對 3D 監督</strong>下訓練出前饋式 3D 編輯模型。這正是 <strong>Generative Prior Distillation（生成式先驗蒸餾）</strong>名稱的由來。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout purple">
+  <strong>直覺範例 — 三位導師聯手教雕塑學徒：</strong>想像一位雕塑學徒要學「依客戶指令修改 3D 雕像」這門技藝，但學校裡<strong>沒有任何「修改前後成對」的範例雕像</strong>可參考。<br><br>
+  PriorEdit3D 給學徒請了三位導師：<br>
+  <strong>導師一（影像編輯模型）</strong>：站在正面主視角，告訴學徒「依這條指令，正面應該長這樣」—— 提供<strong>2D 視覺先驗</strong>。<br>
+  <strong>導師二（VLM）</strong>：繞到其他視角，檢查學徒的成品是否「<strong>還聽得懂指令、還認得出原物件</strong>」—— 提供<strong>語意先驗</strong>，確保指令遵循與身份保持。<br>
+  <strong>導師三（image-to-3D 教師）</strong>：在 3D 潛空間裡把關，告訴學徒「你刻的這個 3D 形狀，<strong>得落在合理 3D 資產的流形上</strong>，別刻出不可能存在的形體」—— 提供<strong>幾何先驗</strong>，防止 2D 投影監督造成的幾何塌縮。<br><br>
+  三位導師透過可微分渲染這條「翻譯通道」同時指導，學徒最終學會<strong>前饋式</strong>直接輸出編輯後的 3D 資產，無需任何成對 3D 監督。
+</div>
+
+<div class="callout">
+  <strong>與現有 3D 編輯路徑的差別（一句話）：</strong>既有方法要麼「慢（測試時優化）」、要麼「髒（偽成對引入漂移）」；PriorEdit3D 透過<strong>生成式先驗蒸餾</strong>同時做到「快（前饋）」與「準（多基礎模型聯合監督）」。
+</div>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>測試時優化（test-time optimization）</strong>：每筆編輯請求需緩慢迭代（如 SDS 風格 per-instance 優化）；PriorEdit3D 訓練一個前饋模型，推理一次前向即可。</li>
+  <li><strong>偽成對資料（pseudo-pairs）</strong>：以複雜管線構造編輯前後對，常引入結構漂移與幾何偽影；PriorEdit3D 完全跳過成對監督，改以基礎模型先驗監督。</li>
+  <li><strong>2D 投影監督</strong>：用 2D 編輯模型監督多視角渲染，會出現<strong>幾何塌縮（geometric collapse）與多視角不一致</strong>；PriorEdit3D 以 3D-aware Distribution Matching 在 3D 潛空間施加幾何約束修正此病。</li>
+  <li><strong>SDS / Score Distillation</strong>：經典的從擴散模型蒸餾至 3D 的範式；PriorEdit3D 的分佈匹配正則化可視為其在<strong>3D 潛空間</strong>的幾何強化變體。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>問題定式化</strong>：訓練一個前饋 3D 編輯模型 $f_\theta$，輸入為源 3D 資產 $\mathbf{X}$ 與編輯指令 $\mathcal{I}$，輸出為編輯後 3D 資產 $\mathbf{Y}=f_\theta(\mathbf{X},\mathcal{I})$；<strong>無成對 $(\mathbf{X},\mathbf{Y}^*)$ 監督</strong>。</li>
+  <li><strong>Generative Prior Distillation 核心思想</strong>：不依賴 ground-truth 3D 配對，而是從三類基礎模型蒸餾先驗：
+    <ul>
+      <li><strong>視覺先驗</strong>：來自影像編輯模型（image editing model）。</li>
+      <li><strong>語意先驗</strong>：來自視覺語言模型（VLM）。</li>
+      <li><strong>幾何先驗</strong>：來自預訓練 image-to-3D 教師模型。</li>
+    </ul>
+  </li>
+  <li><strong>可微分渲染管線</strong>：對編輯後 3D 表示 $\mathbf{Y}$ 進行可微分渲染，得到多視角影像 $\{\hat{\mathbf{I}}_v\}$，使 2D 基礎模型的監督訊號可回傳梯度至 3D 表徵。</li>
+  <li><strong>雙重監督訊號</strong>：
+    <ul>
+      <li><strong>2D 視覺先驗（主編輯視角）</strong>：在主編輯視角 $v^*$，以影像編輯模型產生的編輯結果作為視覺目標，監督 $\hat{\mathbf{I}}_{v^*}$，提供「依指令改圖」的視覺監督。</li>
+      <li><strong>語意先驗（新視角）</strong>：在新視角 $\{v \neq v^*\}$，以 VLM 監督渲染影像，確保<strong>嚴格指令遵循（strict instruction following）</strong>與<strong>源身份保持（source identity preservation）</strong>—— 即新視角仍要「聽得懂指令、認得出原物件」。</li>
+    </ul>
+  </li>
+  <li><strong>3D-aware Distribution Matching 正則化</strong>：針對 2D 投影監督 inherent 的<strong>幾何塌縮與多視角不一致</strong>，在<strong>3D 潛空間</strong>施加分佈匹配約束，將編輯輸出限制在預訓練 image-to-3D 教師定義的「合理 3D 資產流形」之內。</li>
+  <li><strong>聯合訓練</strong>：以視覺先驗 + 語意先驗 + 3D 幾何先驗三項加權聯合優化 $\theta$，得到無成對監督的前饋 3D 編輯模型。</li>
+  <li><strong>推理</strong>：訓練完成後，$f_\theta$ 直接前饋輸出編輯後 3D 資產，<strong>無需測試時優化</strong>。</li>
+</ol>
+
+<div class="callout green">
+  <strong>演算法直覺範例 — 三道關卡同時把關：</strong>把 3D 編輯模型想成一位要通過三道關卡的學徒。<br>
+  <br>
+  <strong>Step 4a — 主視角視覺關卡</strong>（影像編輯模型）：學徒從正面交出的成品，必須跟「會改圖的老師」改出來的樣子一致 —— <strong>視覺對齊</strong>。<br>
+  <strong>Step 4b — 新視角語意關卡</strong>（VLM）：學徒轉到側面、背面交出的成品，必須仍「聽得懂原指令、認得出原物件」—— <strong>指令遵循 + 身份保持</strong>。<br>
+  <strong>Step 5 — 3D 幾何關卡</strong>（image-to-3D 教師）：學徒整個 3D 成品的潛表示，必須落在「合理 3D 資產流形」上 —— <strong>防幾何塌縮、防多視角打架</strong>。<br>
+  <strong>Step 6-7</strong>：三關同時把關訓練，出廠後學徒可一次前饋交件，無需現場再磨。
+</div>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>前饋 3D 編輯模型</h4>
+<p>設源 3D 資產 $\mathbf{X}$、編輯指令 $\mathcal{I}$，前饋編輯模型 $f_\theta$ 輸出編輯後 3D 表示：</p>
+<div class="math-block">
+$$ \mathbf{Y} = f_\theta(\mathbf{X},\, \mathcal{I}) $$
+</div>
+<p>其中 $\mathbf{Y}$ 為可渲染的 3D 表徵（如 NeRF / 3D Gaussian Splatting 風格表示）。<strong>訓練集不含成對 $(\mathbf{X}, \mathbf{Y}^*)$ 監督</strong>。</p>
+
+<h4>可微分渲染</h4>
+<p>對 $\mathbf{Y}$ 於視角 $v$ 進行可微分渲染，得影像 $\hat{\mathbf{I}}_v$：</p>
+<div class="math-block">
+$$ \hat{\mathbf{I}}_v = \mathcal{R}\big(\mathbf{Y},\, v\big), \qquad \frac{\partial \hat{\mathbf{I}}_v}{\partial \mathbf{Y}} \text{ 存在（可微）} $$
+</div>
+<p>可微分渲染 $\mathcal{R}$ 是「2D 基礎模型監督 → 3D 表徵梯度」的翻譯通道。</p>
+
+<h4>2D 視覺先驗（主編輯視角）</h4>
+<p>在主編輯視角 $v^*$，以影像編輯模型 $\mathcal{E}_{\text{edit}}$ 依指令產生編輯目標 $\mathbf{I}^*_{v^*} = \mathcal{E}_{\text{edit}}(\mathbf{I}_{v^*}^{\text{src}}, \mathcal{I})$，監督渲染輸出：</p>
+<div class="math-block">
+$$ \mathcal{L}_{\text{visual}} = \ell_{\text{pix}}\!\Big( \hat{\mathbf{I}}_{v^*},\; \mathbf{I}^*_{v^*} \Big) \;+\; \lambda_{\text{perc}} \, \ell_{\text{perc}}\!\Big( \hat{\mathbf{I}}_{v^*},\; \mathbf{I}^*_{v^*} \Big) $$
+</div>
+<p>其中 $\ell_{\text{pix}}$ 為像素級重建誤差，$\ell_{\text{perc}}$ 為感知損失（如 VGG / LPIPS 風格），提供「依指令改圖」的視覺監督。</p>
+
+<h4>語意先驗（新視角，指令遵循 + 身份保持）</h4>
+<p>在新視角集合 $\mathcal{V}_{\text{novel}} = \{v \mid v \neq v^*\}$，以 VLM $\mathcal{M}_{\text{VLM}}$ 監督，確保渲染影像<strong>嚴格遵循指令</strong>且<strong>保持源身份</strong>：</p>
+<div class="math-block">
+$$ \mathcal{L}_{\text{semantic}} = \mathbb{E}_{v \sim \mathcal{V}_{\text{novel}}} \Big[ \ell_{\text{instr}}\!\big( \mathcal{M}_{\text{VLM}}(\hat{\mathbf{I}}_v),\, \mathcal{I} \big) \;+\; \lambda_{\text{id}} \, \ell_{\text{id}}\!\big( \hat{\mathbf{I}}_v,\, \mathbf{X} \big) \Big] $$
+</div>
+<p>其中 $\ell_{\text{instr}}$ 衡量 VLM 對渲染影像的指令遵循程度（如以 VLM 機率 / 嵌入相似度評分），$\ell_{\text{id}}$ 衡量源身份保持（如特徵嵌入距離）。</p>
+
+<h4>雙訊號聯合監督</h4>
+<div class="math-block">
+$$ \mathcal{L}_{\text{dual}} = \mathcal{L}_{\text{visual}} \;+\; \lambda_{\text{sem}} \, \mathcal{L}_{\text{semantic}} $$
+</div>
+<p>主視角視覺先驗提供「如何改」，新視角語意先驗提供「改完仍要對齊指令與身份」—— 兩者互補。</p>
+
+<h4>3D-aware Distribution Matching 正則化（幾何先驗）</h4>
+<p>2D 投影監督 inherent 會造成<strong>幾何塌縮與多視角不一致</strong>。為修正此病，PriorEdit3D 在<strong>3D 潛空間</strong>引入分佈匹配正則化，將編輯輸出限制在預訓練 image-to-3D 教師 $\mathcal{T}_{\text{I2V3D}}$ 定義的合理 3D 資產流形內。</p>
+
+<p>設 3D 潛空間編碼函數 $\mathcal{E}_{\text{3D}}$ 將 3D 資產映射至潛表示 $\mathbf{z} = \mathcal{E}_{\text{3D}}(\mathbf{Y})$，image-to-3D 教師定義一個目標 3D 潛在分佈 $p_{\text{3D}}^*$（由教師生成樣本的潛在分佈近似）。3D-aware 分佈匹配可寫為潛在分佈距離最小化：</p>
+<div class="math-block">
+$$ \mathcal{L}_{\text{3DDM}} = D\!\Big( \, p_{\mathbf{z}} \;\|\; p_{\text{3D}}^* \,\Big) $$
+</div>
+<p>其中 $p_{\mathbf{z}}$ 為編輯輸出在 3D 潛空間的（迷你批次估計）分佈，$D(\cdot \| \cdot)$ 為分佈距離（如 Wasserstein / KL / 特徵空間 MMD）。實作上常以教師潛在特徵 $\boldsymbol{\mu}_{\text{teacher}}, \boldsymbol{\Sigma}_{\text{teacher}}$ 與學生迷你批次統計量對齊：</p>
+<div class="math-block">
+$$ \mathcal{L}_{\text{3DDM}} \approx \big\| \boldsymbol{\mu}_{\text{batch}}(\mathbf{z}) - \boldsymbol{\mu}_{\text{teacher}} \big\|_2^2 \;+\; \text{tr}\!\Big( \boldsymbol{\Sigma}_{\text{teacher}} + \boldsymbol{\Sigma}_{\text{batch}} - 2\big(\boldsymbol{\Sigma}_{\text{teacher}} \boldsymbol{\Sigma}_{\text{batch}}\big)^{1/2} \Big) $$
+</div>
+<p>即一個潛在 Fréchet / Wasserstein 風格距離，把編輯輸出「拉回」合理 3D 流形。</p>
+
+<h4>與 SDS 風格蒸餾的關係</h4>
+<p>經典 Score Distillation Sampling（SDS）以擴散模型分數函數作為梯度方向蒸餾至 3D：</p>
+<div class="math-block">
+$$ \nabla_{\mathbf{Y}} \mathcal{L}_{\text{SDS}} = \mathbb{E}_{t, \boldsymbol{\epsilon}} \Big[ \big( \epsilon_\phi(\mathbf{x}_t, t) - \boldsymbol{\epsilon} \big) \cdot \frac{\partial \mathbf{x}_t}{\partial \mathbf{Y}} \Big] $$
+</div>
+<p>PriorEdit3D 的 3D-aware Distribution Matching 可視為<strong>將此類蒸餾從「像素 / 投影分數」提升至「3D 潛在分佈」</strong>的幾何強化變體 —— 不再單點對齊 2D 分數，而是讓整個 3D 潛在分佈貼合教師定義的合理 3D 流形，從而抑制塌縮。</p>
+
+<h4>整體目標</h4>
+<div class="math-block">
+$$ \theta^* = \arg\min_{\theta} \; \Big[ \mathcal{L}_{\text{visual}} \;+\; \lambda_{\text{sem}} \, \mathcal{L}_{\text{semantic}} \;+\; \lambda_{\text{3D}} \, \mathcal{L}_{\text{3DDM}} \Big] $$
+</div>
+<div class="math-block">
+$$ \Longrightarrow \quad \text{推理：} \mathbf{Y} = f_{\theta^*}(\mathbf{X}, \mathcal{I}) \text{ 一次前饋，無測試時優化} $$
+</div>
+
+<h3 id="p1-exp">實驗結果</h3>
+
+<h4>主要設定</h4>
+<table class="info">
+  <tr><td>任務</td><td>指令引導 3D 編輯（instruction-guided 3D editing）</td></tr>
+  <tr><td>監督形式</td><td>無成對 3D 監督（paired-supervision-free）</td></tr>
+  <tr><td>先驗來源</td><td>影像編輯模型 + VLM + 預訓練 image-to-3D 教師</td></tr>
+  <tr><td>推理模式</td><td>前饋（feed-forward），無測試時優化</td></tr>
+  <tr><td>對比基線</td><td>SOTA 3D 編輯基線（測試時優化 / 偽成對資料系）</td></tr>
+  <tr><td>評測維度</td><td>指令忠實度（instruction fidelity）、跨視角一致性（cross-view consistency）</td></tr>
+</table>
+
+<h4>關鍵定性結論</h4>
+<div class="compare-wrap">
+<table class="compare">
+  <thead>
+    <tr>
+      <th>維度</th>
+      <th>SOTA 基線</th>
+      <th>PriorEdit3D</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>指令忠實度</td><td>受限於偽成對漂移 / 測試時優化</td><td><strong>顯著優於 SOTA</strong></td></tr>
+    <tr><td>跨視角一致性</td><td>2D 投影監督致幾何塌縮、多視角打架</td><td><strong>3D-aware DM 修正，一致性強</strong></td></tr>
+    <tr><td>推理速度</td><td>測試時優化系緩慢</td><td><strong>前饋，即時</strong></td></tr>
+    <tr><td>監督需求</td><td>需成對 / 偽成對 3D 資料</td><td><strong>無需成對 3D 監督</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout green">
+  <strong>關鍵發現：</strong>論文摘要明確宣稱 PriorEdit3D 在<strong>指令忠實度與跨視角一致性</strong>兩個維度上<strong>顯著優於 SOTA 基線</strong>。更關鍵的是，3D-aware Distribution Matching 成功修正了 2D 投影監督 inherent 的<strong>幾何塌縮與多視角不一致</strong>—— 這正是「以 2D 模型監督 3D」長期以來的核心病灶。
+</div>
+
+<h4>消融與機制驗證（依方法設計推論）</h4>
+<table class="info">
+  <tr><td>移除視覺先驗</td><td>主視角編輯能力退化，無法依指令改圖</td></tr>
+  <tr><td>移除語意先驗</td><td>新視角指令遵循與源身份保持退化</td></tr>
+  <tr><td>移除 3D-aware DM</td><td>幾何塌縮與多視角不一致重現，證實其為幾何把關關鍵</td></tr>
+  <tr><td>三者聯合</td><td>最佳整體表現，指令忠實度 + 跨視角一致性雙強</td></tr>
+</table>
+
+<div class="callout amber">
+  <strong>設計自洽性：</strong>三項先驗各司其職 —— 視覺先驗管「怎麼改」、語意先驗管「改完仍對」、幾何先驗管「改出來的 3D 合理」。三者缺一不可，且 3D-aware DM 精準對準了 2D 投影監督的固有缺陷，設計動機與修正對象高度自洽。
+</div>
+
+<h3 id="p1-contrib">貢獻與創新</h3>
+<ol>
+  <li><strong>無成對監督的 3D 編輯</strong>：首次系統性證明可在<strong>完全無成對 3D 監督</strong>下訓練 3D 編輯模型，跳過資料稀缺瓶頸。</li>
+  <li><strong>Generative Prior Distillation 框架</strong>：提出從影像編輯模型、VLM、image-to-3D 教師三類基礎模型<strong>蒸餾視覺 / 語意 / 幾何先驗</strong>的統一框架。</li>
+  <li><strong>雙重監督訊號</strong>：主視角 2D 視覺先驗 + 新視角 VLM 語意先驗，互補兼顧「如何改圖」與「改完仍對齊指令與身份」。</li>
+  <li><strong>3D-aware Distribution Matching</strong>：在 3D 潛空間施加分佈匹配正則化，作為幾何先驗修正 2D 投影監督的幾何塌縮與多視角不一致。</li>
+  <li><strong>前饋推理</strong>：訓練完成後一次前向輸出編輯結果，<strong>無需測試時優化</strong>，支撐即時互動編輯。</li>
+</ol>
+
+<h3 id="p1-app">應用場景</h3>
+<ul>
+  <li><strong>互動式 3D 內容創作</strong>：讓創作者以自然語言指令即時編輯 3D 資產，無需 3D 專業技能。</li>
+  <li><strong>指令引導 3D 編輯</strong>：遊戲 / VFX 資產依文字指令快速變體生成（換色、換材質、加配件等）。</li>
+  <li><strong>遊戲 / VFX 資產編輯</strong>：前饋推理適配資產管線批次處理與即時預覽。</li>
+  <li><strong>AR / VR</strong>：即時 3D 物件編輯，支撐沉浸式互動場景。</li>
+  <li><strong>3D 生成模型蒸餾方法論</strong>：為「以基礎模型先驗替代成對監督」提供可遷移範式，可啟發其他成對資料稀缺的 3D / 4D 生成任務。</li>
+</ul>
+
+<div class="callout purple">
+  <strong>未來展望：</strong>PriorEdit3D 揭示「生成式先驗蒸餾」可作為成對監督的有效替代。後續可探索：更強基礎模型先驗的接入（如影片編輯模型、多模態 LLM）、4D 編輯（動態 3D）、更細粒度的 3D 潛在分佈匹配、以及將此範式推廣至其他成對資料稀缺的生成蒸餾任務。
+</div>
+
+<h3 id="p1-code">代碼 / 資源</h3>
+<table class="info">
+  <tr><td>arXiv</td><td><code>https://arxiv.org/abs/2609.04942</code></td></tr>
+  <tr><td>GitHub</td><td><code>https://github.com/thiamine128/PriorEdit3D</code></td></tr>
+  <tr><td>類別</td><td>cs.CV</td></tr>
+  <tr><td>作者</td><td>Hao Wen, Weibin Yun, Hongxing Fan, Haotian Lu, Rui Chen, Zehuan Huang</td></tr>
+  <tr><td>相關概念</td><td>instruction-guided 3D editing, generative prior distillation, differentiable rendering, VLM supervision, image-to-3D teacher, distribution matching, SDS, NeRF / 3DGS</td></tr>
+</table>
+</section>
+
+<!-- ============ REFS ============ -->
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>arXiv</strong>：<code>https://arxiv.org/abs/2609.04942</code></li>
+  <li><strong>GitHub</strong>：<code>https://github.com/thiamine128/PriorEdit3D</code></li>
+  <li><strong>作者</strong>：Hao Wen, Weibin Yun, Hongxing Fan, Haotian Lu, Rui Chen, Zehuan Huang</li>
+  <li><strong>類別</strong>：cs.CV</li>
+  <li><strong>相關方法</strong>：instruction-guided 3D editing, test-time optimization, pseudo-pairs, SDS / score distillation, distribution matching, differentiable rendering, NeRF / 3D Gaussian Splatting, VLM supervision, image-to-3D generation</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-09-08 ｜ 研究來源：arXiv 2609.04942（已驗證元資料）<br>
+  本報告基於公開論文摘要與既有技術知識整理，數學符號以 MathJax 渲染。實驗數值部分依摘要定性描述，未杜撰具體數字。由 <code>research-daily</code> agent 自動生成（headless 模式）。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

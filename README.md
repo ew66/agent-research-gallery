@@ -12,12 +12,16 @@ Automated daily by the `research-daily` agent (launchd 07:00). See `research-dir
 
 ## Daily Digests
 
+- [Daily Digest — 2026-09-08](https://ew66.github.io/notes-gallery/digests/20260908_digest.html) — 4 方向 55 篇新論文 + 3 篇深度報告（Scale-QLoRA / SeamFlow / PriorEdit3D）；arXiv RSS 驗證 (2026-09-08)
 - [Daily Digest — 2026-09-07](https://ew66.github.io/notes-gallery/digests/20260907_digest.html) — 4 方向 30 篇新論文 + 3 篇深度報告（DSAQuant / Minima NVFP4 / PixelIR）(2026-09-07)
 
 ## Reports
 
 ### Featured
 
+- [Scale-QLoRA: Code-Invariant Adapter Merging for Native 4-bit Microscaling LLMs](https://ew66.github.io/notes-gallery/reports/20260908_ScaleQLoRA_NVFP4_Adapter_Merging.html) — 凍結 E2M1 代碼平面、僅調適尺度場，使 NVFP4/MXFP4 下 LoRA 合併為位元精確恆等；3.9× 訓練加速、~125× 任務切換 (2026-09-08)
+- [SeamFlow: Structure-Aware Flow Matching for UV Unwrapping](https://ew66.github.io/notes-gallery/reports/20260908_SeamFlow_Flow_Matching_UV_Unwrap.html) — 將離散網格切割重構為邊概率空間的連續流匹配，高斯先驗→接縫分佈；消除投影誤差與順序偏差 (2026-09-08)
+- [PriorEdit3D: Learning 3D Editing without Paired Supervision via Generative Prior Distillation](https://ew66.github.io/notes-gallery/reports/20260908_PriorEdit3D_3D_Editing_GenPriorDistill.html) — 蒸餾圖像編輯器+VLM+圖生3D 教師先驗，前饋式指令 3D 編輯；3D 感知分佈匹配正則化防幾何塌陷 (2026-09-08)
 - [DSAQuant: Denoising-Stage-Aligned QAT for Video Generation](https://ew66.github.io/notes-gallery/reports/20260907_DSAQuant_Video_Diffusion_QAT.html) — 階段化去噪先驗注入 QAT，W3A3 下 VBench +6.60；末步停用 CFG 防高頻偽影 (2026-09-07)
 - [Minima NVFP4: Why Gated DeltaNet Survives 4-Bit Quantization](https://ew66.github.io/notes-gallery/reports/20260907_Minima_NVFP4_GatedDeltaNet_W4A4.html) — 挑戰「遞迴層怕量化」直覺，全 496 線性層 W4A4 匹配 BF16，17.5 GiB 最小最快 (2026-09-07)
 - [PixelIR: Pixel-Space Image-Residual Flow Matching for One-Step SR](https://ew66.github.io/notes-gallery/reports/20260907_PixelIR_Flow_Matching_OneStep_SR.html) — 圖像流+殘差流解耦 fidelity/perception，32.9M 參數、8.5ms 延遲達 SOTA (2026-09-07)
