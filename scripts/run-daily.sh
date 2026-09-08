@@ -21,9 +21,17 @@ if [ ! -d "$REPO_DIR/.git" ]; then
   exit 1
 fi
 
-# Pull latest (in case config was edited remotely or a prior run pushed)
+# Pull latest (in case config was edited remotely or a prior run pushed).
+# Remote uses SSH host alias "github-agent" (~/.ssh/config) which pins the
+# correct SSH key (id_ed25519_github) for the agent-research-gallery repo.
 cd "$REPO_DIR" || exit 1
 git pull --rebase --quiet 2>>"$STDERR_LOG"
+
+# Ensure SSH agent has the key (launchd sessions don't inherit the user's agent).
+if [ -z "${SSH_AUTH_SOCK:-}" ]; then
+  eval "$(ssh-agent -s)" 2>>"$STDERR_LOG"
+  ssh-add "$HOME/.ssh/id_ed25519_github" 2>>"$STDERR_LOG"
+fi
 
 # Run the agent headlessly.
 # --format json emits raw events (machine-parseable for the log)
