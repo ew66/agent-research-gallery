@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Notes Gallery</title>
+<title>Agent Research Gallery</title>
 <style>
   :root {
     --bg: #fafafa;
@@ -48,7 +48,7 @@
     padding: 48px 24px 80px;
   }
   header {
-    margin-bottom: 40px;
+    margin-bottom: 32px;
     padding-bottom: 28px;
     border-bottom: 2px solid var(--border);
   }
@@ -62,6 +62,60 @@
     font-size: 16px;
     color: var(--text-muted);
     margin: 0;
+  }
+  .filter-bar {
+    margin-bottom: 28px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 14px;
+    font-size: 15px;
+    font-family: inherit;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .filter-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .filter-input::placeholder { color: var(--text-muted); }
+  .filter-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-soft);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .filter-count {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
   }
   .card-grid {
     display: grid;
@@ -121,6 +175,26 @@
     background: #ede9fe;
     color: #7c3aed;
   }
+  .card-tags {
+    margin-top: 10px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .card-tag {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: var(--code-bg);
+    color: var(--text-muted);
+  }
+  .empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--text-muted);
+    font-size: 15px;
+  }
   @media (prefers-color-scheme: dark) {
     .badge-report { background: #064e3b; color: #34d399; }
     .badge-digest { background: #2e1065; color: #a78bfa; }
@@ -128,155 +202,251 @@
   @media (max-width: 600px) {
     .container { padding: 32px 16px 60px; }
     header h1 { font-size: 26px; }
+    .filter-bar { flex-direction: column; align-items: stretch; }
+    .filter-count { margin-left: 0; }
   }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>Notes Gallery</h1>
-    <p>Paper research reports &amp; daily digests</p>
+    <h1>Agent Research Gallery</h1>
+    <p>每日自動科研摘要與深度研究報告</p>
   </header>
-  <div class="card-grid">
-    <a class="card" href="digests/20260908_digest.html">
+  <div class="filter-bar">
+    <input class="filter-input" type="text" id="tagFilter" placeholder="輸入 tag 過濾（如 Daily、DiT、Diffusion、Quantization、Image Editing...）" autocomplete="off">
+    <div class="filter-chips" id="chips">
+      <span class="chip" data-chip="all">全部</span>
+      <span class="chip" data-chip="daily">Daily</span>
+      <span class="chip" data-chip="diffusion">Diffusion</span>
+      <span class="chip" data-chip="quant">Quantization</span>
+      <span class="chip" data-chip="dit">DiT</span>
+      <span class="chip" data-chip="image-editing">Image Editing</span>
+      <span class="chip" data-chip="efficient">Efficient Inference</span>
+    </div>
+    <span class="filter-count" id="count"></span>
+  </div>
+  <div class="card-grid" id="grid">
+    <a class="card" href="digests/20260908_digest.html" data-tags="daily digest 2026-09-08 scaleqlora seamflow prioredit3d diffusion quant efficient image-editing">
       <span class="card-badge badge-digest">Daily Digest</span>
       <h2 class="card-title">每日科研摘要 — 2026-09-08</h2>
       <p class="card-date">2026-09-08</p>
       <p class="card-desc">4 方向 55 篇新論文 + 3 篇深度報告（Scale-QLoRA / SeamFlow / PriorEdit3D）；arXiv RSS 驗證</p>
+      <div class="card-tags"><span class="card-tag">daily</span><span class="card-tag">digest</span></div>
     </a>
-    <a class="card" href="reports/20260908_ScaleQLoRA_NVFP4_Adapter_Merging.html">
+    <a class="card" href="reports/20260908_ScaleQLoRA_NVFP4_Adapter_Merging.html" data-tags="report quant quantization nvfp4 lora adapter 2026-09-08 efficient">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">Scale-QLoRA：原生 4-bit 微縮格式 LLM 的代碼不變適配器合併</h2>
       <p class="card-date">2026-09-08</p>
       <p class="card-desc">凍結 E2M1 代碼平面、僅調適尺度場，使 NVFP4/MXFP4 下 LoRA 合併為位元精確恆等；3.9× 訓練加速、~125× 任務切換</p>
+      <div class="card-tags"><span class="card-tag">quantization</span><span class="card-tag">lora</span></div>
     </a>
-    <a class="card" href="reports/20260908_SeamFlow_Flow_Matching_UV_Unwrap.html">
+    <a class="card" href="reports/20260908_SeamFlow_Flow_Matching_UV_Unwrap.html" data-tags="report diffusion flow-matching seamflow uv 2026-09-08">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">SeamFlow：結構感知流匹配的藝術家級 UV 展開</h2>
       <p class="card-date">2026-09-08</p>
       <p class="card-desc">將離散網格切割重構為邊概率空間的連續流匹配，高斯先驗→接縫分佈；消除投影誤差與順序偏差</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">flow-matching</span></div>
     </a>
-    <a class="card" href="reports/20260908_PriorEdit3D_3D_Editing_GenPriorDistill.html">
+    <a class="card" href="reports/20260908_PriorEdit3D_3D_Editing_GenPriorDistill.html" data-tags="report image-editing 3d editing prior-distill 2026-09-08 diffusion">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">PriorEdit3D：無成對監督的生成式先驗蒸餾 3D 編輯</h2>
       <p class="card-date">2026-09-08</p>
       <p class="card-desc">蒸餾圖像編輯器+VLM+圖生3D 教師先驗，前饋式指令 3D 編輯；3D 感知分佈匹配正則化防幾何塌陷</p>
+      <div class="card-tags"><span class="card-tag">image-editing</span><span class="card-tag">3d</span></div>
     </a>
-    <a class="card" href="digests/20260907_digest.html">
+    <a class="card" href="digests/20260907_digest.html" data-tags="daily digest 2026-09-07 dsaquant minima pixelir diffusion quant efficient image-editing">
       <span class="card-badge badge-digest">Daily Digest</span>
       <h2 class="card-title">每日科研摘要 — 2026-09-07</h2>
       <p class="card-date">2026-09-07</p>
       <p class="card-desc">4 方向 30 篇新論文 + 3 篇深度報告（DSAQuant / Minima NVFP4 / PixelIR）</p>
+      <div class="card-tags"><span class="card-tag">daily</span><span class="card-tag">digest</span></div>
     </a>
-    <a class="card" href="reports/20260907_DSAQuant_Video_Diffusion_QAT.html">
+    <a class="card" href="reports/20260907_DSAQuant_Video_Diffusion_QAT.html" data-tags="report diffusion quant quantization video qat 2026-09-07">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">DSAQuant：視頻生成擴散模型的去噪階段對齊量化</h2>
       <p class="card-date">2026-09-07</p>
       <p class="card-desc">階段化去噪先驗注入 QAT，W3A3 下 VBench +6.60；末步停用 CFG 防高頻偽影</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">quantization</span></div>
     </a>
-    <a class="card" href="reports/20260907_Minima_NVFP4_GatedDeltaNet_W4A4.html">
+    <a class="card" href="reports/20260907_Minima_NVFP4_GatedDeltaNet_W4A4.html" data-tags="report quant quantization nvfp4 gated-deltanet efficient 2026-09-07">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">Minima NVFP4：為何 Gated DeltaNet 能挺過 4-bit 量化</h2>
       <p class="card-date">2026-09-07</p>
       <p class="card-desc">挑戰「遞迴層怕量化」直覺，全 496 線性層 W4A4 匹配 BF16，17.5 GiB 最小最快</p>
+      <div class="card-tags"><span class="card-tag">quantization</span><span class="card-tag">efficient</span></div>
     </a>
-    <a class="card" href="reports/20260907_PixelIR_Flow_Matching_OneStep_SR.html">
+    <a class="card" href="reports/20260907_PixelIR_Flow_Matching_OneStep_SR.html" data-tags="report diffusion flow-matching sr super-resolution 2026-09-07">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">PixelIR：像素空間圖像殘差流匹配的高效一步超解析度</h2>
       <p class="card-date">2026-09-07</p>
       <p class="card-desc">圖像流+殘差流解耦 fidelity/perception，32.9M 參數、8.5ms 延遲達 SOTA</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">flow-matching</span></div>
     </a>
-    <a class="card" href="reports/20260828_Drifting_Models.html">
+    <a class="card" href="reports/20260828_Drifting_Models.html" data-tags="report diffusion generative drifting flow 2026-08-28">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">Generative Modeling via Drifting — Drifting Models 研究報告</h2>
       <p class="card-date">2026-08-28</p>
       <p class="card-desc">訓練期演化 pushforward 分佈，anti-symmetric drifting field 實現原生 1-NFE 生成，ImageNet 256 FID 1.54</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">generative</span></div>
     </a>
-    <a class="card" href="reports/20260719_ViDiTQ_Video_Diffusion.html">
+    <a class="card" href="reports/20260719_ViDiTQ_Video_Diffusion.html" data-tags="report diffusion quant quantization video dit transformer 2026-07-19">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">ViDiT-Q：圖像與視頻生成擴散 Transformer 的高效量化</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">圖像與視頻生成擴散 Transformer 的高效量化，ICLR 2025</p>
+      <div class="card-tags"><span class="card-tag">dit</span><span class="card-tag">quantization</span></div>
     </a>
-    <a class="card" href="reports/20260719_TFMQDM_CVPR2024.html">
+    <a class="card" href="reports/20260719_TFMQDM_CVPR2024.html" data-tags="report diffusion quant quantization 2026-07-19">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">擴散模型後訓練量化研究：TFMQ-DM（CVPR 2024）</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">時間特徵維持量化，CVPR 2024</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">quantization</span></div>
     </a>
-    <a class="card" href="reports/20260719_SVDQuant_W4A4_Diffusion.html">
+    <a class="card" href="reports/20260719_SVDQuant_W4A4_Diffusion.html" data-tags="report diffusion quant quantization w4a4 svd 2026-07-19">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">SVDQuant：以低秩分支吸收 Outliers 的 4-bit 擴散模型量化</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">低秩分支吸收 outliers 的 4-bit 擴散模型量化，ICLR 2025 Spotlight</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">quantization</span></div>
     </a>
-    <a class="card" href="reports/20260719_QVDiT_Video_DiT_KVCache.html">
+    <a class="card" href="reports/20260719_QVDiT_Video_DiT_KVCache.html" data-tags="report diffusion quant quantization video dit kv-cache 2026-07-19">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">Q-VDiT：視頻生成擴散 Transformer 的量化與蒸餾</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">視頻生成擴散 Transformer 的量化與蒸餾，ICML 2025</p>
+      <div class="card-tags"><span class="card-tag">dit</span><span class="card-tag">quantization</span></div>
     </a>
-    <a class="card" href="reports/20260719_QDiffusion_ICCV2023.html">
+    <a class="card" href="reports/20260719_QDiffusion_ICCV2023.html" data-tags="report diffusion quant quantization 2026-07-19">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">Q-Diffusion：擴散模型量化研究（ICCV 2023）</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">擴散模型量化研究，ICCV 2023</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">quantization</span></div>
     </a>
-    <a class="card" href="reports/20260719_PTQD_NeurIPS2023.html">
+    <a class="card" href="reports/20260719_PTQD_NeurIPS2023.html" data-tags="report diffusion quant quantization 2026-07-19">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">PTQD：噪聲預測誤差引導之擴散模型量化研究（NeurIPS 2023）</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">噪聲預測誤差引導之擴散模型量化研究，NeurIPS 2023</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">quantization</span></div>
     </a>
-    <a class="card" href="reports/20260719_PTQ4DiT_Diffusion_Transformer.html">
+    <a class="card" href="reports/20260719_PTQ4DiT_Diffusion_Transformer.html" data-tags="report diffusion quant quantization dit transformer 2026-07-19">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">PTQ4DiT：擴散 Transformer 之訓練後量化研究</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">擴散 Transformer 之訓練後量化研究</p>
+      <div class="card-tags"><span class="card-tag">dit</span><span class="card-tag">quantization</span></div>
     </a>
-    <a class="card" href="reports/20260719_EfficientDM_ICLR2024.html">
+    <a class="card" href="reports/20260719_EfficientDM_ICLR2024.html" data-tags="report diffusion quant quantization qat w4a4 2026-07-19">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">擴散模型量化研究：EfficientDM（ICLR 2024）</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">輕量化 QAT 達成 W4A4 無損，ICLR 2024</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">quantization</span></div>
     </a>
-    <a class="card" href="reports/20260719_DMQ_Outlier_Diffusion.html">
+    <a class="card" href="reports/20260719_DMQ_Outlier_Diffusion.html" data-tags="report diffusion quant quantization outlier 2026-07-19">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">擴散模型後訓練量化研究：DMQ 離群值分析（2024）</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">離群值分析之擴散模型後訓練量化</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">quantization</span></div>
     </a>
-    <a class="card" href="reports/20260719_Diffusion_PTQ_Survey_Top3.html">
+    <a class="card" href="reports/20260719_Diffusion_PTQ_Survey_Top3.html" data-tags="report diffusion quant quantization survey ptq 2026-07-19">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">Diffusion PTQ 調研報告：問題全景與 TOP 3 論文（2023-2026）</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">12 篇 PTQ 代表作問題全景 + TOP 3 評選（SegQuant/SVDQuant/Q-VDiT）</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">survey</span></div>
     </a>
-    <a class="card" href="reports/20260719_Diffusion_PTQ_APQDM_SegQuant.html">
+    <a class="card" href="reports/20260719_Diffusion_PTQ_APQDM_SegQuant.html" data-tags="report diffusion quant quantization ptq 2026-07-19">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">擴散模型後訓練量化研究：APQ-DM 與 SegQuant</h2>
       <p class="card-date">2026-07-19</p>
       <p class="card-desc">擴散模型後訓練量化：時間步分組感知 vs 語意分割+極性保留</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">quantization</span></div>
     </a>
-    <a class="card" href="reports/20260629_TADSR_CVPR2026_Time_Aware_Diffusion_SR.html">
+    <a class="card" href="reports/20260629_TADSR_CVPR2026_Time_Aware_Diffusion_SR.html" data-tags="report diffusion sr super-resolution 2026-06-29">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">TADSR：時間感知一步擴散超解析度網路（CVPR 2026）</h2>
       <p class="card-date">2026-06-29</p>
       <p class="card-desc">SD 各時間步生成先驗挖掘 + 可控 fidelity/realism 權衡</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">sr</span></div>
     </a>
-    <a class="card" href="reports/20260629_TAD_SR_Super_Resolution.html">
+    <a class="card" href="reports/20260629_TAD_SR_Super_Resolution.html" data-tags="report diffusion sr super-resolution 2026-06-29">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">TAD-SR：時間感知一步擴散超解析度研究</h2>
       <p class="card-date">2026-06-29</p>
       <p class="card-desc">時間感知一步擴散超解析度，含代碼一致性驗證</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">sr</span></div>
     </a>
-    <a class="card" href="reports/Diffusion_Guidance_Research_SSG_C2FG.html">
+    <a class="card" href="reports/Diffusion_Guidance_Research_SSG_C2FG.html" data-tags="report diffusion guidance cfg 2026-06-26">
       <span class="card-badge badge-report">Research Report</span>
       <h2 class="card-title">擴散模型引導機制研究：SSG 與 C²FG</h2>
       <p class="card-date">2026-06-26</p>
       <p class="card-desc">擴散模型引導機制：Token Swapping 與 Score Discrepancy</p>
+      <div class="card-tags"><span class="card-tag">diffusion</span><span class="card-tag">guidance</span></div>
     </a>
   </div>
 </div>
+<script>
+(function(){
+  const input = document.getElementById('tagFilter');
+  const grid = document.getElementById('grid');
+  const cards = Array.from(grid.querySelectorAll('a.card'));
+  const countEl = document.getElementById('count');
+  const chips = Array.from(document.querySelectorAll('.chip'));
+  const emptyState = document.createElement('div');
+  emptyState.className = 'empty-state';
+  emptyState.textContent = '沒有符合的報告';
+  let activeChip = 'all';
+
+  function normalize(s){ return s.toLowerCase().trim(); }
+
+  function filter(){
+    const q = normalize(input.value);
+    let visible = 0;
+    cards.forEach(card => {
+      const tags = normalize(card.dataset.tags || '');
+      const title = normalize(card.querySelector('.card-title').textContent);
+      const desc = normalize(card.querySelector('.card-desc').textContent);
+      const haystack = tags + ' ' + title + ' ' + desc;
+      let match = true;
+      if (activeChip !== 'all') {
+        match = tags.split(/\s+/).includes(activeChip);
+      }
+      if (match && q) {
+        // fuzzy: every char of q appears in order, OR q is substring, OR all q tokens present
+        const subseq = (needle, hay) => {
+          let i = 0;
+          for (const ch of hay) { if (ch === needle[i]) i++; if (i >= needle.length) return true; }
+          return i >= needle.length;
+        };
+        const tokens = q.split(/\s+/).filter(Boolean);
+        match = tokens.every(t => haystack.includes(t) || subseq(t, haystack));
+      }
+      card.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    countEl.textContent = visible + ' / ' + cards.length;
+    const hasEmpty = visible === 0;
+    if (hasEmpty && !grid.contains(emptyState)) grid.appendChild(emptyState);
+    if (!hasEmpty && grid.contains(emptyState)) grid.removeChild(emptyState);
+  }
+
+  input.addEventListener('input', filter);
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      chips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      activeChip = chip.dataset.chip;
+      filter();
+    });
+  });
+  document.querySelector('.chip[data-chip="all"]').classList.add('active');
+  filter();
+})();
+</script>
 </body>
 </html>
