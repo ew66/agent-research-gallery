@@ -1,0 +1,94 @@
+==================================================
+research-daily run log
+==================================================
+started: 2026-09-10 07:00:00
+model: GLM-5.2
+directions_due: Diffusion Models, Model Compression & Quantization, Efficient Inference, Image Editing (all daily)
+limits: max_tokens=200000, max_deep_dives=3, deep_dive_score_threshold=7.0, dedup_window_days=14
+
+## Phase 0 — Bootstrap
+- Read research-directions.yaml: OK (4 directions, all cadence=daily)
+- Dedup set: built from runs/2026-09-07.log + 2026-09-08.log + 2026-09-09.log (all within 14-day window).
+- git pull --rebase: Already up to date.
+- Discovery strategy: arXiv listing API (export.arxiv.org/api/query, sortBy=submittedDate desc)
+  as PRIMARY source (verified IDs + abstracts). websearch NOT used as primary — documented in
+  09-07/08/09 logs that websearch FABRICATES arxiv IDs; also system caps websearch at 1 call/msg
+  vs skill's 1/direction. arXiv API = legitimate specific-API interaction per user instructions.
+
+Dedup set (arxiv IDs seen in last 14 days, ~95 IDs):
+  Diffusion: 2609.04649, 2609.04646, 2609.04525, 2608.30782, 2608.29160, 2608.29281,
+              2608.29107, 2609.00198, 2609.04751, 2609.04282, 2609.04976, 2609.04531,
+              2609.04603, 2609.04709, 2609.04710, 2609.04921, 2609.05028, 2609.05234,
+              2609.04034, 2609.05382, 2608.25305, 2609.04837, 2609.04253, 2609.04501,
+              2607.23492, 2605.26491, 2603.27520, 2609.03992, 2609.05328, 2609.04822,
+              2609.02543, 2609.02511, 2609.04861
+  Compression: 2609.04031, 2609.04098, 2608.30564, 2609.00450, 2609.01587, 2608.28911,
+              2608.27875, 2608.29667, 2609.04526, 2609.04490, 2609.04748, 2609.05081,
+              2609.04895, 2609.04263, 2609.05334, 2609.04274, 2609.04565, 2605.14047,
+              2609.03459, 2609.05152, 2609.04947, 2609.04830, 2609.04852, 2609.02514, 2609.05339
+  Efficient Inference: 2609.04105, 2609.00355, 2608.30310, 2609.03949, 2609.03235,
+              2609.03181, 2609.00891, 2609.04575, 2608.30427, 2609.04971, 2609.04453,
+              2609.04910, 2609.05274, 2609.04609, 2609.04952, 2609.04434, 2607.26627,
+              2608.31082, 2606.19667, 2606.29629, 2605.15913, 2609.01338, 2609.00993,
+              2609.01821, 2609.04881, 2609.03318, 2609.03844, 2609.04705
+  Image Editing: 2608.09322, 2608.04820, 2609.04942, 2609.05171, 2609.04976, 2609.04603,
+              2609.04709, 2609.04939, 2609.05028, 2609.05415, 2609.04726, 2604.26883,
+              2605.26491, 2609.04190, 2609.04151, 2609.04120, 2609.04500, 2609.04911
+
+## Phase 1 — Discovery
+- arXiv listing API (export.arxiv.org/api/query, sortBy=submittedDate desc) returned HTTP 200 for
+  all 5 categories (cs.CV/LG/CL/DC/GR) via HTTPS (HTTP endpoint 301->HTTPS; used curl -sL).
+- 481 unique entries after cross-category dedup. Freshest pub dates: 2026-09-08 (267), 09-07 (94).
+- Filtered per direction by specific multi-phrase regex match against title+abstract (tighter than
+  single-word match to avoid tangential hits). All items below are arXiv-API-verified (real IDs
+  resolving to stated titles + full abstracts).
+
+## Phase 2 — Scoring
+NOTE on formula: skill gives composite=(0.4*rel+0.3*nov+0.2*imp)*10*weight, but weights sum to 0.9
+and the table/threshold are 0-10. Normalized to 0-10 (same as 09-07/08/09 runs):
+composite=(0.4*rel+0.3*nov+0.2*imp)/0.9*weight. novelty by arxiv ID YYMM: 2609(Sep)=10; 2608=8;
+2607=6; <=2606=4.
+
+=== DIFFUSION MODELS (weight 1.0) ===
+[2609.09123] 09-08 Mask Forcing: AR video diffusion distillation via dual-noise masking (DMD fix)  rel9 nov10 imp7 => 8.89 ✓
+[2609.08253] 09-08 Revisiting Spectral Representations in Generative Diffusion (rep alignment)    rel8 nov10 imp6 => 8.22 ✓
+[2609.08981] 09-08 Transformers as In-Context Samplers: closed-form diffusion (theory)          rel7 nov10 imp6 => 7.78 ✓
+[2609.08084] 09-08 Marigold V2: Revisiting DiT for Monocular Depth Estimation                  rel7 nov10 imp6 => 7.78 ✓
+[2609.08153] 09-08 Geodesic-informed Generative Diffusion for topology-preserved gen            rel7 nov10 imp5 => 7.56 ✓
+[2609.08449] 09-08 GSComplete: Gaussian Splat Completion with 2D Diffusion Priors (SDS)         rel6 nov10 imp5 => 7.11 ✓
+[2609.09009] 09-08 Let It Go or Learn to Self-Correct: Continuous Diffusion discrete tasks      rel6 nov10 imp5 => 7.11 ✓
+
+=== MODEL COMPRESSION & QUANTIZATION (weight 1.0) ===
+[2609.08135] 09-08 KBBQ: Predictive Noise Law + Limits of Spectrum Flattening in FP4 Quant       rel10 nov10 imp7 => 9.33 ✓
+[2609.09085] 09-08 It's Not RoPE Creates Sinks: Self-concentration, Value-non-mixing (low-bit)  rel8 nov10 imp7 => 8.44 ✓
+[2609.08759] 09-08 Scaling in Randomly Rotated Quantization + CDEF Pythagorean (theory)        rel8 nov10 imp6 => 8.22 ✓
+[2609.08307] 09-08 Measurement Study of LLM Inference Trade-offs Across Edge Continuum          rel6 nov10 imp5 => 7.11 ✓
+
+=== EFFICIENT INFERENCE (weight 0.8) ===
+[2609.08131] 09-08 Jacap: Robust KV Cache Eviction via Jacobian Information Capacity            rel9 nov10 imp7 => 7.11 ✓
+[2609.07883] 09-07 SLOWeave: Deadline-Aware Adaptive Prefill Chunking (chunked prefill)         rel9 nov10 imp7 => 7.11 ✓
+[2609.07108] 09-07 Online Draft Co-Training for Speculative Decoding in long-context RL         rel9 nov10 imp7 => 7.11 ✓
+[2609.06551] 09-06 EStream: Fast/Memory-Efficient MoE Prefill via Expert Virtualization NPU     rel8 nov10 imp7 => 6.76
+[2609.06940] 09-07 Unified AI Gateway: Joint Model Routing + KV Cache Management                rel8 nov10 imp6 => 6.58
+[2609.07536] 09-07 Analytical Resource Mgmt for Fine-grained MoE Comp-Comm Overlap              rel8 nov10 imp6 => 6.58
+[2609.08690] 09-08 Hyperparameter Scaling Laws Across MoE Sparsity (1800 runs)                  rel7 nov10 imp6 => 6.22
+
+=== IMAGE EDITING (weight 1.0) ===
+[2609.08230] 09-08 ActionSplice: In-Flight Action Editing for Interactive World Models (CST)    rel8 nov10 imp7 => 8.44 ✓
+[2608.24169] 08-25 ViSculpt: Visual-Centric Agentic Geometry Editing (3D mesh, training-free)    rel7 nov8  imp6 => 7.11 ✓
+[2609.08079] 09-08 VI-Bench: Benchmarking Prompt Inversion from AIGC Videos (edit/recover)      rel6 nov10 imp5 => 7.11 ✓
+[2609.08657] 09-08 Charts Are Beyond Pixels: Layer-Wise Chart Understanding and Editing         rel5 nov10 imp5 => 6.67
+[2609.08155] 09-08 SciFigure2Code: AI-Reconstructed Benchmark for Scientific Figure-to-Code     rel4 nov10 imp4 => 6.00
+
+Dedup Excluded (0 new this run — all candidates are 09-06..09-08 submissions, fresher than the
+09-04 ceiling of prior runs; the ~95 IDs from 09-07/08/09 runs did not recur).
+
+## Phase 3 — Deep-dive selection
+Eligible (>=7.0): 17 items (after dedup). Top 3 by composite, tie-broken toward DIRECTION DIVERSITY
+(covering 3 distinct directions, matching 09-07/08/09 run approach):
+  1. KBBQ [2609.08135]         9.33  Compression -> reports/20260910_KBBQ_FP4_Quantization_Noise_Law.html
+  2. Mask Forcing [2609.09123] 8.89  Diffusion   -> reports/20260910_MaskForcing_AR_Video_Diffusion_Distillation.html
+  3. ActionSplice [2609.08230] 8.44  Image Edit  -> reports/20260910_ActionSplice_InFlight_Action_Editing_WorldModels.html
+Token budget: ~25k/deep-dive est; 3 = ~75k << 200k cap. Proceeding with all 3.
+NOTE: Efficient Inference top items all at 7.11 (weight 0.8 caps them); Compression & Diffusion &
+Image Editing each contribute one deep-dive for direction diversity.

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mask Forcing — 自回歸視頻擴散蒸餽的雙噪聲遮罩研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  aside.toc .back-link {
+    display: block;
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    margin-bottom: 18px;
+    font-weight: 600;
+  }
+  aside.toc .back-link:hover { text-decoration: underline; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 680px;
+  }
+  table.compare th, table.compare td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--code-bg);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child {
+    font-weight: 600;
+    background: var(--surface);
+    width: 150px;
+  }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) {
+    background: var(--surface);
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  .badge.purple { background: var(--accent-2-soft); color: var(--accent-2); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <a class="back-link" href="../index.html">← 返回總覽</a>
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">Mask Forcing</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與創新</a></li>
+          <li><a href="#p1-app">應用場景</a></li>
+          <li><a href="#p1-res">代碼/資源</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion Model · Video Distillation</span>
+  <h1>Mask Forcing<br>自回歸視頻擴散蒸餽的雙噪聲遮罩研究報告</h1>
+  <p class="subtitle">診斷 DMD 蒸餽中 reverse-KL 的模式崩塌病灶，用「雙噪聲遮罩 rollout」向自回歸學生的自我展開注入更乾淨的訊號 —— 鼓勵學生探索教師分布的更多模式，同時讓乾淨 token 為噪聲 token 提供去噪引導</p>
+  <div class="meta">
+    <span>📅 2026-09-10</span>
+    <span>🏷️ diffusion · AR video · distillation · DMD · reverse-KL · mode collapse · masking</span>
+    <span>🔬 arXiv 2026 · cs.CV</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> Mask Forcing: Improving Autoregressive Video Diffusion Distillation via Dual-Noise Masking Rollout</h2>
+  <p class="tagline">Mask Forcing — 自回歸（AR）視頻擴散蒸餽長期受「過飽和、過平滑」困擾，根因是 DMD 的 reverse-KL 目標的模式尋優（mode-seeking）會讓學生塌縮到教師的少數模式上；透過在 self-rollout 注入空間/時間軸的隨機遮罩，把更乾淨的訊號餵給噪聲輸入，緩解模式崩塌與誤差累積</p>
+  <table class="info">
+    <tr><td>標題</td><td>Mask Forcing: Improving Autoregressive Video Diffusion Distillation via Dual-Noise Masking Rollout</td></tr>
+    <tr><td>作者</td><td>Zhuoran Zhao, Shengju Qian, Tongtong Liang, Xianghao Kong, Songchun Zhang, Junchao Huang, Guian Fang, Xin Wang, Pan Hui, Anyi Rao</td></tr>
+    <tr><td>類別</td><td>cs.CV</td></tr>
+    <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.09123" target="_blank" rel="noopener">arXiv:2609.09123</a></td></tr>
+    <tr><td>項目頁</td><td><a href="https://alicezrzhao.github.io/mask_forcing/" target="_blank" rel="noopener">alicezrzhao.github.io/mask_forcing</a></td></tr>
+    <tr><td>授權</td><td>CC BY 4.0</td></tr>
+    <tr><td>提交</td><td>2026-09-08</td></tr>
+    <tr><td>特性</td><td><span class="badge blue">AR Video Diffusion</span> <span class="badge purple">DMD Distillation</span> <span class="badge green">Mode-Collapse Fix</span> <span class="badge amber">Masking Rollout</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p><strong>自回歸（AR）視頻擴散模型</strong>是實時視頻生成的一條重要路線：它把雙向（bidirectional）的視頻擴散模型，透過蒸餽變成因果（causal）的自回歸學生——一個 chunk 接一個 chunk 地生成，從而支援實時串流。主流的蒸餽手段是<strong>分布匹配蒸餽（Distribution Matching Distillation, DMD）</strong>：把預訓練的雙向教師蒸餽成自回歸學生。</p>
+
+<p>但 AR 視頻蒸餽長期有個頑疾：<strong>生成的視頻過飽和（over-saturation）與過平滑（over-smoothing）</strong>，視覺質量與真實感受限。Mask Forcing 團隊追根溯源，找到了病灶——<strong>DMD 採用的 reverse-KL（反向 KL 散度）目標本身就是「模式尋優（mode-seeking）」的</strong>。reverse-KL 會嚴懲學生在「教師沒有質量的地方」放質量，於是學生傾向於<strong>塌縮到教師分布的少數幾個模式（modes）上</strong>，把豐富的教師分布壓縮成幾個尖峰——這就是過飽和與過平滑的數學根源。</p>
+
+<p>更棘手的是，AR 學生在蒸餽時要靠<strong>自我展開（self-rollout）</strong>：學生自己一步步生成中間狀態，再把這些狀態餵給 DMD 算梯度。但學生一旦塌縮到少數模式，self-rollout 就會不斷在這幾個模式之間打轉，<strong>誤差還會逐 chunk 累積</strong>——學生越練越窄，DMD 能提供的學習訊號也被鎖死在學生已覆蓋的模式裡。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>Mask Forcing 提出<strong>雙噪聲遮罩 rollout（Dual-Noise Masking Rollout）</strong>策略：在 AR 學生的 self-rollout 過程中，沿<strong>空間軸與時間軸</strong>注入隨機遮罩，把「更乾淨的訊號」塞進原本充滿噪聲的 rollout 輸入裡。這些擾動有兩個作用：（1）<strong>鼓勵學生的 rollout 探索教師分布的更多區域</strong>，讓 DMD 能在「學生尚未覆蓋的模式」上提供學習訊號，打破模式崩塌；（2）<strong>乾淨的 token 充當其他更噪聲 token 的去噪引導（denoising guidance）</strong>，改善中間 rollout 預測、減少誤差累積。一句話：用遮罩把「自我強化的窄化循環」打破，重新打開學生對教師分布的覆蓋。
+</div>
+
+<div class="callout purple">
+  <strong>定位 — 補上 DMD 蒸餽缺失的「探索」機制：</strong>DMD 本身只規定了「分布匹配」的目標，但沒有機制保證學生在訓練中能<strong>探索</strong>到教師的全部模式——reverse-KL 的 mode-seeking 反而把學生推向收縮。Mask Forcing 補上的正是這個缺失的探索機制：它不改 DMD 的目標函數，而是改<strong>餵給 DMD 的 rollout 輸入的構造方式</strong>，用遮罩擾動強制多樣性。它把問題從「換一個更好的蒸餽 loss」推進到「讓現有 loss 看到更豐富的訊號」。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout green">
+  <strong>直覺範例 — 畫畫老師的「示範遮擋」：</strong>想像一個畫畫學生跟著老師學，老師（教師）會畫很多種風格的畫。但學生（AR 學生）只敢臨摹自己已經會的幾種（模式崩塌），而且每次練習都只重複畫那幾種，越畫越死板（過飽和/過平滑 + 誤差累積）。Mask Forcing 像是老師在學生練習時，<strong>隨機把畫布的某些區塊（空間）和某些時間段（時間）遮起來</strong>，並在遮住的地方填上「更接近成品的乾淨參考」。於是學生被迫去處理「沒見過的組合」，探索老師會畫的其他風格；同時乾淨的區塊像腳手架，幫助學生把周圍更模糊的部分畫好。學生不再原地打轉，而是被引導著覆蓋老師的整個畫風譜系。
+</div>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>DMD / Distribution Matching Distillation</strong>：Mask Forcing 的<strong>基座</strong>。DMD 用 reverse-KL 把雙向教師蒸餽成 AR 學生，但 reverse-KL 的 mode-seeking 是過飽和/過平滑的根因。Mask Forcing 不替換 DMD，而是修復它的探索缺陷。</li>
+  <li><strong>其他 AR 視頻擴散蒸餽方法</strong>：論文宣稱 Mask Forcing 是<strong>即插即用的改進</strong>，能提升多種 AR 視頻擴散蒸餽方法（not just one），通用性強。</li>
+  <li><strong>傳統遮罩/MAE 風格預訓練</strong>：Mask Forcing 的遮罩與 MAE 的「遮住再重建」形似但<strong>目的不同</strong>——MAE 為的是學習表徵，Mask Forcing 為的是在蒸餽的 rollout 階段注入多樣性與乾淨引導，打破 reverse-KL 的模式崩塌。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>基座：DMD 蒸餽</strong>。預訓練雙向視頻擴散模型作為教師，AR 視頻擴散模型作為學生。學生透過 self-rollout 生成中間狀態，DMD 用 reverse-KL 匹配教師分布。</li>
+  <li><strong>病灶診斷</strong>。識別 reverse-KL 的 mode-seeking 導致學生塌縮到少數模式，self-rollout 強化窄化並累積誤差。</li>
+  <li><strong>雙噪聲遮罩 rollout</strong>。在學生 self-rollout 過程中，沿<strong>空間軸</strong>與<strong>時間軸</strong>施加隨機遮罩，把遮罩位置的輸入替換為「更乾淨（更接近去噪終態）」的訊號。</li>
+  <li><strong>探索效應</strong>。遮罩擾動打破學生在少數模式間的自我強化循環，鼓勵 rollout 探索教師分布的更多區域，讓 DMD 在學生未覆蓋模式上也能提供學習訊號。</li>
+  <li><strong>去噪引導效應</strong>。乾淨 token 作為已確定的「錨點」，為周圍更噪聲的 token 提供去噪引導，改善中間 rollout 預測品質並減少誤差累積。</li>
+  <li><strong>免真實數據、免後訓練</strong>。整個改進在蒸餽過程中完成，<strong>不引入真實視頻數據，不需要額外的後訓練階段</strong>。</li>
+  <li><strong>即插即用</strong>。作為通用改進套用到多種 AR 視頻擴散蒸餽方法上，提升視覺質量。</li>
+</ol>
+
+<h3 id="p1-math">數學推導</h3>
+
+<p>DMD 的核心是讓學生分布 $p_\theta$ 匹配教師分布 $p_\text{teacher}$。其使用的<strong>反向 KL 散度</strong>具有模式尋優特性：</p>
+
+<div class="math-block">
+$$
+D_\mathrm{KL}\!\left(p_\theta \,\|\, p_\text{teacher}\right)
+\;=\; \int p_\theta(x)\,\log\frac{p_\theta(x)}{p_\text{teacher}(x)}\,dx
+$$
+</div>
+
+<p>reverse-KL 會嚴懲「學生有質量但教師無質量」的區域（$p_\theta(x)>0$ 而 $p_\text{teacher}(x)\approx 0$），於是學生傾向<strong>收縮到教師的少數高密度模式</strong>上，造成模式崩塌。設教師分布有模式集合 $\{\mu_1,\dots,\mu_K\}$，學生塌縮到子集 $S \subset \{1,\dots,K\}$：</p>
+
+<div class="math-block">
+$$
+p_\theta \;\xrightarrow{\text{reverse-KL, mode-seeking}}\; \sum_{k\in S}\!\pi_k\,\delta_{\mu_k},
+\qquad |S| \ll K \;\;\text{(模式崩塌)}
+$$
+</div>
+
+<p>在 AR 學生的 self-rollout 中，學生從自身採樣的噪聲狀態 $\hat{x}_t$ 出發迭代生成。Mask Forcing 引入<strong>雙噪聲遮罩</strong> $M$（空間 + 時間軸的隨機遮罩），將 rollout 輸入構造為乾淨訊號與噪聲訊號的混合：</p>
+
+<div class="math-block">
+$$
+\tilde{x}_t \;=\; M \odot x_\text{clean} \;+\; (1-M)\odot \hat{x}_t
+$$
+</div>
+
+<p>其中 $x_\text{clean}$ 是更接近去噪終態的乾淨訊號。此構造帶來兩個效應：（1）<strong>探索</strong>——擾動後的 rollout 覆蓋教師分布的更廣區域，使 DMD 梯度 $\nabla_\theta D_\mathrm{KL}$ 能在學生未覆蓋模式上提供訊號；（2）<strong>去噪引導</strong>——乾淨 token（$M=1$ 處）作為錨點，降低鄰近噪聲 token 的預測誤差，抑制跨 chunk 的誤差累積：</p>
+
+<div class="math-block">
+$$
+\underbrace{\text{探索更多模式}}_{\text{打破 reverse-KL 模式崩塌}}
+\;+\;
+\underbrace{\text{乾淨 token 引導去噪}}_{\text{減少誤差累積}}
+\;\Longrightarrow\;
+\text{更高視覺質量、更少過飽和/過平滑}
+$$
+</div>
+
+<h3 id="p1-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>任務</td><td>自回歸視頻擴散蒸餽（AR video diffusion distillation）</td></tr>
+  <tr><td>蒸餽框架</td><td>DMD（Distribution Matching Distillation）</td></tr>
+  <tr><td>適用範圍</td><td>即插即用，<strong>提升多種 AR 視頻擴散蒸餽方法</strong></td></tr>
+  <tr><td>病灶</td><td>過飽和（over-saturation）+ 過平滑（over-smoothing），根因為 reverse-KL mode-seeking</td></tr>
+  <tr><td>改進維度</td><td>視覺質量與真實感提升（更高 visual quality / realism）</td></tr>
+  <tr><td>數據需求</td><td><strong>不引入真實視頻數據</strong></td></tr>
+  <tr><td>訓練成本</td><td><strong>無需額外後訓練階段</strong>（在蒸餽過程內完成）</td></tr>
+</table>
+
+<div class="callout green">
+  <strong>關鍵發現：</strong>Mask Forcing 的價值在於<strong>通用性 + 輕量</strong>：它不綁定單一蒸餽方法，而是作為 rollout 構造的改進，能套用到多種 AR 視頻擴散蒸餽方法上統一提升視覺質量；且全程不引入真實數據、不增加後訓練階段——這對實時視頻生成的落地尤其友好。它把「reverse-KL 必然模式崩塌」這個被默認接受的頑疾，用一個簡潔的遮罩機制化解了。
+</div>
+
+<h3 id="p1-contrib">貢獻與創新</h3>
+<ol>
+  <li><strong>病灶診斷：</strong>明確定位 AR 視頻擴散蒸餽「過飽和/過平滑」的根因為 DMD 的 reverse-KL mode-seeking，並解釋 self-rollout 如何強化模式崩塌與誤差累積。</li>
+  <li><strong>雙噪聲遮罩 rollout：</strong>首創沿空間 + 時間軸注入隨機遮罩，向 self-rollout 輸入注入乾淨訊號，同時實現「探索」與「去噪引導」雙重效應。</li>
+  <li><strong>打破模式崩塌：</strong>遮罩擾動鼓勵學生探索教師分布的更多模式，讓 DMD 在學生未覆蓋區域也能提供學習訊號。</li>
+  <li><strong>抑制誤差累積：</strong>乾淨 token 作為去噪引導錨點，改善中間 rollout 預測，減少跨 chunk 誤差累積。</li>
+  <li><strong>免真實數據、免後訓練：</strong>整個改進在蒸餽過程內完成，不引入真實視頻、不需額外後訓練階段，落地輕量。</li>
+  <li><strong>即插即用通用性：</strong>作為通用改進提升多種 AR 視頻擴散蒸餽方法，而非綁定單一方法。</li>
+</ol>
+
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li><strong>實時視頻生成：</strong>AR 視頻擴散模型是實時串流生成的主幹路線，Mask Forcing 直接提升其視覺質量與真實感。</li>
+  <li><strong>視頻擴散蒸餽 pipeline：</strong>作為即插即用模組嵌入既有 DMD 風格蒸餽流程，改善過飽和/過平滑，無需重構。</li>
+  <li><strong>互動式 / 遊戲視頻生成：</strong>對延遲敏感、要求高質量的串流場景，AR 蒸餽 + Mask Forcing 兼顧速度與質量。</li>
+  <li><strong>reverse-KL 蒸餽的一般改進：</strong>其「遮罩注入探索訊號」的思路可啟發其他受 mode-seeking 困擾的 KL 蒸餽場景。</li>
+</ul>
+
+<h3 id="p1-res">代碼/資源</h3>
+<table class="info">
+  <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.09123" target="_blank" rel="noopener">arXiv:2609.09123</a></td></tr>
+  <tr><td>PDF</td><td><a href="https://arxiv.org/pdf/2609.09123" target="_blank" rel="noopener">arxiv.org/pdf/2609.09123</a></td></tr>
+  <tr><td>HTML</td><td><a href="https://arxiv.org/html/2609.09123v1" target="_blank" rel="noopener">arxiv.org/html/2609.09123v1</a></td></tr>
+  <tr><td>項目頁</td><td><a href="https://alicezrzhao.github.io/mask_forcing/" target="_blank" rel="noopener">alicezrzhao.github.io/mask_forcing</a></td></tr>
+  <tr><td>DOI</td><td><a href="https://doi.org/10.48550/arXiv.2609.09123" target="_blank" rel="noopener">10.48550/arXiv.2609.09123</a></td></tr>
+  <tr><td>授權</td><td>CC BY 4.0</td></tr>
+  <tr><td>訓練狀態</td><td>蒸餽階段改進；<strong>免真實數據、免後訓練</strong>，在既有蒸餽流程內完成</td></tr>
+</table>
+
+</section>
+
+<h2 id="refs">參考資料</h2>
+<ul>
+  <li><a href="https://arxiv.org/abs/2609.09123" target="_blank" rel="noopener">arXiv:2609.09123</a> — Mask Forcing: Improving Autoregressive Video Diffusion Distillation via Dual-Noise Masking Rollout (Zhao et al., 2026)</li>
+  <li><a href="https://alicezrzhao.github.io/mask_forcing/" target="_blank" rel="noopener">項目主頁</a> — 含示範影片與視覺結果</li>
+  <li>背景：Distribution Matching Distillation (DMD) —— Mask Forcing 的蒸餽基座與被修復的 reverse-KL 病灶來源</li>
+  <li>背景：自回歸（AR）視頻擴散模型 —— 實時視頻生成主幹路線，雙向教師蒸餽成因果學生</li>
+</ul>
+
+<footer>
+  本報告由 research-daily 自動化流程生成 · 2026-09-10 · 模型 GLM-5.2<br>
+  內容基於 arXiv 論文摘要與公開資訊整理，數學符號經 MathJax 渲染。
+</footer>
+
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ActionSplice — 互動世界模型在飛動作編輯研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  aside.toc .back-link {
+    display: block;
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    margin-bottom: 18px;
+    font-weight: 600;
+  }
+  aside.toc .back-link:hover { text-decoration: underline; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 680px;
+  }
+  table.compare th, table.compare td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--code-bg);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child {
+    font-weight: 600;
+    background: var(--surface);
+    width: 150px;
+  }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) {
+    background: var(--surface);
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  .badge.purple { background: var(--accent-2-soft); color: var(--accent-2); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <a class="back-link" href="../index.html">← 返回總覽</a>
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">ActionSplice</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與創新</a></li>
+          <li><a href="#p1-app">應用場景</a></li>
+          <li><a href="#p1-res">代碼/資源</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Image/Video Editing · World Models</span>
+  <h1>ActionSplice<br>互動世界模型在飛動作編輯研究報告</h1>
+  <p class="subtitle">把「採樣中途換動作」形式化為反事實狀態傳輸（CST）——一個輕量校正器把被打斷的骨幹表徵傳輸到新動作誘導的匹配狀態，世界模型與採樣器全程凍結，無需回滾重算</p>
+  <div class="meta">
+    <span>📅 2026-09-10</span>
+    <span>🏷️ world model · action editing · counterfactual · state transport · chunk-AR · training-free</span>
+    <span>🔬 arXiv 2026 · cs.CV / cs.LG</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> ActionSplice: In-Flight Action Editing for Interactive World Models</h2>
+  <p class="tagline">ActionSplice — chunk 自回歸視頻世界模型每個 chunk 只吃一個動作，採樣中途換動作只能等下個 chunk、硬接舊狀態或回滾重算；ActionSplice 用反事實狀態傳輸（CST）在「同一 solver 步」把被打斷的表徵校正到新動作的匹配狀態，模型與採樣器凍結、採樣直接續行</p>
+  <table class="info">
+    <tr><td>標題</td><td>ActionSplice: In-Flight Action Editing for Interactive World Models</td></tr>
+    <tr><td>作者</td><td>Pardis Taghavi, Tingyu Guo, Jonas Lossner, Gaurav Pandey, Reza Langari</td></tr>
+    <tr><td>類別</td><td>cs.CV · cs.LG</td></tr>
+    <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.08230" target="_blank" rel="noopener">arXiv:2609.08230</a></td></tr>
+    <tr><td>項目頁</td><td><a href="https://pardistaghavi.github.io/actionsplice-website/" target="_blank" rel="noopener">pardistaghavi.github.io/actionsplice-website</a></td></tr>
+    <tr><td>篇幅</td><td>15 頁，6 張圖</td></tr>
+    <tr><td>授權</td><td>CC BY 4.0</td></tr>
+    <tr><td>提交</td><td>2026-09-08</td></tr>
+    <tr><td>特性</td><td><span class="badge blue">World Model</span> <span class="badge purple">Counterfactual</span> <span class="badge green">Training-Free</span> <span class="badge amber">In-Flight Edit</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p><strong>互動式視頻世界模型（interactive video world models）</strong>是當下生成式 AI 的一個熱門方向：給定一個動作（action），模型預測/生成接下來的視頻幀——這是遊戲、機器人、模擬器的核心能力。主流架構是<strong>chunk 自回歸（chunk-autoregressive）</strong>：模型把視頻切成一個個 chunk，每個 chunk 的生成<strong>以單一動作為條件</strong>。</p>
+
+<p>這帶來一個根本性的「在飛編輯（in-flight editing）」難題：<strong>如果使用者在採樣「中途」改變了動作怎麼辦？</strong>比如世界模型正在生成一段駕駛視頻，使用者突然把方向盤轉向。因為每個 chunk 只綁定一個動作，採樣中途收到的新動作沒有乾淨的歸宿——只有三個糟糕的選項：（1）<strong>等下個 chunk</strong>才用新動作，反應遲鈍；（2）<strong>硬接</strong>：讓後續 solver 步繼續從「舊動作產生的狀態」出發，畫面與新動作不一致；（3）<strong>回滾（rollback）</strong>：丟棄已完成的計算，從斷點重算，代價昂貴、破壞實時性。</p>
+
+<p>ActionSplice 把這個問題重新形式化為<strong>反事實狀態傳輸（Counterfactual State Transport, CST）</strong>。核心想法是：不必重算，也不必硬接——而是用一個<strong>輕量校正器（lightweight corrector）</strong>，把「被打斷的骨幹原生表徵（backbone-native representation）」傳輸到「新動作在當前 solver 步所誘導的匹配狀態」。關鍵在於，這一切發生在<strong>同一個 solver 步內</strong>，世界模型與採樣器<strong>全程凍結（frozen）</strong>，採樣無需回放已完成的計算就能直接續行。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>ActionSplice 的精妙在於<strong>「反事實」視角</strong>：它不問「如何讓模型重新生成」，而問「如果一開始就用新動作，當前這一步的表徵『本應』是什麼樣」——然後用一個輕量校正器把實際表徵傳輸到這個反事實的匹配狀態。因為傳輸發生在骨幹原生表徵空間、且在同一 solver 步，既不需要回滾重算，也不需要重新訓練模型——<strong>世界模型與採樣器完全凍結</strong>，這讓它成為一個純推理時的、免訓練的編輯框架。
+</div>
+
+<div class="callout purple">
+  <strong>定位 — 從「事後編輯」到「在飛編輯」：</strong>既有視頻編輯多是<strong>事後的</strong>（生成完再改），或依賴重新條件化整段生成。ActionSplice 處理的是更難的<strong>在飛</strong>場景：生成正在進行、動作中途變更、且要即時生效、零回滾。它把問題從「如何重新生成以適應新條件」推進到「如何在不重算的前提下，把當前狀態校正到新條件的匹配狀態」——用反事實推理取代回滾計算。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout green">
+  <strong>直覺範例 — 航班中途改目的地：</strong>想像一架飛機（世界模型）正按航線 A（動作 A）飛往城市 A。飛行途中（採樣中途），乘客突然要改去城市 B（動作 B）。傳統做法要嘛硬飛到 A 再折返（等下個 chunk）、要嘛硬把航向偏轉但機身姿態還是 A 的（硬接，畫面撕裂）、要嘛掉頭回到起點重飛（回滾，代價大）。ActionSplice 的做法像一個<strong>機載導航校正器</strong>：不重飛，而是在「當前這一刻」直接算出「如果一開始就飛 B，此刻飛機本應在的位置與姿態」，然後把飛機瞬移/平滑校正到那個反事實狀態，接著按 B 繼續飛。飛機本身的引擎與飛控（模型與採樣器）完全沒動，只是表徵被校正了。
+</div>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>直接條件交換（direct condition swapping）</strong>：最樸素的做法——採樣中途直接把條件動作從 A 換成 B。但後續 solver 步仍從舊狀態出發，畫面與新動作不一致（LPIPS 退化的基線）。ActionSplice 的 CST<sub>R</sub> 相對它把回滾相對 LPIPS 降了 61.5%–75.9%。</li>
+  <li><strong>回滾（rollback）</strong>：丟棄斷點後已完成計算、從斷點用新動作重算。品質好但<strong>計算昂貴</strong>、破壞實時性。ActionSplice 用校正避免回滾，同時提供 1.69×–2.73× 的 pixel-ready 加速。</li>
+  <li><strong>事後視頻編輯</strong>：生成完整段後再做編輯。ActionSplice 處理的是更難的<strong>在飛</strong>場景，生成未完成時動作即時變更。</li>
+  <li><strong>訓練式可控生成</strong>：需微調/訓練模型以支援新控制。ActionSplice 是<strong>訓練免費</strong>的——模型與採樣器凍結，只加一個輕量校正器。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>問題形式化</strong>。將「採樣中途換動作」建模為反事實問題：給定舊動作 $a_\text{old}$ 產生的中斷表徵 $z$，求新動作 $a_\text{new}$ 在當前 solver 步 $t$ 所誘導的匹配狀態 $z^*$。</li>
+  <li><strong>輕量校正器</strong>。訓練一個小型 corrector，輸入中斷的骨幹原生表徵 $z$ 與新動作 $a_\text{new}$，輸出傳輸後的表徵 $\tilde{z}$，逼近反事實匹配狀態 $z^*$。</li>
+  <li><strong>同步傳輸</strong>。傳輸發生在<strong>同一 solver 步</strong> $t$，不跨步、不回放——世界模型主幹與採樣器保持凍結，採樣從 $\tilde{z}$ 續行。</li>
+  <li><strong>變體一：CST<sub>R</sub>（重定向 / retargeting）</strong>。更新<strong>整個</strong>活動 chunk，適用於「整段重定向到新動作」的場景。</li>
+  <li><strong>變體二：CST<sub>T</sub>（時間拼接 / temporal splicing）</strong>。保留一個<strong>時間前綴</strong>（已生成的部分不動），只更新<strong>後綴</strong>，適用於「後半段改動作、前半段保留」的場景。</li>
+  <li><strong>免訓練部署</strong>。世界模型與採樣器全程凍結，校正器輕量，整個框架在推理時運作，無需重訓世界模型。</li>
+</ol>
+
+<h3 id="p1-math">數學推導</h3>
+
+<p>設 chunk 自回歸世界模型在 solver 步 $t$ 的骨幹原生表徵為 $z_t$，由動作 $a$ 條件化生成。採樣中途動作從 $a_\text{old}$ 變為 $a_\text{new}$。ActionSplice 將問題形式化為<strong>反事實狀態傳輸</strong>：求「若一開始就以 $a_\text{new}$ 為條件，步 $t$ 的表徵本應為何」。</p>
+
+<div class="math-block">
+$$
+z_t^* \;=\; \text{Counterfactual}\bigl(z_t;\, a_\text{old} \to a_\text{new}\bigr)
+\;=\; \mathbb{E}\!\left[\, z_t \,\big|\, a = a_\text{new},\, \text{same solver step } t \,\right]
+$$
+</div>
+
+<p>由於無法直接採樣這個反事實，ActionSplice 用一個輕量校正器 $g_\phi$ 近似傳輸：</p>
+
+<div class="math-block">
+$$
+\tilde{z}_t \;=\; g_\phi\!\left(z_t,\, a_\text{new}\right) \;\approx\; z_t^*
+$$
+</div>
+
+<p>校正後，採樣在<strong>同一 solver 步</strong>續行，世界模型 $f$ 與採樣器 $S$ 凍結：</p>
+
+<div class="math-block">
+$$
+z_{t+1} \;=\; S\!\left(f,\, \tilde{z}_t,\, a_\text{new}\right),
+\qquad f,\, S \;\text{frozen（免訓練）}
+$$
+</div>
+
+<p>兩個變體在「傳輸範圍」上分化：<strong>CST<sub>R</sub></strong>（重定向）更新整個活動 chunk $C_t$；<strong>CST<sub>T</sub></strong>（時間拼接）保留時間前綴 $C_t^{[:p]}$、僅更新後綴 $C_t^{[p:]}$：</p>
+
+<div class="math-block">
+$$
+\text{CST}_R:\;\; \tilde{C}_t = g_\phi(C_t, a_\text{new}) \quad(\text{整段重定向})
+$$
+$$
+\text{CST}_T:\;\; \tilde{C}_t = \bigl[\, C_t^{[:p]},\; g_\phi(C_t^{[p:]}, a_\text{new}) \,\bigr] \quad(\text{保留前綴，僅更新後綴})
+$$
+</div>
+
+<h3 id="p1-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>測試模型</td><td>minWM-Wan Action2V、HY-WM1.5（兩個世界模型）</td></tr>
+  <tr><td>對比基線</td><td>直接條件交換（direct condition swapping）</td></tr>
+  <tr><td>CST<sub>R</sub> 回滾相對 LPIPS 降低</td><td>minWM-Wan Action2V: <strong>61.5%</strong>；HY-WM1.5: <strong>75.9%</strong></td></tr>
+  <tr><td>CST<sub>T</sub> 後綴 LPIPS 降低</td><td>minWM-Wan Action2V: <strong>56.1%</strong>；HY-WM1.5: <strong>77.5%</strong></td></tr>
+  <tr><td>CST<sub>T</sub> pixel-ready 加速</td><td>minWM-Wan Action2V: <strong>2.73×</strong>；HY-WM1.5: <strong>1.69×</strong>（相對於等待）</td></tr>
+  <tr><td>HY-WorldPlay 協議</td><td>CST<sub>R</sub> 達 PSNR <strong>25.66 dB</strong>、SSIM <strong>0.6902</strong>、LPIPS <strong>0.1337</strong>（對齊原始 rollout）</td></tr>
+  <tr><td>訓練狀態</td><td>世界模型與採樣器<strong>凍結</strong>，僅訓練輕量校正器 → 類訓練免費</td></tr>
+</table>
+
+<div class="callout green">
+  <strong>關鍵發現：</strong>ActionSplice 同時在「質量」與「速度」兩個維度取勝——相對直接條件交換，LPIPS（畫面一致性）大幅降低 56%–78%；相對等待下個 chunk，pixel-ready 速度提升 1.69×–2.73×；在 HY-WorldPlay 協議下對齊原始 rollout 達 PSNR 25.66 dB。更重要的是，這一切在<strong>世界模型與採樣器完全凍結</strong>的前提下達成，意味著它可作為通用外掛套用到既有世界模型上，無需重訓主幹。
+</div>
+
+<h3 id="p1-contrib">貢獻與創新</h3>
+<ol>
+  <li><strong>在飛動作編輯問題形式化：</strong>首次將 chunk-AR 世界模型「採樣中途換動作」的難題形式化為<strong>反事實狀態傳輸（CST）</strong>，從理論上界定問題。</li>
+  <li><strong>輕量校正器 + 同步傳輸：</strong>用小型 corrector 在同一 solver 步把中斷表徵傳輸到新動作的匹配狀態，<strong>世界模型與採樣器全程凍結</strong>。</li>
+  <li><strong>雙變體設計：</strong>CST<sub>R</sub>（整段重定向）與 CST<sub>T</sub>（保留時間前綴、僅更新後綴），覆蓋「整段改」與「後半段改」兩類編輯需求。</li>
+  <li><strong>免回滾、免重訓：</strong>避免昂貴的 rollback 重算，世界模型主幹無需重訓，作為通用外掛部署。</li>
+  <li><strong>質量 + 速度雙贏：</strong>相對直接條件交換 LPIPS 降 56%–78%，相對等待 pixel-ready 加速 1.69×–2.73×，HY-WorldPlay 下 PSNR 25.66 dB。</li>
+  <li><strong>跨模型驗證：</strong>在 minWM-Wan Action2V 與 HY-WM1.5 兩個世界模型上驗證，證明方法的通用性。</li>
+</ol>
+
+<p><strong>應用場景：</strong></p>
+<ul>
+  <li><strong>互動式遊戲 / 模擬器：</strong>玩家在生成進行中即時改變操作（轉向、攻擊、互動），世界模型畫面即時無縫響應，無回滾卡頓。</li>
+  <li><strong>機器人 / 具身 AI：</strong>機器人執行中任務目標變更，世界模型預測即時切換到新動作的後果，支援在線決策。</li>
+  <li><strong>影片後製與互動敘事：</strong>在 chunk 生成中途插入「如果這裡改做別的會怎樣」的反事實分支，支援分支敘事創作。</li>
+  <li><strong>世界模型外掛增強：</strong>作為訓練免費的推理時模組，套用到既有 chunk-AR 世界模型，賦予其在飛動作編輯能力而無需重訓。</li>
+</ul>
+
+<h3 id="p1-res">代碼/資源</h3>
+<table class="info">
+  <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.08230" target="_blank" rel="noopener">arXiv:2609.08230</a></td></tr>
+  <tr><td>PDF</td><td><a href="https://arxiv.org/pdf/2609.08230" target="_blank" rel="noopener">arxiv.org/pdf/2609.08230</a></td></tr>
+  <tr><td>HTML</td><td><a href="https://arxiv.org/html/2609.08230v1" target="_blank" rel="noopener">arxiv.org/html/2609.08230v1</a></td></tr>
+  <tr><td>項目頁</td><td><a href="https://pardistaghavi.github.io/actionsplice-website/" target="_blank" rel="noopener">pardistaghavi.github.io/actionsplice-website</a></td></tr>
+  <tr><td>DOI</td><td><a href="https://doi.org/10.48550/arXiv.2609.08230" target="_blank" rel="noopener">10.48550/arXiv.2609.08230</a></td></tr>
+  <tr><td>授權</td><td>CC BY 4.0</td></tr>
+  <tr><td>訓練狀態</td><td>世界模型與採樣器凍結；僅輕量校正器需訓練 → <strong>類訓練免費</strong>，可作為外掛部署到既有世界模型</td></tr>
+</table>
+
+</section>
+
+<h2 id="refs">參考資料</h2>
+<ul>
+  <li><a href="https://arxiv.org/abs/2609.08230" target="_blank" rel="noopener">arXiv:2609.08230</a> — ActionSplice: In-Flight Action Editing for Interactive World Models (Taghavi et al., 2026)</li>
+  <li><a href="https://pardistaghavi.github.io/actionsplice-website/" target="_blank" rel="noopener">項目主頁</a> — 含示範影片與視覺結果</li>
+  <li>背景：chunk 自回歸視頻世界模型 —— ActionSplice 的處理對象，每個 chunk 以單一動作為條件</li>
+  <li>背景：反事實推理 / counterfactual —— CST 變換的理論視角，以「若一開始用新動作」取代回滾重算</li>
+</ul>
+
+<footer>
+  本報告由 research-daily 自動化流程生成 · 2026-09-10 · 模型 GLM-5.2<br>
+  內容基於 arXiv 論文摘要與公開資訊整理，數學符號經 MathJax 渲染。
+</footer>
+
+</main>
+</div>
+</body>
+</html>

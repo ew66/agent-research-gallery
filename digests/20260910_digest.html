@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日科研摘要 — 2026-09-10</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --code-bg: #f4f4f5;
+    --digest-badge: #7c3aed;
+    --digest-badge-soft: #ede9fe;
+    --report-badge: #059669;
+    --report-badge-soft: #d1fae5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --code-bg: #26262a;
+      --digest-badge: #a78bfa;
+      --digest-badge-soft: #2e1065;
+      --report-badge: #34d399;
+      --report-badge-soft: #064e3b;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+  header.digest-header {
+    margin-bottom: 40px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--digest-badge);
+    background: var(--digest-badge-soft);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  header.digest-header h1 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px 0;
+  }
+  header.digest-header .meta {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0 0 12px 0;
+    font-variant-numeric: tabular-nums;
+  }
+  header.digest-header .stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--text-soft);
+  }
+  header.digest-header .stats span {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .back-link {
+    display: inline-block;
+    margin-top: 16px;
+    font-size: 14px;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .back-link:hover { text-decoration: underline; }
+  section.direction {
+    margin-bottom: 40px;
+  }
+  section.direction > h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  section.direction > p.direction-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0 0 16px 0;
+  }
+  .item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  .item-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .item-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+    line-height: 1.4;
+    flex: 1;
+  }
+  .item-title:hover { text-decoration: underline; }
+  .score-badge {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .score-high { background: var(--report-badge-soft); color: var(--report-badge); }
+  .score-mid { background: #fef3c7; color: #b45309; }
+  @media (prefers-color-scheme: dark) {
+    .score-mid { background: #422006; color: #fbbf24; }
+  }
+  .item-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 8px 0;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .item-meta .source-type {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .item-summary {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin: 0;
+    line-height: 1.55;
+  }
+  .deep-dive-link {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--report-badge);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .deep-dive-link:hover { text-decoration: underline; }
+  .empty {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 16px 0;
+  }
+  footer {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 600px) {
+    .container { padding: 32px 16px 60px; }
+    header.digest-header h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="digest-header">
+    <span class="eyebrow">Daily Digest</span>
+    <h1>每日科研摘要 — 2026-09-10</h1>
+    <p class="meta">2026-09-10 · 自動科研 agent 產出</p>
+    <div class="stats">
+      <span>發現 17</span>
+      <span>深度報告 3</span>
+      <span>去重排除 0</span>
+    </div>
+    <a class="back-link" href="../index.html">← 返回 Gallery</a>
+  </header>
+
+  <section class="direction">
+    <h2>Diffusion Models</h2>
+    <p class="direction-desc">Score-based / flow-based generative modeling：diffusion、flow matching、rectified flow、consistency model、DiT、score distillation、CFG、sampling acceleration</p>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="../reports/20260910_MaskForcing_AR_Video_Diffusion_Distillation.html">Mask Forcing: Improving Autoregressive Video Diffusion Distillation via Dual-Noise Masking Rollout</a>
+          <span class="score-badge score-high">8.89</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel9·nov10·imp7</span></div>
+        <p class="item-summary">診斷 DMD 蒸餽中 reverse-KL 的模式尋優導致 AR 視頻過飽和/過平滑；用「雙噪聲遮罩 rollout」沿空間+時間軸注入乾淨訊號，鼓勵學生探索教師分布更多模式、乾淨 token 為噪聲 token 提供去噪引導，免真實數據、免後訓練。</p>
+        <a class="deep-dive-link" href="../reports/20260910_MaskForcing_AR_Video_Diffusion_Distillation.html">→ 深度研究報告</a>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.08253">Revisiting Spectral Representations in Generative Diffusion Models</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">從「擾動核」的共享視角連結自監督頻譜表徵學習與擴散生成模型，解釋表徵對齊為何能同時加速訓練收斂與提升採樣質量。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.08981">Transformers as In-Context Samplers: From Closed-Form Diffusion to Estimation-Free Sampling</a>
+          <span class="score-badge score-high">7.78</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel7·nov10·imp6</span></div>
+        <p class="item-summary">理論證明凍結 transformer 可模擬迭代式生成採樣器：先實現閉式與平滑擴散步驟，再從上下文樣本出發做無估計採樣，將 in-context learning 從監督任務擴展到數據生成。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.08084">Marigold V2: Revisiting Diffusion Transformers for Monocular Depth Estimation</a>
+          <span class="score-badge score-high">7.78</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel7·nov10·imp6</span></div>
+        <p class="item-summary">以 DiT 架構影像生成/編輯模型重新打造 Marigold 單目深度估計；針對單步推理與 OOD 泛化設計配方，產出更銳利細緻的深度圖。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.08153">Geodesic-informed Generative Diffusion Model For Topology-preserved Image/Video Generation</a>
+          <span class="score-badge score-high">7.56</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel7·nov10·imp5</span></div>
+        <p class="item-summary">引入測地線資訊讓擴散模型在生成中保證幾何/拓撲一致性，服務計算解剖、生物學、機器人等高風險領域。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.08449">GSComplete: Gaussian Splat Completion with 2D Diffusion Priors</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel6·nov10·imp5</span></div>
+        <p class="item-summary">結合 SDS 分數蒸餾與新型保留損失，僅用 2D 擴散先驗完成 3D 高斯潑濺缺失區域，完整保留原始潑濺。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.09009">Let It Go or Learn to Self-Correct: Continuous Diffusion for Constrained Discrete Tasks</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel6·nov10·imp5</span></div>
+        <p class="item-summary">比較標準擴散採樣器與「直接跳到模型乾淨預測」的策略，處理數獨、圖連通等受限離散任務中早期離散錯誤難以撤銷的問題。</p>
+      </div>
+  </section>
+
+  <section class="direction">
+    <h2>Model Compression &amp; Quantization</h2>
+    <p class="direction-desc">Post-training / QAT 壓縮：PTQ、QAT、W4A4、W8A8、INT4、SpinQuant/QuaRot、AWQ、GPTQ、SmoothQuant、outlier handling、low-bit</p>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="../reports/20260910_KBBQ_FP4_Quantization_Noise_Law.html">KBBQ: A Predictive Noise Law and the Limits of Spectrum Flattening in FP4 Quantization</a>
+          <span class="score-badge score-high">9.33</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG·cs.AI]</span><span>rel10·nov10·imp7</span></div>
+        <p class="item-summary">以「變異數輪廓」統一刻畫整數/浮點量化噪聲，為 FP4 推出閉式 SNR 定律（資料相依收斂為純量 κ）；證明存在任何保函數線性變換都無法超越的上限 κ*，並由 KBBQ 參數化逼近，W4A4 上 4 模型×2 格式全面超越 SOTA 且零部署成本。</p>
+        <a class="deep-dive-link" href="../reports/20260910_KBBQ_FP4_Quantization_Noise_Law.html">→ 深度研究報告</a>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.09085">It's Not RoPE that Creates Sinks: The Role of Self-Concentration and Value-Non-Mixing in Attention</a>
+          <span class="score-badge score-high">8.44</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CL]</span><span>rel8·nov10·imp7</span></div>
+        <p class="item-summary">分析注意力沉陷（AS）與巨量啟動（MA）的成因：因果遮罩導致的注意力自集中與隨後的 Value 不混合共同貢獻 AS/MA——而 MA 正是低位元量化的挑戰來源。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.08759">A Note on Scaling in Randomly Rotated Quantization and Its Connection to the CDEF +1 Pythagorean Relation</a>
+          <span class="score-badge score-high">8.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.IT]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">將隨機旋轉量化的縮放連結到經典統計信號處理的 CDEF 公式：兩種重建縮放對應 Wiener 係數與無偏係數，有限碼長下 CDEF +1 畢式關係逐旋轉成立。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.08307">A Measurement Study of LLM Inference Trade-offs Across Edge Continuum Hardware</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.DC]</span><span>rel6·nov10·imp5</span></div>
+        <p class="item-summary">在 Jetson AGX Orin 與近端伺服器上系統量測自託管 LLM 推理：多開源權重 + 多量化變體，以固定 QA 工作負載對比 GPT-4o，量化品質/延遲/足跡/能耗取捨。</p>
+      </div>
+  </section>
+
+  <section class="direction">
+    <h2>Efficient Inference</h2>
+    <p class="direction-desc">Making large models fast at serving：speculative decoding、FlashAttention、continuous batching、prefix caching、KV cache、MoE、sparse inference、chunked prefill</p>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.08131">Jacap: Robust KV Cache Eviction via Jacobian-Based Nonlinear Information Capacity Preservation</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CL]</span><span>rel9·nov10·imp7</span></div>
+        <p class="item-summary">用局部資訊幾何重思 KV cache 驅逐：把注意力建模為非線性高斯通道，對注意力映射做一階泰勒展開推導出 Jacobian 資訊容量目標，超越啟發式驅逐策略。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.07883">Deadline-Aware Adaptive Prefill Chunking for Efficient LLM Serving (SLOWeave)</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CL]</span><span>rel9·nov10·imp7</span></div>
+        <p class="item-summary">SLOWeave 線上排程選擇「能在最早活躍解碼截止前完成」的最大預填 chunk，免工作負載特定配置即保住 token 間延遲，化解固定 chunk 大小的延遲尖峰。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.07108">Online Draft Co-Training for Speculative Decoding in Large-Scale, Long-Context RL Post-Training</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel9·nov10·imp7</span></div>
+        <p class="item-summary">端到端系統解決大模型長上下文 RL 後訓練的線上草稿共訓練：擴展打包負載平衡的因果平行（CP）支援分支注意力，跨流水線平行（PP）階段傳輸目標特徵。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.06551">EStream: Fast and Memory-Efficient MoE Prefill through Expert Virtualization on Mobile NPUs</a>
+          <span class="score-badge score-mid">6.76</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.DC]</span><span>rel8·nov10·imp7</span></div>
+        <p class="item-summary">分離「NPU 編譯期固定」與「MoE 運行期決策」：單一編譯專家圖服務所有專家，讓 MoE prefill 在手機 NPU 上高效執行、突破記憶體限制。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.06940">Unified AI Gateway: A Framework for Joint Model Routing and KV Cache Management</a>
+          <span class="score-badge score-mid">6.58</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.DC]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">定義「統一 AI 閘道」系統設定：邊緣部署的 AI 流量樞紐協調模型路由、KV cache 管理與算力放置，化解跨模型切換時重建 KV cache 的成本。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.07536">Analytical Resource Management for Fine-grained MoE Computation-Communication Overlap</a>
+          <span class="score-badge score-mid">6.58</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.DC]</span><span>rel8·nov10·imp6</span></div>
+        <p class="item-summary">解析式資源管理適應輸入大小/路由負載/核函數的動態變化，解決分散式 MoE 細粒度計算-通信重疊中 CTA 爭用 SM 駐留容量的波狀執行問題。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.08690">Hyperparameter Scaling Laws Across MoE Sparsity</a>
+          <span class="score-badge score-mid">6.22</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.LG]</span><span>rel7·nov10·imp6</span></div>
+        <p class="item-summary">1,800 次預訓練跨越六個啟動參數規模與最高 6B 總參數 MoE：證明傳統超參數縮放律對超稀疏 MoE 不足，最佳學習率/批次大小隨啟動比例變化。</p>
+      </div>
+  </section>
+
+  <section class="direction">
+    <h2>Image Editing</h2>
+    <p class="direction-desc">Diffusion-based image editing &amp; controllable generation：ControlNet、DragDiffusion、prompt-to-prompt、null-text inversion、concept editing、identity preservation、DreamBooth</p>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="../reports/20260910_ActionSplice_InFlight_Action_Editing_WorldModels.html">ActionSplice: In-Flight Action Editing for Interactive World Models</a>
+          <span class="score-badge score-high">8.44</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV·cs.LG]</span><span>rel8·nov10·imp7</span></div>
+        <p class="item-summary">將 chunk-AR 世界模型「採樣中途換動作」形式化為反事實狀態傳輸（CST）：輕量校正器把中斷表徵傳輸到新動作的匹配狀態，模型與採樣器凍結；LPIPS 較直接換條件降 56–78%、pixel-ready 加速 1.69–2.73×。</p>
+        <a class="deep-dive-link" href="../reports/20260910_ActionSplice_InFlight_Action_Editing_WorldModels.html">→ 深度研究報告</a>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2608.24169">ViSculpt: Visual-Centric Agentic Geometry Editing</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本月</span><span>[cs.CV]</span><span>rel7·nov8·imp6</span></div>
+        <p class="item-summary">視覺中心、訓練免費的多 agent 系統在 Blender 直接編輯既有 3D 網格，模擬藝術家迭代工作流，感知驅動且保留未觸碰區域。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.08079">VI-Bench: Benchmarking Prompt Inversion from AIGC Videos</a>
+          <span class="score-badge score-high">7.11</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel6·nov10·imp5</span></div>
+        <p class="item-summary">首個 AIGC 視頻提示反演基準：評估能否從生成視頻回推出可重播的生成相關控制（風格/相機），服務創意復用、編輯與提示洩露風險評估。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.08657">Charts Are Beyond Pixels: Probing for Layer-Wise Chart Understanding and Editing</a>
+          <span class="score-badge score-mid">6.67</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel5·nov10·imp5</span></div>
+        <p class="item-summary">LayerWiseBench 以圖層歸因/綁定/可見性排序三概念結構化評估模型的圖表理解與編輯，超越僅評最終輸出正確性的既有基準。</p>
+      </div>
+      <div class="item">
+        <div class="item-header">
+          <a class="item-title" href="https://arxiv.org/abs/2609.08155">SciFigure2Code: An AI-Reconstructed Benchmark for Scientific Figure-to-Code</a>
+          <span class="score-badge score-mid">6.00</span>
+        </div>
+        <div class="item-meta"><span class="source-type">arXiv</span><span>本週</span><span>[cs.CV]</span><span>rel4·nov10·imp4</span></div>
+        <p class="item-summary">角色分工 Codex agent 生成、執行、視覺精修並審計銀標準呈現程式，從科學圖表像素回推可編輯 Python 程式以保留排版與可讀性。</p>
+      </div>
+  </section>
+
+  <footer>
+    <p>由 <code>research-daily</code> agent 自動生成 · 模型 GLM-5.2 · 詳見 <code>runs/2026-09-10.log</code></p>
+  </footer>
+</div>
+</body>
+</html>
