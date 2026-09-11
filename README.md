@@ -12,6 +12,7 @@ Automated daily by the `research-daily` agent (launchd 07:00). See `research-dir
 
 ## Daily Digests
 
+- [Daily Digest — 2026-09-11](https://ew66.github.io/notes-gallery/digests/20260911_digest.html) — 4 方向 24 篇新論文 + 3 篇深度報告（Why Does PTQ Work? / Overpainting / Fiberwise OT）；arXiv API 驗證 (2026-09-11)
 - [Daily Digest — 2026-09-10](https://ew66.github.io/notes-gallery/digests/20260910_digest.html) — 4 方向 17 篇新論文 + 3 篇深度報告（KBBQ / Mask Forcing / ActionSplice）；arXiv API 驗證 (2026-09-10)
 - [Daily Digest — 2026-09-09](https://ew66.github.io/notes-gallery/digests/20260909_digest.html) — 4 方向 25 篇新論文 + 3 篇深度報告（FlowTT / EditVid / Text-AB）；arXiv API 驗證 (2026-09-09)
 - [Daily Digest — 2026-09-08](https://ew66.github.io/notes-gallery/digests/20260908_digest.html) — 4 方向 55 篇新論文 + 3 篇深度報告（Scale-QLoRA / SeamFlow / PriorEdit3D）；arXiv RSS 驗證 (2026-09-08)
@@ -21,6 +22,9 @@ Automated daily by the `research-daily` agent (launchd 07:00). See `research-dir
 
 ### Featured
 
+- [Why Does Post-Training Quantization Work?](https://ew66.github.io/notes-gallery/reports/20260911_WhyDoesPTQWork_LLM_Quant_Theory.html) — 隨機模型誤差迅速累積、預訓練模型誤差累積甚少；兩機制——逐層誤差相互抵消 + LM-head 各向異性幾何優先保留高排名 token 分數 (2026-09-11)
+- [Overpainting: Localized Context-aware Diffusion Image Editing](https://ew66.github.io/notes-gallery/reports/20260911_Overpainting_Diffusion_Image_Editing.html) — trimap 三值遮罩（必改/可改/禁改）統一位置精度與上下文感知；joint attention + LoRA + attention-dropout 改造預訓練擴散編輯模型 (2026-09-11)
+- [Model-Aware Schedules via Fiberwise Optimal Transport](https://ew66.github.io/notes-gallery/reports/20260911_Fiberwise_OT_Diffusion_Schedules.html) — 於訊號/噪聲分解的仿射纖維上定義預測風險，結合動能作用推出閉式最佳時間分配；CIFAR-10 flow matching 16 NFE 達 38.6% 相對 FID 降幅 (2026-09-11)
 - [KBBQ: A Predictive Noise Law and the Limits of Spectrum Flattening in FP4 Quantization](https://ew66.github.io/notes-gallery/reports/20260910_KBBQ_FP4_Quantization_Noise_Law.html) — 以變異數輪廓統一刻畫整數/浮點量化噪聲，為 FP4 推出閉式 SNR 定律（純量 κ）；證明保函數線性變換上限 κ*，W4A4 全面超越 SOTA 且零部署成本 (2026-09-10)
 - [Mask Forcing: Improving Autoregressive Video Diffusion Distillation via Dual-Noise Masking Rollout](https://ew66.github.io/notes-gallery/reports/20260910_MaskForcing_AR_Video_Diffusion_Distillation.html) — 診斷 DMD reverse-KL 模式尋優致 AR 視頻過飽和/過平滑；雙噪聲遮罩 rollout 注入乾淨訊號打破模式崩塌、減少誤差累積；免真實數據、免後訓練 (2026-09-10)
 - [ActionSplice: In-Flight Action Editing for Interactive World Models](https://ew66.github.io/notes-gallery/reports/20260910_ActionSplice_InFlight_Action_Editing_WorldModels.html) — 將採樣中途換動作形式化為反事實狀態傳輸（CST），輕量校正器傳輸表徵、模型與採樣器凍結；LPIPS 較直接換條件降 56–78%、pixel-ready 加速 1.69–2.73× (2026-09-10)

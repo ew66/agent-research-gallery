@@ -1,7 +1,7 @@
 ==================================================
 research-daily run log
 ==================================================
-started: 2026-09-11 07:00:00
+started: 2026-09-11 07:00:00 (resumed after Phase 0-only prior attempt)
 model: GLM-5.2
 directions_due: Diffusion Models, Model Compression & Quantization, Efficient Inference, Image Editing (all daily)
 limits: max_tokens=200000, max_deep_dives=3, deep_dive_score_threshold=7.0, dedup_window_days=14
@@ -9,13 +9,14 @@ limits: max_tokens=200000, max_deep_dives=3, deep_dive_score_threshold=7.0, dedu
 ## Phase 0 — Bootstrap
 - Read research-directions.yaml: OK (4 directions, all cadence=daily)
 - Dedup set: built from runs/2026-09-07.log + 2026-09-08.log + 2026-09-09.log + 2026-09-10.log (all within 14-day window).
-- git pull --rebase: Already up to date.
+- git pull --rebase: stashed pre-existing local run-daily.sh mods (desktop3060 path adaptation, unrelated to run),
+  pulled (fast-forward added runs/2026-09-11.log Phase-0 stub from prior attempt), restored stash.
 - Discovery strategy: arXiv listing API (export.arxiv.org/api/query, sortBy=submittedDate desc)
   as PRIMARY source (verified IDs + abstracts). websearch NOT used as primary — documented in
   09-07/08/09/10 logs that websearch FABRICATES arxiv IDs; also system caps websearch at 1 call/msg
   vs skill's 1/direction. arXiv API = legitimate specific-API interaction per user instructions.
 
-Dedup set (arxiv IDs seen in last 14 days, ~95 IDs):
+Dedup set (arxiv IDs seen in last 14 days, ~103 IDs):
   Diffusion: 2609.04649, 2609.04646, 2609.04525, 2608.30782, 2608.29160, 2608.29281,
               2608.29107, 2609.00198, 2609.04751, 2609.04282, 2609.04976, 2609.04531,
               2609.04603, 2609.04709, 2609.04710, 2609.04921, 2609.05028, 2609.05234,
@@ -23,7 +24,7 @@ Dedup set (arxiv IDs seen in last 14 days, ~95 IDs):
               2607.23492, 2605.26491, 2603.27520, 2609.03992, 2609.05328, 2609.04822,
               2609.02543, 2609.02511, 2609.04861, 2609.09123, 2609.08253, 2609.08981,
               2609.08084, 2609.08153, 2609.08449, 2609.09009
-  Compression: 2609.04031, 2609.04098, 2608.30564, 2609.004bd, 2609.01587, 2608.28911,
+  Compression: 2609.04031, 2609.04098, 2608.30564, 2609.00450, 2609.01587, 2608.28911,
               2608.27875, 2608.29667, 2609.04526, 2609.04490, 2609.04748, 2609.05081,
               2609.04895, 2609.04263, 2609.05334, 2609.04274, 2609.04565, 2605.14047,
               2609.03459, 2609.05152, 2609.04947, 2609.04830, 2609.04852, 2609.02514, 2609.05339,
@@ -39,3 +40,77 @@ Dedup set (arxiv IDs seen in last 14 days, ~95 IDs):
               2605.26491, 2609.04190, 2609.04151, 2609.04120, 2609.04500, 2609.04911,
               2609.08230, 2608.24169, 2609.08079
 
+## Phase 1 — Discovery
+- arXiv listing API (export.arxiv.org/api/query, sortBy=submittedDate desc) returned HTTP 200 for
+  all 5 categories (cs.CV/LG/CL/DC/GR) via HTTPS (curl -sL).
+- 469 unique entries after cross-category dedup. Freshest pub dates: 2026-09-10 (232), 09-09 (113),
+  09-08 (19). Today is 09-11; freshest submissions are yesterday/this-week.
+- Filtered per direction by specific multi-phrase regex match against title+abstract (tighter than
+  single-word match to avoid tangential hits). All items below are arXiv-API-verified (real IDs
+  resolving to stated titles + full abstracts).
+
+## Phase 2 — Scoring
+NOTE on formula: skill gives composite=(0.4*rel+0.3*nov+0.2*imp)*10*weight, but weights sum to 0.9
+and the table/threshold are 0-10. Normalized to 0-10 (same as 09-07/08/09/10 runs):
+composite=(0.4*rel+0.3*nov+0.2*imp)/0.9*weight. novelty by arxiv ID YYMM: 2609(Sep)=10; 2608=8;
+2607=6; <=2606=4.
+
+=== DIFFUSION MODELS (weight 1.0) ===
+[2609.11842] 09-10 Model-Aware Schedules via Fiberwise Optimal Transport (flow/diffusion schedule theory) rel9 nov10 imp6 => 8.67 ✓
+[2609.11507] 09-10 Harnessing Intrinsic Subject-Aware Attention for Multi-Subject Video Gen (DiT) rel8 nov10 imp6 => 8.22 ✓
+[2609.11506] 09-10 UBone3D: Physics-Rectified Conditional Flow Matching for 3D Shape Completion rel7 nov10 imp5 => 7.56 ✓
+[2609.11472] 09-10 BridgeMatch: Conditional Transport Bridges in Matching Matrix Space rel7 nov10 imp5 => 7.56 ✓
+[2609.11129] 09-10 ReconPlusGen: Noise Inversion + Modulation for Multi-view 3D Gen rel7 nov10 imp5 => 7.56 ✓
+[2609.10915] 09-10 IMLE-VLA: replaces iterative diffusion/flow action sampling w/ single-step rel7 nov10 imp6 => 7.56 ✓
+[2609.11886] 09-10 Guided SR of DEMs with Diffusion-Based Image Generators (applied) rel5 nov10 imp4 => 6.22
+[2609.11548] 09-10 World in World: autoregressive video world models (tangential) rel4 nov10 imp5 => 6.00
+
+=== MODEL COMPRESSION & QUANTIZATION (weight 1.0) ===
+[2609.11716] 09-10 Why Does Post-Training Quantization Work? (error accumulation theory) rel10 nov10 imp7 => 9.33 ✓
+[2609.11582] 09-10 OmniKVQuant: KV Cache Quantization for Omni-LLMs (rotation, TurboQuant) rel9 nov10 imp7 => 8.89 ✓
+[2609.11687] 09-10 Structured Transforms for Low-Overhead Quantization (Kashin, DCT) rel9 nov10 imp6 => 8.67 ✓
+[2609.11642] 09-10 ZipCodec: scalar spherical quantization for streaming speech codec rel7 nov10 imp5 => 7.56 ✓
+[2609.09095] 09-08 Ozaki 2.5: FP8 tensor cores FP64 emulation (HPC, tangential) rel6 nov10 imp6 => 7.33 ✓
+[2609.11133] 09-10 Phase-Decoupled Power Control for Disaggregated LLM Serving (tangential) rel4 nov10 imp5 => 6.22
+
+=== EFFICIENT INFERENCE (weight 0.8) ===
+[2609.09748] 09-09 Epoch: Compiling Diffusion Blocks for Sparse MoE Serving rel9 nov10 imp7 => 7.11 ✓
+[2609.10266] 09-09 KVShareArena: KV-Cache Reuse Across Contexts and Model Checkpoints rel9 nov10 imp7 => 7.11 ✓
+[2609.10790] 09-09 Composable CXL Memory as K8s Shared Memory for LLM Serving (KV reuse) rel8 nov10 imp6 => 6.58
+[2609.11744] 09-10 py-kvcache: External KV Caching for vLLM with NVMe SSDs (prefix caching) rel8 nov10 imp6 => 6.58
+[2609.11192] 09-10 FlexComp: One Model for Every Ratio in Context Compression rel8 nov10 imp6 => 6.58
+[2609.11917] 09-10 Data Scarcity and Model Sparsity: MoE Overfit More to Repeated Data rel7 nov10 imp6 => 6.22
+
+=== IMAGE EDITING (weight 1.0) ===
+[2609.10811] 09-09 Overpainting: Localized Context-aware Diffusion Image Editing (trimap) rel9 nov10 imp7 => 8.89 ✓
+[2609.11638] 09-10 Vidu S2: Real-Time Interactive, Editable, Spatial Video Generation rel8 nov10 imp7 => 8.44 ✓
+[2609.11317] 09-10 Mi-Ripple: Restoring Images Degraded by Iterative AI Editing rel7 nov10 imp5 => 7.56 ✓
+[2609.11929] 09-10 SenseNova-U1.5: Native Unified Visual Intelligence (gen+edit launch) rel6 nov10 imp7 => 7.56 ✓
+
+Dedup Excluded (0 new this run — all candidates are 09-08..09-10 submissions, fresher than the
+09-08 ceiling of prior runs; the ~103 IDs from 09-07/08/09/10 runs did not recur).
+
+## Phase 3 — Deep-dive selection
+Eligible (>=7.0): 17 items (after dedup). Top 3 by composite, tie-broken toward DIRECTION DIVERSITY
+(covering 3 distinct directions, matching 09-07/08/09/10 run approach):
+  1. Why Does PTQ Work? [2609.11716]   9.33  Compression -> reports/20260911_WhyDoesPTQWork_LLM_Quant_Theory.html
+  2. Overpainting [2609.10811]         8.89  Image Edit  -> reports/20260911_Overpainting_Diffusion_Image_Editing.html
+  3. Fiberwise OT [2609.11842]        8.67  Diffusion    -> reports/20260911_Fiberwise_OT_Diffusion_Schedules.html
+Token budget: ~25k/deep-dive est; 3 = ~75k << 200k cap. Proceeding with all 3.
+NOTE: Efficient Inference top items all at 7.11 (weight 0.8 caps them); Compression & Image Editing &
+Diffusion each contribute one deep-dive for direction diversity.
+
+## Phase 4 — Digest generation
+- Built digests/20260911_digest.html from templates/digest.html.tmpl.
+- 4 direction sections, 24 discovered items listed (8 Diffusion, 6 Compression, 6 Efficient, 4 Image Editing).
+- 3 deep-dive items link to ../reports/<file>.html; remaining items link to arXiv source URLs.
+
+## Phase 5 — Gallery update
+- index.html: inserted 4 new cards (1 digest + 3 reports) at TOP of #grid. CSS/script/filter-bar untouched.
+  Each card has data-tags + card-tags chips; digest=badge-digest, reports=badge-report.
+- README.md: prepended 1 digest entry + 3 report entries under Featured.
+- scripts/run-daily.sh: pre-existing local modification (desktop3060 path adaptation) left UNCOMMITTED
+  (unrelated to this run; surgical-change rule — not touched).
+
+## Phase 6 — Commit & push
+(pending — see Summary)

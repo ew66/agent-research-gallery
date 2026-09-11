@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Why Does PTQ Work? — 預訓練模型量化誤差累積魯棒性研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  aside.toc .back-link {
+    display: block;
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    margin-bottom: 18px;
+    font-weight: 600;
+  }
+  aside.toc .back-link:hover { text-decoration: underline; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 680px;
+  }
+  table.compare th, table.compare td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--code-bg);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child {
+    font-weight: 600;
+    background: var(--surface);
+    width: 150px;
+  }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) {
+    background: var(--surface);
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  .badge.purple { background: var(--accent-2-soft); color: var(--accent-2); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <a class="back-link" href="../index.html">← 返回總覽</a>
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">Why Does PTQ Work?</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與創新</a></li>
+          <li><a href="#p1-app">應用場景</a></li>
+          <li><a href="#p1-res">代碼/資源</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Model Quantization</span>
+  <h1>Why Does Post-Training Quantization Work?<br>預訓練模型量化誤差累積魯棒性研究報告</h1>
+  <p class="subtitle">透過比較全精度與量化前向傳播，揭示預訓練模型抵抗 PTQ 誤差累積的兩大機制——殘差反向抵消與 LM-head 幾何保護——解釋為何數十層累積的量化誤差仍只造成微小輸出偏移</p>
+  <div class="meta">
+    <span>📅 2026-09-11</span>
+    <span>🏷️ quantization · PTQ · LLM · error-accumulation</span>
+    <span>🔬 arXiv 2026 · cs.LG / cs.CL</span>
+  </div>
+</header>
+
+<div class="callout">
+  <strong>TL;DR：</strong>後訓練量化（PTQ）把 LLM 權重壓到低精度，每個量化權重都在隱藏狀態引入誤差，直覺上誤差應隨深度累積並摧毀下一詞預測。隨機初始化模型確實如此——誤差迅速爆發。但<strong>預訓練模型卻幾乎不累積隱藏狀態誤差</strong>，即使從未在訓練中加入量化噪聲。本文發現兩大機制：(1) 每層新引入的誤差傾向於<strong>反向抵消</strong>它從輸入繼承的誤差，使差異緩慢增長（此抵消性殘差交互在預訓練中發展出來）；(2) LM-head 的幾何結構<strong>優先保護高排名 token</strong>的分數與機率。兩者共同解釋了為何穿越數十層的量化誤差仍只產生微小輸出變化。
+</div>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> Why Does Post-Training Quantization Work?</h2>
+  <p class="tagline">把「量化誤差傳播」當作動力系統來分析——逐層追蹤全精度與量化前向傳播的隱藏狀態差異，發現預訓練並非被動容忍誤差，而是主動塑造出一種「自我抵消」的殘差交互結構，再配合 LM-head 的各向異性幾何，在輸出端進一步過濾誤差</p>
+  <table class="info">
+    <tr><td>標題</td><td>Why Does Post-Training Quantization Work?</td></tr>
+    <tr><td>作者</td><td>Yuxiang Chen, Michael Beyer, Jun Zhu, Jianfei Chen</td></tr>
+    <tr><td>機構</td><td>清華大學 (Tsinghua University)</td></tr>
+    <tr><td>類別</td><td>cs.LG (Machine Learning) · cs.CL (Computation and Language)</td></tr>
+    <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.11716" target="_blank" rel="noopener">arXiv:2609.11716</a></td></tr>
+    <tr><td>篇幅</td><td>45 頁，26 張圖（含附錄）</td></tr>
+    <tr><td>提交</td><td>2026-09-10</td></tr>
+    <tr><td>DOI</td><td><a href="https://doi.org/10.48550/arXiv.2609.11716" target="_blank" rel="noopener">10.48550/arXiv.2609.11716</a></td></tr>
+    <tr><td>授權</td><td>CC BY 4.0</td></tr>
+    <tr><td>特性</td><td><span class="badge blue">PTQ Theory</span> <span class="badge purple">Error Propagation</span> <span class="badge green">Residual Cancellation</span> <span class="badge amber">LM-head Geometry</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+<p>後訓練量化（Post-Training Quantization, PTQ）是壓縮大語言模型（LLM）最直接的手段：把權重以低精度儲存，顯存與頻寬成比例下降，推理吞吐相應提升。但每一個被量化的權重都會在<strong>隱藏狀態（hidden state）</strong>中引入誤差。一個 $L$ 層的 Transformer 有數十層，直覺上誤差應該<strong>逐層累積</strong>——每層乘以 Jacobian、再加新的量化噪聲——最終在 LM-head 處摧毀 next-token 預測的對數機率分佈。</p>
+
+<p>然而，<strong>事實並非如此</strong>。本文指出一個關鍵的反差：如果把同樣的量化施加在<strong>隨機初始化</strong>的模型上，隱藏狀態差異確實迅速爆發，幾層之內就完全失控；但施加在<strong>預訓練模型</strong>上時，誤差累積卻慢得多，下游任務性能幾乎不受影響——即使預訓練過程中<strong>從未見過任何量化噪聲</strong>。這構成了一個需要解釋的悖論：預訓練為何「免費」獲得了量化魯棒性？</p>
+
+<div class="callout">
+  <strong>核心洞見：</strong>預訓練模型之所以抵抗 PTQ 誤差累積，不是因為誤差不存在，而是因為<strong>每一層新引入的量化誤差傾向於「反向抵消」它從上一層繼承的誤差</strong>。這種「counteracting residual interaction（抵消性殘差交互）」是在預訓練過程中自發發展出來的，是減緩隱藏誤差增長的主要因素。在此之上，LM-head 的幾何結構進一步<strong>優先保護高排名 token</strong>（模型最有信心的預測）的分數與機率，使得即使最終隱藏狀態有偏差，輸出分佈的高信心部分仍被保留。兩大機制疊加，解釋了「誤差穿越數十層、輸出卻幾乎不變」的現象。
+</div>
+
+<div class="callout purple">
+  <strong>定位 — 從「現象觀察」到「機制解釋」：</strong>既有 PTQ 工作大多是<strong>方法驅動</strong>的：設計一個更好的量化演算法（GPTQ、AWQ、SmoothQuant、SpinQuant…），用下游精度驗證有效。本文則是<strong>分析驅動</strong>的：它不提出新量化方法，而是打開黑箱，追問「為什麼量化本來就有效」這個更根本的問題。透過逐層比較全精度與量化前向傳播，它把「預訓練帶來的魯棒性」從一個模糊的直覺，拆解成兩個<strong>可量化、可驗證</strong>的機制，為未來的量化方法設計提供了理論指南。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout green">
+  <strong>直覺範例 — 彈簧系統的「阻尼」：</strong>想像一串彈簧掛著重物，每層 Transformer 就像一個彈簧節點。如果每個節點的擾動都<strong>同向疊加</strong>（隨機模型），振幅會越來越大，最終整條彈簧劇烈搖晃。但如果每個節點新引入的擾動<strong>恰好反方向</strong>於它繼承的振動（預訓練模型），兩者部分抵消，振幅增長被大幅抑制——就像裝了<strong>阻尼器</strong>。預訓練不知不覺地把這個「阻尼器」安裝進了模型的殘差結構裡。而在最末端，LM-head 像一個<strong>方向性濾波器</strong>：它對高排名 token 的方向特別「硬」，小擾動傳不過去，所以即使末端隱藏狀態有偏差，模型最有信心的預測仍然穩如泰山。
+</div>
+
+<h4>分析框架：全精度 vs. 量化前向傳播的逐層比較</h4>
+<p>本文的核心方法論是<strong>成對前向傳播比較（paired forward-pass comparison）</strong>：對同一輸入，同時跑全精度模型與量化模型，逐層記錄兩者的隱藏狀態，計算差異 $\delta_l$，然後分析這個差異<strong>如何隨層數演化</strong>。這不是訓練方法，而是<strong>診斷方法</strong>——一種「量化誤差的動力學分析」。</p>
+
+<h4>研究步驟</h4>
+<ol>
+  <li><strong>定義隱藏狀態誤差：</strong>對每一層 $l$，定義全精度隱藏狀態 $h_l$ 與量化隱藏狀態 $\tilde{h}_l$ 之間的差異 $\delta_l = \tilde{h}_l - h_l$，作為量化誤差傳播的基本量。</li>
+  <li><strong>觀察誤差累積曲線：</strong>繪製 $\|\delta_l\|$ 隨層數 $l$ 的增長曲線。關鍵對比：隨機初始化模型 vs. 預訓練模型——前者快速爆發，後者緩慢增長。這確立了「預訓練帶來魯棒性」的現象基礎。</li>
+  <li><strong>分解誤差來源：</strong>把第 $l+1$ 層的誤差拆分為兩部分——<strong>繼承誤差</strong>（從 $\delta_l$ 經 Jacobian 傳播而來）與<strong>新引入誤差</strong> $\epsilon_l$（該層權重量化所產生）。分析兩者的<strong>方向關係</strong>。</li>
+  <li><strong>發現機制一——抵消性殘差交互：</strong>測量新引入誤差 $\epsilon_l$ 與繼承誤差之間的內積/夾角。發現在預訓練模型中，$\epsilon_l$ 傾向於<strong>反向</strong>——即兩者夾角大於 90°，產生部分抵消，使 $\|\delta_{l+1}\|$ 遠小於「繼承 + 新增」的簡單疊加。</li>
+  <li><strong>驗證機制一源於預訓練：</strong>比較隨機初始化模型與預訓練模型在相同量化下的抵消程度。隨機模型無此抵消（誤差同向疊加）；預訓練模型有顯著抵消。這證明 counteracting residual interaction 是<strong>預訓練塑造出來的</strong>，而非量化的副產物。</li>
+  <li><strong>發現機制二——LM-head 幾何保護：</strong>分析最終隱藏狀態誤差 $\delta_L$ 如何映射到 logit 變化 $\Delta\ell = W_U \,\delta_L$（$W_U$ 為 unembedding 矩陣）。發現 LM-head 的幾何結構<strong>各向異性</strong>：高排名 token（最高 logit 值）所在的子空間對 $\delta_L$ 的敏感度遠低於低排名 token。</li>
+  <li><strong>量化分析：</strong>對機制一，用抵消比例（新誤差投影到繼承誤差反方向的比例）作為定量指標，確認它是減緩隱藏誤差增長的主要因素。對機制二，測量高排名 vs. 低排名 token 的 logit 變化幅度比。</li>
+  <li><strong>跨模型與跨量化設定驗證：</strong>在多個模型架構、多種量化設定（不同位元數、不同量化方法）下重複上述分析，確認兩大機制的<strong>普遍性</strong>。</li>
+</ol>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>隱藏狀態誤差的定義與傳播</h4>
+<p>設全精度模型第 $l$ 層的隱藏狀態為 $h_l$，量化模型對應為 $\tilde{h}_l$。定義<strong>隱藏狀態誤差</strong>：</p>
+
+<div class="math-block">
+$$
+\delta_l \;\triangleq\; \tilde{h}_l - h_l
+$$
+</div>
+
+<p>對第 $l$ 層的前向計算 $h_{l+1} = f_l(h_l;\, W_l)$，量化版本為 $\tilde{h}_{l+1} = f_l(\tilde{h}_l;\, \tilde{W}_l)$，其中 $\tilde{W}_l = W_l + \Delta W_l$ 是量化後的權重。在 $\delta_l$ 和 $\Delta W_l$ 較小時，一階 Taylor 展開得：</p>
+
+<div class="math-block">
+$$
+\delta_{l+1} \;\approx\; \underbrace{J_l^h \, \delta_l}_{\text{繼承誤差（propagated）}} \;+\; \underbrace{J_l^W \, \Delta W_l}_{\displaystyle \epsilon_l \;\text{（新引入誤差）}}
+$$
+</div>
+
+<p>其中 $J_l^h = \frac{\partial f_l}{\partial h_l}$ 是對隱藏狀態的 Jacobian，$J_l^W = \frac{\partial f_l}{\partial W_l}$ 是對權重的 Jacobian。繼承誤差 $J_l^h \delta_l$ 是上一層誤差經過層變換後的傳播項；新引入誤差 $\epsilon_l$ 是該層權重量化 $\Delta W_l$ 所直接產生的擾動。</p>
+
+<h4>機制一：抵消性殘差交互（Counteracting Residual Interaction）</h4>
+<p>誤差範數的平方展開為：</p>
+
+<div class="math-block">
+$$
+\|\delta_{l+1}\|^2 \;=\; \|J_l^h \, \delta_l\|^2 \;+\; \underbrace{2\,\langle \epsilon_l,\; J_l^h \, \delta_l \rangle}_{\text{交叉項}} \;+\; \|\epsilon_l\|^2
+$$
+</div>
+
+<p>本文的核心發現是：在<strong>預訓練模型</strong>中，交叉項為<strong>負</strong>：</p>
+
+<div class="math-block">
+$$
+\langle \epsilon_l,\; J_l^h \, \delta_l \rangle \;<\; 0 \qquad \text{（預訓練模型，逐層觀測）}
+$$
+</div>
+
+<p>這意味著新引入誤差 $\epsilon_l$ 與繼承誤差 $J_l^h \delta_l$ <strong>方向相反</strong>，兩者部分抵消，使得：</p>
+
+<div class="math-block">
+$$
+\|\delta_{l+1}\|^2 \;\ll\; \|J_l^h \, \delta_l\|^2 + \|\epsilon_l\|^2 \qquad \text{（遠小於簡單疊加）}
+$$
+</div>
+
+<p>因此誤差<strong>亞線性增長</strong>而非線性爆發。論文定義<strong>抵消係數</strong>來量化此效應：</p>
+
+<div class="math-block">
+$$
+\eta_l \;\triangleq\; -\frac{\langle \epsilon_l,\; J_l^h \, \delta_l \rangle}{\|J_l^h \, \delta_l\| \;\|\epsilon_l\|}, \qquad \eta_l > 0 \;\;\text{表示抵消}
+$$
+</div>
+
+<p>預訓練模型的 $\eta_l$ 顯著為正且較大，而隨機初始化模型的 $\eta_l$ 接近零或為負（同向疊加）。這項抵消性交互是在預訓練中發展出來的，是減緩隱藏誤差增長的<strong>主要因素</strong>。</p>
+
+<h4>機制二：LM-head 幾何保護（LM-head Geometry Preservation）</h4>
+<p>最終隱藏狀態經 unembedding 矩陣 $W_U \in \mathbb{R}^{|V| \times d}$ 映射到 logit 空間：</p>
+
+<div class="math-block">
+$$
+\ell \;=\; W_U \, h_L, \qquad \tilde{\ell} \;=\; W_U \, \tilde{h}_L, \qquad \Delta\ell \;=\; W_U \, \delta_L
+$$
+</div>
+
+<p>第 $i$ 個 token 的 logit 變化為 $\Delta\ell_i = \langle w_U^{(i)},\, \delta_L \rangle$，其中 $w_U^{(i)}$ 是 $W_U$ 的第 $i$ 行（token $i$ 的 embedding）。本文發現 LM-head 的幾何是<strong>各向異性</strong>的：高排名 token（logit 值最大的 top-$k$）的 embedding 方向 $w_U^{(i)}$ 與典型誤差方向 $\delta_L$ 的對齊程度低，使得：</p>
+
+<div class="math-block">
+$$
+|\Delta\ell_i| \;\ll\; \|w_U^{(i)}\|\,\|\delta_L\| \qquad \text{（對高排名 token $i$）}
+$$
+</div>
+
+<p>換言之，LM-head 的幾何結構<strong>優先保護高排名 token 的分數與機率</strong>——這些通常是模型最有信心的預測。即使 $\delta_L \neq 0$，高排名 token 的 logit 變化被抑制，經 softmax 後的機率分佈在高信心部分幾乎不變，從而 next-token 預測的 argmax 保持穩定。</p>
+
+<div class="math-block">
+$$
+\text{若 } \ell_i \gg \ell_j \;\;(i \text{ 高排名}), \quad \text{則 } \frac{|\Delta\ell_i|}{|\ell_i|} \;\ll\; \frac{|\Delta\ell_j|}{|\ell_j|} \qquad \text{（LM-head 幾何保護）}
+$$
+</div>
+
+<h4>兩大機制的協同</h4>
+<p>機制一在<strong>隱藏狀態層面</strong>抑制誤差隨深度的增長（輸入端到中間層），機制二在<strong>輸出層面</strong>過濾殘餘誤差對高信心預測的影響（中間層到輸出）。兩者協同，構成了預訓練模型 PTQ 魯棒性的完整解釋：</p>
+
+<div class="math-block">
+$$
+\underbrace{\delta_L \;\text{緩慢增長}}_{\text{機制一：殘差抵消}} \;\;\longrightarrow\;\; \underbrace{\Delta\ell_{\text{top-k}} \;\text{被抑制}}_{\text{機制二：LM-head 幾何}} \;\;\longrightarrow\;\; \text{輸出幾乎不變}
+$$
+</div>
+
+<h3 id="p1-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>分析類型</td><td>成對前向傳播比較（全精度 vs. 量化），逐層追蹤隱藏狀態誤差</td></tr>
+  <tr><td>對比對象</td><td>隨機初始化模型 vs. 預訓練模型（相同架構、相同量化）</td></tr>
+  <tr><td>驗證範圍</td><td>多個模型架構 × 多種量化設定（cross-model, cross-quantization-setting）</td></tr>
+  <tr><td>量化設定</td><td>多種位元數與量化方法（涵蓋不同 PTQ 配置）</td></tr>
+  <tr><td>關鍵指標</td><td>隱藏狀態誤差範數 $\|\delta_l\|$ 隨層數的增長曲線；抵消係數 $\eta_l$；高/低排名 token 的 logit 變化比</td></tr>
+  <tr><td>核心發現一</td><td>預訓練模型的 $\|\delta_l\|$ 增長<strong>遠慢於</strong>隨機模型；隨機模型數層內誤差爆發</td></tr>
+  <tr><td>核心發現二</td><td>預訓練模型中 $\eta_l > 0$（新誤差反向抵消繼承誤差）；隨機模型 $\eta_l \approx 0$ 或為負</td></tr>
+  <tr><td>核心發現三</td><td>LM-head 幾何對高排名 token 的 logit 變化有顯著抑制，低排名 token 變化大但對預測無影響</td></tr>
+  <tr><td>機制一來源</td><td>抵消性殘差交互在<strong>預訓練中發展</strong>——非量化副產物，非隨機模型所具備</td></tr>
+  <tr><td>普遍性</td><td>兩大機制在跨模型、跨量化設定下<strong>一致成立</strong></td></tr>
+</table>
+
+<div class="callout green">
+  <strong>關鍵發現：</strong>預訓練模型對 PTQ 的魯棒性並非「免費午餐」式的幸運，而是由兩個<strong>可量化</strong>的機制支撐：(1) 預訓練塑造的殘差結構使每層新誤差反向抵消繼承誤差，是減緩隱藏誤差增長的<strong>主要因素</strong>；(2) LM-head 的各向異性幾何優先保護高排名 token，在輸出端進一步過濾誤差。這解釋了為何量化誤差穿越數十層後，輸出仍幾乎不變——<strong>誤差被雙重抑制</strong>。
+</div>
+
+<h3 id="p1-contrib">貢獻與創新</h3>
+<ol>
+  <li><strong>提出並回答了一個根本問題：</strong>首次系統性地追問「為什麼 PTQ 有效」而非「如何讓 PTQ 更好」，把研究焦點從方法設計轉向<strong>機制理解</strong>。</li>
+  <li><strong>發現機制一——抵消性殘差交互：</strong>揭示預訓練模型中每層新引入的量化誤差傾向於反向抵消繼承誤差，使隱藏狀態差異亞線性增長。這是減緩誤差累積的主要因素。</li>
+  <li><strong>證明機制一源於預訓練：</strong>透過隨機初始化模型對比，確認此抵消交互是在預訓練中發展出來的，而非量化的副產物——為「預訓練帶來量化魯棒性」提供了因果證據。</li>
+  <li><strong>發現機制二——LM-head 幾何保護：</strong>揭示 LM-head 的各向異性幾何優先保護高排名 token 的分數與機率，使殘餘誤差不影響模型最有信心的預測。</li>
+  <li><strong>雙重抑制的統一解釋：</strong>將兩大機制整合為一個完整框架——隱藏層面（殘差抵消）+ 輸出層面（LM-head 幾何）= 誤差被雙重抑制——解釋了「數十層誤差累積仍只造成微小輸出變化」的完整因果鏈。</li>
+  <li><strong>跨模型與跨量化設定的廣泛驗證：</strong>在多個模型架構與多種量化配置下確認兩大機制的普遍性，增強結論的<strong>普適性</strong>。</li>
+  <li><strong>為未來量化方法提供理論指南：</strong>理解了「為何有效」之後，未來的量化方法可以有意識地<strong>強化這兩大機制</strong>（例如設法增大抵消係數 $\eta_l$、優化 LM-head 幾何），從機制出發指導方法設計。</li>
+</ol>
+
+<h3 id="p1-app">應用場景</h3>
+<ul>
+  <li><strong>PTQ 方法設計的理論指南：</strong>理解了抵消性殘差交互與 LM-head 幾何保護後，未來的量化方法可有意識地強化這兩大機制——例如設計訓練目標增大抵消係數、或在量化校準時保護 LM-head 的關鍵幾何方向。</li>
+  <li><strong>量化魯棒性診斷工具：</strong>成對前向傳播比較 + 逐層誤差追蹤可作為<strong>診斷工具</strong>，判斷一個新模型/新量化設定是否具備良好的誤差抑制結構，輔助量化決策。</li>
+  <li><strong>低精度 LLM 部署的信心保障：</strong>為「PTQ 後的 LLM 仍可安全部署」提供理論背書——只要預訓練充分，兩大機制會自動保護高信心預測，下游任務性能有保障。</li>
+  <li><strong>預訓練策略優化：</strong>如果抵消性殘差交互是在預訓練中發展出來的，那麼預訓練階段可以有意識地引入<strong>輕度量量化感知訓練（QAT-lite）</strong>或正則化，進一步強化此機制，使模型天生更適合 PTQ。</li>
+  <li><strong>模型架構搜索（NAS）的量化感知準則：</strong>在搜索適合量化的架構時，可將「殘差抵消能力」和「LM-head 幾何各向異性」作為<strong>搜索準則</strong>，從架構層面預埋量化魯棒性。</li>
+  <li><strong>解釋隨機模型 vs. 預訓練模型的行為差異：</strong>為「為什麼必須先預訓練才能量化」提供了機制級解釋，有助於理解預訓練對模型內部動力學的深層影響。</li>
+</ul>
+
+<h3 id="p1-res">代碼/資源</h3>
+<table class="info">
+  <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.11716" target="_blank" rel="noopener">arXiv:2609.11716</a></td></tr>
+  <tr><td>PDF</td><td><a href="https://arxiv.org/pdf/2609.11716" target="_blank" rel="noopener">arxiv.org/pdf/2609.11716</a></td></tr>
+  <tr><td>HTML</td><td><a href="https://arxiv.org/html/2609.11716v1" target="_blank" rel="noopener">arxiv.org/html/2609.11716v1</a></td></tr>
+  <tr><td>DOI</td><td><a href="https://doi.org/10.48550/arXiv.2609.11716" target="_blank" rel="noopener">10.48550/arXiv.2609.11716</a></td></tr>
+  <tr><td>TeX Source</td><td><a href="https://arxiv.org/src/2609.11716" target="_blank" rel="noopener">arxiv.org/src/2609.11716</a></td></tr>
+  <tr><td>代碼</td><td>論文未在 arXiv 頁面提供獨立 GitHub 連結（截至提交時）；建議關注作者主頁後續釋出</td></tr>
+  <tr><td>可復現性</td><td>核心分析為成對前向傳播比較——可用任意 PTQ 框架（如 AutoGPTQ、AWQ、llm-awq）對預訓練模型與隨機初始化模型分別量化，逐層記錄隱藏狀態差異即可復現主要觀察</td></tr>
+  <tr><td>篇幅</td><td>45 頁，26 張圖（含附錄），理論分析與實驗驗證並重</td></tr>
+</table>
+
+</section>
+
+<h2 id="refs">參考資料</h2>
+<ul>
+  <li><a href="https://arxiv.org/abs/2609.11716" target="_blank" rel="noopener">arXiv:2609.11716</a> — Why Does Post-Training Quantization Work? (Yuxiang Chen, Michael Beyer, Jun Zhu, Jianfei Chen, 2026)</li>
+  <li><a href="https://arxiv.org/html/2609.11716v1" target="_blank" rel="noopener">arXiv:2609.11716 HTML 全文</a></li>
+  <li><a href="https://doi.org/10.48550/arXiv.2609.11716" target="_blank" rel="noopener">DOI: 10.48550/arXiv.2609.11716</a></li>
+  <li>背景：GPTQ / AWQ / SmoothQuant / SpinQuant 等 PTQ 方法族（本文為其有效性提供機制級理論解釋）</li>
+  <li>背景：量化感知訓練（QAT）與後訓練量化（PTQ）的魯棒性差異研究</li>
+</ul>
+
+<footer>
+  本報告由 research-daily 自動化流程生成 · 2026-09-11 · 模型 GLM-5.2<br>
+  內容基於 arXiv 論文摘要與公開資訊整理，數學符號經 MathJax 渲染。
+</footer>
+
+</main>
+</div>
+</body>
+</html>

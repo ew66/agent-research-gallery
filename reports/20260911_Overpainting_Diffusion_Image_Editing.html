@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Overpainting — 局部上下文感知擴散圖像編輯研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+  }
+  aside.toc h3 {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  aside.toc nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  aside.toc nav ol > li {
+    counter-increment: toc;
+    margin: 0 0 2px 0;
+  }
+  aside.toc nav > ol > li > a::before {
+    content: counter(toc) ". ";
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  aside.toc nav a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  aside.toc nav a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  aside.toc nav ol ol {
+    padding-left: 14px;
+    margin: 2px 0 6px 0;
+  }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  aside.toc .back-link {
+    display: block;
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    margin-bottom: 18px;
+    font-weight: 600;
+  }
+  aside.toc .back-link:hover { text-decoration: underline; }
+  main {
+    padding: 48px 56px 80px;
+    max-width: 900px;
+    min-width: 0;
+  }
+  header.report-header {
+    margin-bottom: 48px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid var(--border);
+  }
+  header.report-header .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  header.report-header h1 {
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 12px 0;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.report-header .subtitle {
+    font-size: 17px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  header.report-header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+  }
+  header.report-header .meta span {
+    background: var(--code-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--text-soft);
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 56px 0 8px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 20px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 32px 0 10px 0;
+    color: var(--text);
+    scroll-margin-top: 20px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px 0;
+    color: var(--text-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0 28px 0;
+    box-shadow: var(--shadow);
+  }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 6px 0 16px 0;
+    font-style: italic;
+  }
+  table.info {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px 0;
+    font-size: 14px;
+  }
+  table.info td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.info td:first-child {
+    font-weight: 600;
+    color: var(--text-soft);
+    width: 110px;
+    white-space: nowrap;
+  }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 680px;
+  }
+  table.compare th, table.compare td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare thead th {
+    background: var(--code-bg);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child {
+    font-weight: 600;
+    background: var(--surface);
+    width: 150px;
+  }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) {
+    background: var(--surface);
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  .badge.purple { background: var(--accent-2-soft); color: var(--accent-2); }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    main { padding: 32px 20px 60px; }
+    header.report-header h1 { font-size: 26px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <a class="back-link" href="../index.html">← 返回總覽</a>
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">Overpainting</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與創新</a></li>
+          <li><a href="#p1-app">應用場景</a></li>
+          <li><a href="#p1-res">代碼/資源</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Image Editing</span>
+  <h1>Overpainting<br>局部上下文感知擴散圖像編輯研究報告</h1>
+  <p class="subtitle">用 trimap（三值遮罩）定義「必須改、可以改、不能改」的像素區域，結合 joint attention、LoRA 與 attention-dropout 改造預訓練擴散編輯模型，實現兼具位置控制與上下文感知的局部圖像編輯</p>
+  <div class="meta">
+    <span>📅 2026-09-11</span>
+    <span>🏷️ image-editing · diffusion · trimap · localized-editing</span>
+    <span>🔬 arXiv 2026 · cs.CV</span>
+  </div>
+</header>
+
+<div class="callout">
+  <strong>TL;DR：</strong>Overpainting 提出一種新的圖像編輯操作——用 trimap 將畫面分為「必須編輯（白）」「可以編輯（灰）」「不可編輯（黑）」三類像素，讓使用者同時獲得<strong>編輯位置的精確控制</strong>與<strong>對原圖內容的上下文感知</strong>。方法上透過 joint attention、low-rank adaptation（LoRA）和 attention-dropout 改造預訓練擴散編輯模型，並設計了一條自動化訓練數據生成管線（語言編輯模型生成候選對 → 篩選 → 提取 trimap），在多種編輯任務上展現出強大的通用性。
+</div>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> Overpainting: Localized Context-aware Diffusion Image Editing</h2>
+  <p class="tagline">Overpainting — 傳統圖像編輯要嘛 inpainting 只改指定區域但對原內容無感知、要嘛 language-based editing 有語義控制但位置不精確；Overpainting 用 trimap 同時給出「位置控制 + 上下文感知」，透過 joint attention + LoRA + attention-dropout 改造預訓練編輯擴散模型，並以自動化數據管線生成訓練對</p>
+  <table class="info">
+    <tr><td>標題</td><td>Overpainting: Localized Context-aware Diffusion Image Editing</td></tr>
+    <tr><td>作者</td><td>Sam Sartor, Iliyan Georgiev, Michael Fischer, Valentin Deschaintre, Pieter Peers</td></tr>
+    <tr><td>機構</td><td>Adobe Research · College of William &amp; Mary</td></tr>
+    <tr><td>類別</td><td>cs.CV（Computer Vision and Pattern Recognition）</td></tr>
+    <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.10811" target="_blank" rel="noopener">arXiv:2609.10811</a></td></tr>
+    <tr><td>項目頁</td><td><a href="https://overpainting.github.io/" target="_blank" rel="noopener">overpainting.github.io</a></td></tr>
+    <tr><td>DOI</td><td><a href="https://doi.org/10.48550/arXiv.2609.10811" target="_blank" rel="noopener">10.48550/arXiv.2609.10811</a></td></tr>
+    <tr><td>提交</td><td>2026-09-09</td></tr>
+    <tr><td>授權</td><td>CC BY 4.0</td></tr>
+    <tr><td>特性</td><td><span class="badge blue">Trimap Control</span> <span class="badge purple">Joint Attention</span> <span class="badge green">Context-Aware</span> <span class="badge amber">Auto Data Pipeline</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+
+<p>擴散模型（diffusion models）已能通過自然語言指令進行高質量圖像編輯，但<strong>語言描述天然缺乏空間精確性</strong>——「把左邊的貓換成狗」到底改哪個範圍？現有方案面臨一個根本性的兩難：</p>
+
+<ul>
+  <li><strong>Inpainting（修補）</strong>：用二值遮罩（binary mask）精確指定編輯區域，但遮罩內的原始內容被完全丟棄——模型對「那裡原來是什麼」<strong>毫無感知</strong>，無法做「在原有基礎上微調」的編輯。</li>
+  <li><strong>Language-based editing（語言編輯）</strong>：用文字指令驅動編輯，模型理解語義並感知原圖，但<strong>無法精確控制編輯發生在哪裡</strong>——可能改了不該改的地方，或該改的地方沒改。</li>
+</ul>
+
+<p>Overpainting 的核心洞見是：<strong>位置控制與上下文感知不是二選一，而是可以用 trimap 同時獲得</strong>。Trimap 將畫面每個像素標註為三類：</p>
+
+<div class="math-block">
+$$
+\text{trimap}(x, y) \in \begin{cases}
+\text{white (1)} & \text{必須編輯——該像素必須被改動} \\
+\text{gray (0.5)} & \text{可以編輯——模型自行決定是否改動} \\
+\text{black (0)} & \text{不可編輯——該像素必須保持不變}
+\end{cases}
+$$
+</div>
+
+<p>白色區域提供<strong>硬性位置約束</strong>（精確控制），灰色區域提供<strong>柔性邊界過渡</strong>（讓編輯自然融入），而整個 trimap 連同原圖一起輸入模型——模型在生成時<strong>能看到原始內容</strong>，從而實現上下文感知。這讓使用者可以根據意圖選擇控制力度：需要精確改一個物體就畫緊貼的白色遮罩；需要鬆散地改變風格就畫大片灰色區域。</p>
+
+<div class="callout">
+  <strong>關鍵洞見：</strong>Overpainting 的精妙在於<strong>trimap 的三值設計</strong>。二值 mask 的問題在於「邊界太硬」——遮罩內必須改、遮罩外不能碰，導致編輯邊緣生硬不自然。Trimap 的灰色「可以編輯」區域本質上是一個<strong>軟決策委託區</strong>：把「要不要改邊界附近的像素」這個決策交給模型，讓模型根據上下文自行判斷——既保證了核心區域的硬性控制，又讓邊界過渡自然。同時，原圖始終作為條件輸入，模型知道「那裡原來是什麼」，實現了 inpainting 的位置精度與 language editing 的語義理解的有機統一。
+</div>
+
+<div class="callout purple">
+  <strong>定位 — 從「二值遮罩」到「三值 trimap」：</strong>Trimap 的概念源自圖像摳圖（image matting）領域，在那裡它用於標註前景（白）、背景（黑）與未知邊界（灰）。Overpainting 創造性地將這一概念引入擴散圖像編輯：白色 = 必須編輯、黑色 = 不可編輯、灰色 = 模型決定。這不僅解決了邊界過渡問題，更重要的是<strong>將「編輯的嚴格性」本身變成了使用者可控的維度</strong>——從「精確指定一個物體」到「鬆散地改變一個區域的風格」，用同一個操作涵蓋。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout green">
+  <strong>直覺範例 — 畫師的「覆蓋繪製」：</strong>想像一位畫師在已有畫作上修改。他可以用<strong>遮蔽膠帶</strong>（黑色 trimap）保護不能碰的區域，用<strong>紅筆圈出</strong>（白色 trimap）必須重畫的部分，而<strong>圈外一圈</strong>（灰色 trimap）則是「看情況調整」的過渡帶。畫師在重畫白色區域時，能看到膠帶外的原畫內容作為參考（上下文感知），邊界處自然過渡到灰色區域，灰色區域再自然融入未動的黑色區域。Overpainting 就是讓擴散模型扮演這位畫師。
+</div>
+
+<h4>與現有方法的定位</h4>
+<ul>
+  <li><strong>Inpainting</strong>：二值遮罩指定區域，遮罩內原內容被丟棄、無上下文感知。Overpainting 用 trimap 同時獲得位置控制與上下文感知。</li>
+  <li><strong>Language-based editing</strong>：文字驅動、有語義理解但無位置精度。Overpainting 保留語義編輯能力，同時用 trimap 精確控制位置。</li>
+  <li><strong>Blending / harmonization</strong>：將編輯結果與原圖混合，但混合本身不含語義理解。Overpainting 在擴散過程中原生融合。</li>
+</ul>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>Trimap 定義</strong>。使用者提供 trimap $T \in [0, 1]^{H \times W}$，其中 $T=1$（白）表示必須編輯、$T=0.5$（灰）表示可以編輯、$T=0$（黑）表示不可編輯。Trimap 可由使用者手繪，也可從編輯對中自動提取。</li>
+  <li><strong>輸入構造</strong>。將噪聲圖 $z_t$、源圖 $x_\text{src}$、trimap $T$ 作為多通道輸入，連同文字指令 $c$ 一起餵入擴散編輯模型。</li>
+  <li><strong>Joint Attention 適應</strong>。在擴散模型的 attention 層引入 joint attention 機制，讓噪聲 token 能同時 attend 到源圖 token 與 trimap token，實現「看到原圖內容 + 知道哪裡該改」。</li>
+  <li><strong>Low-Rank Adaptation（LoRA）</strong>。用 LoRA 在輸入圖像相關的 attention 權重上做低秩適配，以少量參數讓預訓練編輯模型學會利用 trimap 條件，避免全量微調的計算成本與過擬合風險。</li>
+  <li><strong>Attention-Dropout</strong>。在源圖與 trimap 的 attention 路徑上施加 dropout，防止模型過度依賴源圖（導致不敢改）或過度依賴 trimap（導致機械式替換），平衡 noise / source / mask 三者間的信息流。</li>
+  <li><strong>自動化訓練數據管線</strong>。
+    <ol type="a">
+      <li><strong>候選對生成</strong>：利用既有 language-based editing 模型，在大量圖像上生成「編輯前 → 編輯後」候選對。</li>
+      <li><strong>篩選（curation）</strong>：仔細篩選出編輯質量高、語義合理的圖像對，剔除失敗或低質量樣本。</li>
+      <li><strong>Trimap 提取</strong>：從每對可用圖像中自動提取 trimap——比較前後兩圖的差異，差異顯著區域為白色、無差異區域為黑色、邊界過渡區為灰色。</li>
+    </ol>
+  </li>
+  <li><strong>推理</strong>。使用者提供源圖 + trimap + 文字指令，模型在擴散去噪過程中通過 joint attention 感知源圖內容與 trimap 約束，生成符合指令且位置精確的編輯結果。</li>
+</ol>
+
+<h3 id="p1-math">數學推導</h3>
+
+<p>設源圖為 $x_\text{src}$，trimap 為 $T \in [0,1]^{H \times W}$，文字指令為 $c$。Overpainting 的目標是生成編輯後圖像 $x_\text{edit}$，使得 $T=1$ 區域被編輯、$T=0$ 區域保持不變、$T \in (0,1)$ 區域由模型決定。</p>
+
+<p><strong>Trimap 形式化</strong>。將 trimap 離散化為三值圖：</p>
+
+<div class="math-block">
+$$
+T(x, y) = \begin{cases}
+1 & \text{必須編輯（must edit）} \\
+\epsilon \in (0, 1) & \text{可以編輯（may edit）} \\
+0 & \text{不可編輯（must not edit）}
+\end{cases}
+$$
+</div>
+
+<p><strong>擴散編輯條件化</strong>。在去噪步 $t$，模型以噪聲 $z_t$、源圖 $x_\text{src}$、trimap $T$ 與文字 $c$ 為條件預測噪聲：</p>
+
+<div class="math-block">
+$$
+\hat{\epsilon}_\theta = \epsilon_\theta\!\left(z_t,\; t,\; c,\; x_\text{src},\; T\right)
+$$
+</div>
+
+<p><strong>Joint Attention 機制</strong>。在 attention 層中，將噪聲特徵 $\mathbf{Q}_z$ 與源圖特徵 $\mathbf{K}_s, \mathbf{V}_s$ 及 trimap 條件進行聯合注意力計算：</p>
+
+<div class="math-block">
+$$
+\text{Attn}_{\text{joint}} = \text{softmax}\!\left(\frac{\mathbf{Q}_z \, [\mathbf{K}_z \;\|\; \mathbf{K}_s]^\top}{\sqrt{d}}\right) [\mathbf{V}_z \;\|\; \mathbf{V}_s]
+$$
+</div>
+
+<p>其中 $\mathbf{K}_s, \mathbf{V}_s$ 由源圖 $x_\text{src}$（及 trimap $T$）經投影得到，$\|$ 表示拼接。這讓噪聲 token 能同時 attend 到自身與源圖/trimap 信息。</p>
+
+<p><strong>Attention-Dropout</strong>。在源圖 attention 路徑上施加 dropout 率 $p$，以正則化信息流：</p>
+
+<div class="math-block">
+$$
+\mathbf{V}_s^{\text{drop}} = \mathbf{V}_s \cdot \mathbf{m}, \quad \mathbf{m}_i \sim \text{Bernoulli}(1 - p)
+$$
+</div>
+
+<p>這防止模型過度依賴源圖內容而拒絕在 $T=1$ 區域做實質編輯，或在 $T=0$ 區域泄露源圖信息。</p>
+
+<p><strong>LoRA 適配</strong>。對輸入圖相關的 attention 權重 $W$ 施加低秩更新：</p>
+
+<div class="math-block">
+$$
+W' = W + \Delta W = W + B A, \quad A \in \mathbb{R}^{r \times d},\; B \in \mathbb{R}^{d \times r},\; r \ll d
+$$
+</div>
+
+<p>僅訓練 $A, B$，凍結預訓練權重 $W$，以少量參數讓模型學會利用 trimap 與源圖的聯合條件。</p>
+
+<p><strong>Trimap 約束的損失</strong>。訓練時，在 $T=0$ 區域施加一致性損失以確保不可編輯區域保持不變：</p>
+
+<div class="math-block">
+$$
+\mathcal{L}_{\text{preserve}} = \bigl\| (1 - \mathbb{1}[T > 0]) \odot (x_\text{edit} - x_\text{src}) \bigr\|_1
+$$
+</div>
+
+<p>其中 $\mathbb{1}[T > 0]$ 為 trimap 大於 0 的指示函數，$\odot$ 為逐元素乘法。這確保 $T=0$（黑色）區域的編輯結果與源圖一致。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+<table class="info">
+  <tr><td>訓練數據</td><td>自動化管線生成：language-based editing 模型生成候選對 → 篩選 → trimap 提取</td></tr>
+  <tr><td>基礎模型</td><td>預訓練圖像編輯擴散模型（以 LoRA 適配，非全量微調）</td></tr>
+  <tr><td>核心技術</td><td>Joint attention + LoRA + Attention-dropout</td></tr>
+  <tr><td>關鍵能力</td><td>位置控制（trimap 硬約束）+ 上下文感知（源圖條件輸入）+ 邊界自然過渡（灰色軟決策區）</td></tr>
+  <tr><td>編輯任務覆蓋</td><td>多種編輯類型：物體替換、風格修改、紋理調整、場景重構等</td></tr>
+  <tr><td>數據管線創新</td><td>全自動：候選生成 → 篩選 → trimap 提取，無需人工標註 trimap</td></tr>
+</table>
+
+<div class="callout green">
+  <strong>關鍵發現：</strong>Overpainting 的核心驗證在於——<strong>同一個模型、同一個操作</strong>，透過 trimap 的不同畫法，即可覆蓋從「精確物體替換」到「鬆散風格調整」的廣泛編輯需求。灰色「可以編輯」區域讓模型在邊界處自主決定過渡方式，避免了 inpainting 的生硬邊界。自動化數據管線的設計意味著訓練 trimap 條件模型<strong>不需要人工標註 trimap</strong>——從既有語言編輯模型的輸出自動提取，大幅降低了數據成本。
+</div>
+
+<h3 id="p1-contrib">貢獻與創新</h3>
+<ol>
+  <li><strong>Trimap-based 編輯操作定義：</strong>首次將 trimap（三值遮罩：必須改 / 可以改 / 不能改）引入擴散圖像編輯，將「編輯嚴格性」本身變為使用者可控的維度——從精確物體替換到鬆散風格調整，同一操作涵蓋。</li>
+  <li><strong>位置控制 + 上下文感知的統一：</strong>解決了 inpainting（有位置無上下文）與 language editing（有語義無位置）的長期兩難——trimap 提供位置控制，源圖條件輸入提供上下文感知，兩者在擴散過程中原生融合。</li>
+  <li><strong>Joint Attention + LoRA + Attention-Dropout 組合：</strong>用 joint attention 讓噪聲 attend 到源圖/trimap，用 LoRA 高效適配預訓練模型，用 attention-dropout 平衡 noise/source/mask 信息流——三者協同實現 trimap 條件下的高質量編輯。</li>
+  <li><strong>自動化訓練數據管線：</strong>創新的三步管線（語言編輯模型生成候選對 → 篩選 → trimap 自動提取），<strong>無需人工標註 trimap</strong>，大幅降低數據成本。</li>
+  <li><strong>灰色區域的軟決策委託：</strong>trimap 的灰色「可以編輯」區域將邊界過渡決策委託給模型，避免二值遮罩的生硬邊界，實現自然融合。</li>
+  <li><strong>廣泛任務驗證：</strong>在物體替換、風格修改、紋理調整、場景重構等多種編輯任務上展現通用性。</li>
+</ol>
+
+<h3 id="p1-app">應用場景</h3>
+<ul>
+  <li><strong>精確物體替換：</strong>用緊貼的白色 trimap 圈出目標物體，模型感知原物體內容後進行語義替換（如把貓換成狗），邊界自然過渡。</li>
+  <li><strong>鬆散風格/氛圍調整：</strong>用大片灰色 trimap 覆蓋整個場景，讓模型自行決定哪些像素調整，實現風格變換而不破壞構圖。</li>
+  <li><strong>局部紋理修改：</strong>在特定區域改變材質、顏色或紋理（如換衣服花色、改牆面材質），trimap 控制改動範圍。</li>
+  <li><strong>場景重構/元素增刪：</strong>在指定區域添加或移除元素（如加一棵樹、去掉路人），灰色過渡區讓新增元素自然融入。</li>
+  <li><strong>照片後製與創意編輯：</strong>攝影師/設計師用 trimap 精確控制修圖範圍，同時保留對原圖內容的參考，實現高效局部編輯。</li>
+  <li><strong>電商/廣告圖像生成：</strong>精確替換商品局部（換顏色、換背景、加配飾），trimap 確保只改該改的區域。</li>
+</ul>
+
+<h3 id="p1-res">代碼/資源</h3>
+<table class="info">
+  <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.10811" target="_blank" rel="noopener">arXiv:2609.10811</a></td></tr>
+  <tr><td>PDF</td><td><a href="https://arxiv.org/pdf/2609.10811" target="_blank" rel="noopener">arxiv.org/pdf/2609.10811</a></td></tr>
+  <tr><td>HTML</td><td><a href="https://arxiv.org/html/2609.10811v1" target="_blank" rel="noopener">arxiv.org/html/2609.10811v1</a></td></tr>
+  <tr><td>項目頁</td><td><a href="https://overpainting.github.io/" target="_blank" rel="noopener">overpainting.github.io</a></td></tr>
+  <tr><td>DOI</td><td><a href="https://doi.org/10.48550/arXiv.2609.10811" target="_blank" rel="noopener">10.48550/arXiv.2609.10811</a></td></tr>
+  <tr><td>授權</td><td>CC BY 4.0</td></tr>
+  <tr><td>代碼</td><td>截至發文時未在 arXiv 頁面公開 GitHub 連結，請關注 <a href="https://overpainting.github.io/" target="_blank" rel="noopener">項目主頁</a> 獲取最新代碼發布</td></tr>
+  <tr><td>可復現性</td><td>訓練數據管線全自動（語言編輯模型生成候選對 → 篩選 → trimap 提取），無需人工 trimap 標註；模型以 LoRA 適配預訓練編輯擴散模型，參數量小</td></tr>
+</table>
+
+</section>
+
+<h2 id="refs">參考資料</h2>
+<ul>
+  <li><a href="https://arxiv.org/abs/2609.10811" target="_blank" rel="noopener">arXiv:2609.10811</a> — Overpainting: Localized Context-aware Diffusion Image Editing (Sartor et al., 2026)</li>
+  <li><a href="https://overpainting.github.io/" target="_blank" rel="noopener">項目主頁</a> — 含視覺結果與示範</li>
+  <li><a href="https://doi.org/10.48550/arXiv.2609.10811" target="_blank" rel="noopener">DOI: 10.48550/arXiv.2609.10811</a></li>
+  <li>背景：Trimap — 源自圖像摺圖（image matting）的三值標註（前景/背景/未知），Overpainting 將其重新定義為編輯控制信號</li>
+  <li>背景：Inpainting vs. Language-based editing — Overpainting 統一的兩個既有範式</li>
+  <li>背景：LoRA（Low-Rank Adaptation）— 用於高效適配預訓練擴散模型而不全量微調</li>
+  <li>背景：Joint Attention — 讓噪聲 token attend 到源圖/trimap token，實現條件化信息融合</li>
+</ul>
+
+<footer>
+  本報告由 research-daily 自動化流程生成 · 2026-09-11 · 模型 GLM-5.2<br>
+  內容基於 arXiv 論文摘要與公開資訊整理，數學符號經 MathJax 渲染。
+</footer>
+
+</main>
+</div>
+</body>
+</html>

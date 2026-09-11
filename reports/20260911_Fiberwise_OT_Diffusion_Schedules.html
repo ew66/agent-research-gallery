@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiberwise Optimal Transport — 模型感知擴散排程研究報告</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-soft: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --border: #e4e4e7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --accent-2: #7c3aed;
+    --accent-2-soft: #ede9fe;
+    --green: #059669;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --code-bg: #f4f4f5;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1a1a1d;
+      --text: #e8e8e8;
+      --text-soft: #c4c4c4;
+      --text-muted: #9a9a9a;
+      --border: #2a2a2e;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --accent-2: #a78bfa;
+      --accent-2-soft: #3a2a5f;
+      --green: #34d399;
+      --green-soft: #134e3a;
+      --amber: #fbbf24;
+      --amber-soft: #4a3508;
+      --code-bg: #26262a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout { display: grid; grid-template-columns: 260px 1fr; max-width: 1280px; margin: 0 auto; gap: 0; }
+  aside.toc { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 32px 20px 32px 24px; border-right: 1px solid var(--border); background: var(--surface); font-size: 14px; }
+  aside.toc h3 { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin: 0 0 14px 0; font-weight: 700; }
+  aside.toc nav ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+  aside.toc nav ol > li { counter-increment: toc; margin: 0 0 2px 0; }
+  aside.toc nav > ol > li > a::before { content: counter(toc) ". "; color: var(--text-muted); font-weight: 600; }
+  aside.toc nav a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--text-soft); text-decoration: none; transition: all 0.15s; }
+  aside.toc nav a:hover { background: var(--accent-soft); color: var(--accent); }
+  aside.toc nav ol ol { padding-left: 14px; margin: 2px 0 6px 0; }
+  aside.toc nav ol ol a { font-size: 13px; padding: 3px 8px; }
+  aside.toc nav ol ol a::before { content: "› "; }
+  aside.toc .back-link { display: block; font-size: 12px; color: var(--accent); text-decoration: none; margin-bottom: 18px; font-weight: 600; }
+  aside.toc .back-link:hover { text-decoration: underline; }
+  main { padding: 48px 56px 80px; max-width: 900px; min-width: 0; }
+  header.report-header { margin-bottom: 48px; padding-bottom: 28px; border-bottom: 2px solid var(--border); }
+  header.report-header .eyebrow { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; }
+  header.report-header h1 { font-size: 34px; line-height: 1.25; margin: 0 0 12px 0; font-weight: 800; letter-spacing: -0.02em; }
+  header.report-header .subtitle { font-size: 17px; color: var(--text-muted); margin: 0; }
+  header.report-header .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+  header.report-header .meta span { background: var(--code-bg); padding: 4px 10px; border-radius: 6px; color: var(--text-soft); }
+  h2 { font-size: 26px; font-weight: 700; margin: 56px 0 8px 0; padding-bottom: 10px; border-bottom: 1px solid var(--border); letter-spacing: -0.01em; scroll-margin-top: 20px; }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 19px; font-weight: 700; margin: 32px 0 10px 0; color: var(--text); scroll-margin-top: 20px; }
+  h4 { font-size: 16px; font-weight: 700; margin: 22px 0 8px 0; color: var(--text-soft); }
+  p { margin: 0 0 14px 0; }
+  .paper-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 24px 28px; margin: 16px 0 28px 0; box-shadow: var(--shadow); }
+  .paper-card.p2 { border-left-color: var(--accent-2); }
+  .paper-card h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  .paper-card .tagline { font-size: 15px; color: var(--text-muted); margin: 6px 0 16px 0; font-style: italic; }
+  table.info { width: 100%; border-collapse: collapse; margin: 12px 0 8px 0; font-size: 14px; }
+  table.info td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.info td:first-child { font-weight: 600; color: var(--text-soft); width: 110px; white-space: nowrap; }
+  table.info tr:last-child td { border-bottom: none; }
+  .callout { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 8px; padding: 14px 18px; margin: 18px 0; font-size: 15px; }
+  .callout.green { background: var(--green-soft); border-left-color: var(--green); }
+  .callout.amber { background: var(--amber-soft); border-left-color: var(--amber); }
+  .callout.purple { background: var(--accent-2-soft); border-left-color: var(--accent-2); }
+  .callout strong { color: inherit; }
+  ol, ul { padding-left: 24px; margin: 0 0 16px 0; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); font-weight: 600; }
+  code { font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; color: var(--accent-2); }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; overflow-x: auto; margin: 16px 0; }
+  pre code { background: none; padding: 0; color: var(--text); font-size: 13.5px; line-height: 1.6; }
+  .math-block { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 22px; margin: 16px 0; overflow-x: auto; }
+  .compare-wrap { overflow-x: auto; margin: 20px 0; }
+  table.compare { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 680px; }
+  table.compare th, table.compare td { padding: 12px 16px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+  table.compare thead th { background: var(--code-bg); font-weight: 700; font-size: 13px; }
+  table.compare thead th:nth-child(2) { color: var(--accent); }
+  table.compare thead th:nth-child(3) { color: var(--accent-2); }
+  table.compare tbody td:first-child { font-weight: 600; background: var(--surface); width: 150px; }
+  table.compare tbody tr:nth-child(even) td:not(:first-child) { background: var(--surface); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); }
+  .badge.blue { background: var(--accent-soft); color: var(--accent); }
+  .badge.purple { background: var(--accent-2-soft); color: var(--accent-2); }
+  footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } aside.toc { display: none; } main { padding: 32px 20px 60px; } header.report-header h1 { font-size: 26px; } h2 { font-size: 22px; } }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <a class="back-link" href="../index.html">← 返回總覽</a>
+  <h3>目錄</h3>
+  <nav>
+    <ol>
+      <li><a href="#paper1">Fiberwise OT</a>
+        <ol>
+          <li><a href="#p1-idea">核心思想</a></li>
+          <li><a href="#p1-method">方法與演算法</a></li>
+          <li><a href="#p1-math">數學推導</a></li>
+          <li><a href="#p1-exp">實驗結果</a></li>
+          <li><a href="#p1-contrib">貢獻與創新</a></li>
+          <li><a href="#p1-app">應用場景</a></li>
+          <li><a href="#p1-res">代碼/資源</a></li>
+        </ol>
+      </li>
+      <li><a href="#refs">參考資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="report-header">
+  <span class="eyebrow">Paper Research · Diffusion Models</span>
+  <h1>Fiberwise Optimal Transport<br>模型感知擴散排程研究報告</h1>
+  <p class="subtitle">以 fiberwise optimal transport 將模型預測誤差納入擴散／流匹配排程設計，透過 closed-form 時間重分配實現 CIFAR-10 flow matching 上 38.6% 相對 FID 下降</p>
+  <div class="meta">
+    <span>📅 2026-09-11</span>
+    <span>🏷️ diffusion · flow-matching · optimal-transport · schedules</span>
+    <span>🔬 Luyi Jia · Boyan Zhang · Yilun Liu · Steffen Rulands</span>
+  </div>
+</header>
+
+<!-- ============ PAPER 1 ============ -->
+<section id="paper1">
+<div class="paper-card">
+  <h2><span class="num">1.</span> Model-Aware Schedules Improve Generation via Fiberwise Optimal Transport</h2>
+  <p class="tagline">在 affine probability path 的 signal/noise 係數空間中引入 fiberwise 仿射纖維結構，以 fiberwise prediction risk + kinetic action 構建 model-aware 排程，closed-form 時間分配 + 經驗普適性 + frozen analytic template</p>
+  <table class="info">
+    <tr><td>標題</td><td>Model-Aware Schedules Improve Generation via Fiberwise Optimal Transport</td></tr>
+    <tr><td>作者</td><td>Luyi Jia, Boyan Zhang, Yilun Liu, Steffen Rulands</td></tr>
+    <tr><td>機構</td><td>未於 arXiv 頁面顯式標註（作者含 Steffen Rulands）</td></tr>
+    <tr><td>類別</td><td>cs.LG（Machine Learning）· cs.AI（Artificial Intelligence）</td></tr>
+    <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.11842" target="_blank" rel="noopener">arXiv:2609.11842</a></td></tr>
+    <tr><td>提交日期</td><td>2026-09-10</td></tr>
+    <tr><td>頁數</td><td>11 pages, 2 figures</td></tr>
+    <tr><td>關鍵詞</td><td>Diffusion models; flow matching; schedule optimization; fiberwise optimal transport; time reparameterization; empirical universality</td></tr>
+    <tr><td>特性</td><td><span class="badge blue">Fiberwise OT</span> <span class="badge purple">Model-Aware</span> <span class="badge green">Closed-Form</span> <span class="badge amber">Empirical Universality</span></td></tr>
+  </table>
+</div>
+
+<h3 id="p1-idea">核心思想</h3>
+
+<p>擴散模型（diffusion models）與流匹配（flow matching）的生成質量高度依賴於<strong>排程（schedule）</strong>——即沿著仿射機率路徑（affine probability path）混合資料與雜訊的 signal/noise 係數曲線。既有最優傳輸（optimal transport, OT）啟發的方法透過最小化定義在係數路徑上的<strong>動能作用量（kinetic action）</strong>來構建排程，這解釋了為何某些強基線表現優異，但此類方法本質上是<strong>模型無關的（model-agnostic）</strong>——它們完全忽略了模型的預測誤差（prediction error）。</p>
+
+<p>本文的核心洞見是：<strong>排程應當感知模型的預測能力</strong>。在機率路徑上的固定時間 $t$ 與狀態 $x_t$ 處，所有相容的 signal/noise 分解構成一個<strong>仿射纖維（affine fiber）</strong>。作者在此纖維結構上定義<strong>逐纖維預測風險（fiberwise prediction risk）</strong>——透過在纖維內平均真實分解與預測器誘導分解之間的最優傳輸成本來量化預測誤差。將此風險與係數路徑的動能作用量結合，可以在固定係數曲線上得到<strong>閉式（closed-form）最優時間分配</strong>。</p>
+
+<div class="callout">
+  <strong>TL;DR：</strong>本文將擴散排程從「模型無關的 OT 路徑優化」升級為「模型感知的 fiberwise OT 構建」。透過在仿射纖維上定義預測風險、將其與動能作用量結合得到閉式時間重分配，排程能自適應地「在模型預測好時加速、在模型預測差時放慢」。實驗顯示此方法在 DDPM 與 flow matching 上一致超越強基線（CIFAR-10 flow matching 16 NFE 下 FID 相對下降 38.6%），且不同模型/設定的風險曲線歸一化後高度對齊，展現<strong>經驗普適性（empirical universality）</strong>——一個 frozen analytic template 即可保留大部分改進。
+</div>
+
+<div class="callout purple">
+  <strong>定位 — 從 model-agnostic 到 model-aware 的範式轉移：</strong>既有的 OT 排程（如 VP / VE / rectified flow 的最優時間分配）只考慮係數路徑的幾何（動能作用量），與具體模型無關。本文的貢獻在於引入<strong>纖維結構</strong>這一幾何視角：在每個 $(t, x_t)$ 處，相容的 signal/noise 分解不是唯一的，而構成一個仿射纖維。模型預測誤差可在此纖維上以 OT 成本量化，從而將「模型能力」這一此前被忽略的維度納入排程設計。
+</div>
+
+<h3 id="p1-method">方法與演算法</h3>
+
+<div class="callout green">
+  <strong>直覺範例 — 賽車手的彎道減速策略：</strong>想像一位賽車手在賽道上跑圈。舊方法（model-agnostic OT 排程）像是一位只看賽道形狀（路徑曲率 = kinetic action）來決定何時加速減速的車手——直道全速、彎道減速，完全不管自己的駕駛技術。<br><br>
+  新方法（model-aware fiberwise OT）像是一位<strong>知道自己在哪些彎道技術好、哪些彎道技術差</strong>的車手：在賽道彎道（係數路徑曲率大）加上自己技術差（fiberwise prediction risk 高）的地方額外放慢，在自己技術好的地方即使彎道也敢加速。結果是：同樣的圈數（NFE），圈速更快（FID 更低）。更妙的是，不同車手（不同模型/設定）的「技術弱點地圖」歸一化後竟然高度相似——所以一份通用的「減速策略模板」（frozen analytic template）就能讓大多數車手受益。
+</div>
+
+<h4>演算法步驟</h4>
+<ol>
+  <li><strong>仿射機率路徑與 signal/noise 係數參數化</strong>：
+    <ul>
+      <li>擴散／流匹配的機率路徑以仿射形式參數化：$x_t = \alpha(t)\,x_1 + \sigma(t)\,\epsilon$，其中 $\alpha(t)$ 為 signal 係數、$\sigma(t)$ 為 noise 係數、$x_1$ 為資料、$\epsilon$ 為標準高斯雜訊。</li>
+      <li>不同的 $(\alpha(t), \sigma(t))$ 曲線對應不同的排程（如 VP、VE、rectified flow 等）。排程的選擇直接影響生成質量與取樣效率。</li>
+    </ul>
+  </li>
+  <li><strong>動能作用量（kinetic action）— model-agnostic 基線</strong>：
+    <ul>
+      <li>在係數路徑 $(\alpha(t), \sigma(t))$ 上定義動能作用量，衡量係數路徑的「彎曲程度」或「傳輸成本」。</li>
+      <li>最小化此作用量得到 OT 啟發的最優排程——這解釋了為何 rectified flow 等基線表現優異。</li>
+      <li>但此優化完全模型無關：同一係數路徑對所有模型給出相同的時間分配。</li>
+    </ul>
+  </li>
+  <li><strong>仿射纖維（affine fiber）結構</strong>：
+    <ul>
+      <li>在固定時間 $t$ 與狀態 $x_t$ 處，考慮所有能產生同一 $x_t$ 的 signal/noise 分解 $(\alpha', \sigma')$。</li>
+      <li>這些相容分解構成一個<strong>仿射纖維</strong>——一個在係數空間中的仿射子空間。</li>
+      <li>纖維結構是本文的核心幾何洞見：它使得「在固定狀態下比較不同分解」成為可能，從而能定義纖維內的 OT 成本。</li>
+    </ul>
+  </li>
+  <li><strong>逐纖維預測風險（fiberwise prediction risk）</strong>：
+    <ul>
+      <li>模型預測器在給定 $(t, x_t)$ 時，其預測誘導一個特定的 signal/noise 分解（即模型「認為」的資料-雜訊拆分）。</li>
+      <li>真實分解（ground truth）與預測器誘導分解之間的差異，以<strong>纖維內最優傳輸成本</strong>量化。</li>
+      <li>在纖維上平均此 OT 成本，得到 fiberwise prediction risk $R(t)$——一個時間的函數，衡量模型在各時間點的預測誤差。</li>
+      <li>風險可從<strong>早期基線 checkpoint</strong>估計，無需完整訓練後才獲取。</li>
+    </ul>
+  </li>
+  <li><strong>閉式最優時間分配（closed-form optimal time allocation）</strong>：
+    <ul>
+      <li>在固定係數曲線上，將 fiberwise prediction risk $R(t)$ 與係數路徑動能作用量結合。</li>
+      <li>此組合優化問題有<strong>閉式解</strong>——最優時間分配 $w(t)$ 可解析表達，無需迭代優化。</li>
+      <li>直覺：在 $R(t)$ 高（模型預測差）的時間點分配更多取樣預算（放慢），在 $R(t)$ 低（模型預測好）的時間點加速。</li>
+    </ul>
+  </li>
+  <li><strong>推廣至一般線性預測目標</strong>：
+    <ul>
+      <li>構建不局限於特定預測目標（如 $\epsilon$-prediction、$v$-prediction、$x$-prediction），而推廣至<strong>一般線性預測目標</strong>。</li>
+      <li>不同預測目標對應不同的纖維結構與風險曲線，但構建方法統一適用。</li>
+    </ul>
+  </li>
+  <li><strong>經驗普適性與 frozen analytic template</strong>：
+    <ul>
+      <li>每個 model-agnostic kinetic baseline 自行確定一個「動能參考座標」。</li>
+      <li>在此座標下，不同模型（不同架構、訓練設定、資料集）的 fiberwise-risk 曲線歸一化為單位面積後<strong>高度對齊</strong>。</li>
+      <li>對應的排程形變（schedule deformation）也高度對齊——暗示<strong>經驗普適性</strong>。</li>
+      <li>此普適性使一個<strong>frozen analytic allocation template</strong>（凍結的解析分配模板）即可保留大部分 model-aware 改進，無需逐模型重新估計風險。</li>
+    </ul>
+  </li>
+  <li><strong>預訓練 checkpoint 診斷的延伸</strong>：
+    <ul>
+      <li>歸一化風險一致性延伸至更大的<strong>條件潛在擴散模型（conditional latent diffusion）</strong>與 <strong>2-RF（two-stage rectified flow）</strong>模型。</li>
+      <li>說明此框架不限於小模型/無條件生成，對大規模條件生成同樣適用。</li>
+    </ul>
+  </li>
+</ol>
+
+<div class="callout amber">
+  <strong>關鍵設計 — 為何「纖維結構」是正確的抽象：</strong>在固定 $(t, x_t)$ 處，產生同一狀態的 signal/noise 分解不唯一——這些分解構成仿射纖維。模型預測誤差本質上是在「正確分解」與「模型預測的分解」之間的偏離。纖維結構提供了一個自然的幾何框架來度量此偏離：在纖維內，不同分解之間的 OT 成本恰好捕捉了「預測器把多少 signal 誤認為 noise（或反之）」的誤差。這比直接度量預測值與真值之差更具幾何意義，因為它直接在 signal/noise 分解的空間上操作。
+</div>
+
+<h3 id="p1-math">數學推導</h3>
+
+<h4>仿射機率路徑與 signal/noise 係數</h4>
+<p>擴散與流匹配的機率路徑以仿射形式參數化。給定資料 $x_1 \sim p_{\text{data}}$ 與雜訊 $\epsilon \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$，中間狀態為：</p>
+<div class="math-block">
+$$ x_t = \alpha(t)\, x_1 + \sigma(t)\, \epsilon, \quad t \in [0, 1] $$
+</div>
+<p>其中 $\alpha(t)$ 為 signal 係數、$\sigma(t)$ 為 noise 係數。邊界條件通常為 $\alpha(0) = 0,\; \sigma(0) = 1$（純雜訊起點）與 $\alpha(1) = 1,\; \sigma(1) = 0$（純資料終點）。不同的 $(\alpha, \sigma)$ 曲線定義不同排程。</p>
+
+<h4>動能作用量（kinetic action）</h4>
+<p>在係數路徑 $(\alpha(t), \sigma(t))$ 上定義動能作用量，衡量路徑的「傳輸成本」或「彎曲程度」：</p>
+<div class="math-block">
+$$ \mathcal{S}[\alpha, \sigma] = \int_0^1 \left\| \dot{\mathbf{c}}(t) \right\|^2_{\mathbf{G}(\mathbf{c}(t))}\, dt, \quad \mathbf{c}(t) = \begin{pmatrix} \alpha(t) \\ \sigma(t) \end{pmatrix} $$
+</div>
+<p>其中 $\dot{\mathbf{c}}(t) = (\dot{\alpha}(t), \dot{\sigma}(t))^\top$ 為係數路徑的切向量，$\mathbf{G}(\mathbf{c})$ 為度量張量（可由 OT 理論中的 Wasserstein 度量啟發）。最小化 $\mathcal{S}$ 給出 OT 啟發的最優排程——此即 model-agnostic baseline 的來源。</p>
+
+<h4>仿射纖維（affine fiber）定義</h4>
+<p>在固定時間 $t$ 與狀態 $x_t$ 處，考慮所有滿足 $x_t = \alpha'\, x_1 + \sigma'\, \epsilon$ 的 signal/noise 分解 $(\alpha', \sigma')$。固定 $x_t$ 後，$(\alpha', \sigma')$ 受到約束——相容分解構成一個仿射子空間：</p>
+<div class="math-block">
+$$ \mathcal{F}_{t, x_t} = \left\{ (\alpha', \sigma') \;\middle|\; x_t = \alpha'\, x_1 + \sigma'\, \epsilon \right\} \subseteq \mathbb{R}^2 $$
+</div>
+<p>此仿射纖維 $\mathcal{F}_{t, x_t}$ 是係數空間中一條直線（或更高維的仿射子空間，取決於預測目標的維度）。纖維上的不同點對應不同的 signal/noise 拆分方式，它們都與觀測狀態 $x_t$ 相容。</p>
+
+<h4>逐纖維預測風險（fiberwise prediction risk）</h4>
+<p>模型預測器 $\hat{x}_\theta(t, x_t)$ 在給定 $(t, x_t)$ 時誘導一個特定的 signal/noise 分解 $(\hat{\alpha}, \hat{\sigma}) \in \mathcal{F}_{t, x_t}$。真實分解 $(\alpha^*, \sigma^*) \in \mathcal{F}_{t, x_t}$ 與預測分解之間的差異以纖維內 OT 成本度量。</p>
+<p>定義纖維內 OT 成本為真實分解與預測分解之間的最優傳輸成本：</p>
+<div class="math-block">
+$$ d_{\text{OT}}\!\left( (\alpha^*, \sigma^*),\, (\hat{\alpha}, \hat{\sigma}) \;\middle|\; \mathcal{F}_{t, x_t} \right) = \inf_{\pi \in \Pi(\mu^*, \hat{\mu})} \int c\!\left( \mathbf{c}^*,\, \hat{\mathbf{c}} \right) d\pi $$
+</div>
+<p>其中 $\mu^*, \hat{\mu}$ 分別為真實與預測分解在纖維上誘導的測度，$c(\cdot, \cdot)$ 為成本函數（如平方距離），$\Pi(\mu^*, \hat{\mu})$ 為耦合集合。在纖維上平均此成本，得到 fiberwise prediction risk：</p>
+<div class="math-block">
+$$ R(t) = \mathbb{E}_{x_t \sim p_t}\!\left[ d_{\text{OT}}\!\left( \mathbf{c}^*(t, x_t),\, \hat{\mathbf{c}}_\theta(t, x_t) \;\middle|\; \mathcal{F}_{t, x_t} \right) \right] $$
+</div>
+<p>$R(t)$ 是時間的函數，衡量模型在時間 $t$ 處的平均預測誤差。關鍵實用性質：$R(t)$ 可從<strong>早期基線 checkpoint</strong>估計，不需完整訓練。</p>
+
+<h4>閉式最優時間分配</h4>
+<p>在固定係數曲線 $\mathbf{c}(t)$ 上，將 fiberwise prediction risk $R(t)$ 與動能作用量結合。引入時間重分配函數 $w(t) \geq 0$，滿足歸一化 $\int_0^1 w(t)\, dt = 1$。組合目標為：</p>
+<div class="math-block">
+$$ \min_{w(t)} \; \int_0^1 \left[ \frac{\left\| \dot{\mathbf{c}}(t) \right\|^2_{\mathbf{G}}}{w(t)} + \lambda \, R(t)\, w(t) \right] dt \quad \text{s.t.} \quad \int_0^1 w(t)\, dt = 1 $$
+</div>
+<p>第一項為重分配後的動能作用量（時間拉伸使路徑「變直」），第二項為加權預測風險（在高風險處分配更多時間預算）。$\lambda > 0$ 為權衡超參數。此優化有<strong>閉式解</strong>——由變分法（Euler-Lagrange / KKT 條件）推得：</p>
+<div class="math-block">
+$$ w^*(t) = \frac{\left\| \dot{\mathbf{c}}(t) \right\|_{\mathbf{G}} \, \Big/ \, \sqrt{\lambda\, R(t)}}{\displaystyle\int_0^1 \left\| \dot{\mathbf{c}}(s) \right\|_{\mathbf{G}} \, \Big/ \, \sqrt{\lambda\, R(s)}\; ds} $$
+</div>
+<p>此閉式分配的直覺：最優時間密度 $w^*(t)$ 正比於 $\|\dot{\mathbf{c}}\|_{\mathbf{G}} / \sqrt{R(t)}$——在動能高（路徑彎曲）且風險低（模型預測好）的地方加速，在風險高（模型預測差）的地方放慢。歸一化確保總時間預算守恆。</p>
+
+<div class="callout">
+  <strong>閉式解的意義：</strong>不同於需要迭代優化的排程搜索方法，本文的最優時間分配 $w^*(t)$ 有解析表達式。給定係數曲線 $\mathbf{c}(t)$ 與估計的風險曲線 $R(t)$，$w^*(t)$ 可直接計算。這使得 model-aware 排程的構建在計算上高效且可重現。
+</div>
+
+<h4>推廣至一般線性預測目標</h4>
+<p>預測目標可一般化為資料與雜訊的線性組合 $y = a\, x_1 + b\, \epsilon$，其中 $(a, b)$ 為預測目標的線性係數（如 $\epsilon$-prediction: $(a,b)=(0,1)$；$v$-prediction: $(a,b)=(-1,1)$；$x$-prediction: $(a,b)=(1,0)$）。纖維結構與 fiberwise risk 構建對一般線性目標統一適用：</p>
+<div class="math-block">
+$$ y_\theta(t, x_t) = a\, \hat{x}_\theta(t, x_t) + b\, \hat{\epsilon}_\theta(t, x_t), \quad \mathcal{F}_{t, x_t}^{(a,b)} = \left\{ (a', b') \;\middle|\; y = a'\, x_1 + b'\, \epsilon \right\} $$
+</div>
+<p>不同預測目標給出不同纖維結構與風險曲線，但閉式時間分配的構建方法不變。</p>
+
+<h4>經驗普適性與動能參考座標</h4>
+<p>每個 model-agnostic kinetic baseline 自行確定一個「動能參考座標」$\tau$——一個由動能作用量定義的內稟時間座標。在 $\tau$ 座標下，不同模型的 fiberwise-risk 曲線歸一化為單位面積後高度對齊：</p>
+<div class="math-block">
+$$ \tilde{R}_i(\tau) = \frac{R_i(\tau)}{\int R_i(\tau')\, d\tau'}, \quad \tilde{R}_i(\tau) \approx \tilde{R}_j(\tau) \quad \text{for different models } i, j $$
+</div>
+<p>對應的排程形變 $w^*_i(\tau)$ 也高度對齊。此經驗普適性使一個 frozen analytic template $\tilde{R}_{\text{template}}(\tau)$ 即可近似任意模型的風險曲線，無需逐模型估計。</p>
+
+<h4>Frozen analytic allocation template</h4>
+<p>將普適的歸一化風險曲線 $\tilde{R}_{\text{template}}(\tau)$ 代入閉式解，得到 frozen 分配模板：</p>
+<div class="math-block">
+$$ w_{\text{frozen}}^*(\tau) = \frac{\left\| \dot{\mathbf{c}}(\tau) \right\|_{\mathbf{G}} \, \Big/ \, \sqrt{\lambda\, \tilde{R}_{\text{template}}(\tau)}}{\displaystyle\int \left\| \dot{\mathbf{c}}(\tau') \right\|_{\mathbf{G}} \, \Big/ \, \sqrt{\lambda\, \tilde{R}_{\text{template}}(\tau')}\; d\tau'} $$
+</div>
+<p>此模板保留大部分 model-aware 改進，且<strong>不需風險估計、不需模型特定擬合</strong>——可直接應用於新模型。</p>
+
+<h3 id="p1-exp">實驗結果</h3>
+
+<h4>主要設定</h4>
+<table class="info">
+  <tr><td>評估範圍</td><td>DDPM 與 flow matching</td></tr>
+  <tr><td>變動維度</td><td>預測目標（prediction targets）、訓練設定、風險估計 checkpoint、資料集、架構</td></tr>
+  <tr><td>基線</td><td>強 OT / kinetic-action baselines（model-agnostic）</td></tr>
+  <tr><td>延伸診斷</td><td>更大條件潛在擴散模型、2-RF（two-stage rectified flow）模型</td></tr>
+  <tr><td>關鍵指標</td><td>FID（Fréchet Inception Distance）、NFE（number of function evaluations）</td></tr>
+</table>
+
+<h4>關鍵定量結果</h4>
+<div class="callout green">
+  <strong>核心結果：</strong>
+  <ul>
+    <li><strong>CIFAR-10 flow matching</strong>：在 16 NFE 下，model-aware 排程實現 <strong>38.6% 相對 FID 下降</strong>——這是本文最突出的單一數字結果。</li>
+    <li><strong>一致性超越</strong>：在所有評估維度（預測目標、訓練設定、風險估計 checkpoint、資料集、架構）上，model-aware 排程<strong>一致</strong>超越強基線。</li>
+    <li><strong>風險曲線普適性</strong>：不同模型/設定的 fiberwise-risk 曲線歸一化後高度對齊。</li>
+    <li><strong>排程形變對齊</strong>：對應的 schedule deformation 也高度對齊，暗示經驗普適性。</li>
+    <li><strong>Frozen template 有效性</strong>：frozen analytic allocation template 保留大部分 model-aware 改進，無需進一步風險估計或模型特定擬合。</li>
+    <li><strong>大模型延伸</strong>：歸一化風險一致性延伸至更大條件潛在擴散與 2-RF 模型。</li>
+  </ul>
+</div>
+
+<h4>消融與機制驗證</h4>
+<table class="info">
+  <tr><td>預測目標</td><td>不同 prediction targets（$\epsilon$-pred, $v$-pred, $x$-pred 等）下 model-aware 排程一致優於基線</td></tr>
+  <tr><td>訓練設定</td><td>不同訓練配置下排程改進一致</td></tr>
+  <tr><td>風險估計 checkpoint</td><td>早期基線 checkpoint 即足以估計有效風險曲線</td></tr>
+  <tr><td>資料集</td><td>跨資料集（含 CIFAR-10）改進一致</td></tr>
+  <tr><td>架構</td><td>跨架構改進一致</td></tr>
+  <tr><td>大模型診斷</td><td>條件潛在擴散與 2-RF 模型的歸一化風險曲線也對齊</td></tr>
+  <tr><td>Frozen template</td><td>保留大部分改進，無需逐模型風險估計</td></tr>
+</table>
+
+<div class="callout amber">
+  <strong>結果解讀：</strong>38.6% 相對 FID 下降是在<strong>固定 16 NFE</strong>下的結果——這意味著在相同取樣預算下，model-aware 排程顯著提升生成質量，而非以更多計算換取質量。經驗普適性的發現尤其重要：如果不同模型的風險曲線本質上相似，那麼 model-aware 排程的實用門檻大為降低——一個通用模板即可推廣，不需為每個新模型重新估計風險。這對大規模部署（如 Stable Diffusion 級模型）有直接實用價值。
+</div>
+
+<h3 id="p1-contrib">貢獻與創新</h3>
+<ol>
+  <li><strong>仿射纖維結構的引入</strong>：在機率路徑的固定 $(t, x_t)$ 處識別出相容 signal/noise 分解構成仿射纖維，為度量預測誤差提供了正確的幾何框架。</li>
+  <li><strong>Fiberwise prediction risk 定義</strong>：透過在纖維內平均真實與預測分解之間的 OT 成本，首次將模型預測誤差以幾何方式量化並納入排程設計。</li>
+  <li><strong>閉式最優時間分配</strong>：將 fiberwise risk 與 kinetic action 結合，得到 closed-form 最優時間分配——計算高效、可重現，無需迭代優化。</li>
+  <li><strong>一般線性預測目標的推廣</strong>：構建不限於特定預測目標，統一適用於 $\epsilon$-prediction、$v$-prediction、$x$-prediction 等一般線性目標。</li>
+  <li><strong>經驗普適性的發現</strong>：不同模型/設定的歸一化風險曲線與排程形變高度對齊，暗示跨模型普適性——大幅降低實用門檻。</li>
+  <li><strong>Frozen analytic allocation template</strong>：基於普適性，一個凍結的解析模板即保留大部分改進，無需逐模型風險估計或特定擬合。</li>
+  <li><strong>大模型延伸驗證</strong>：歸一化風險一致性延伸至更大條件潛在擴散與 2-RF 模型，證明框架的規模化適用性。</li>
+  <li><strong>38.6% FID 下降的強結果</strong>：CIFAR-10 flow matching 16 NFE 下 38.6% 相對 FID 下降，在固定取樣預算下顯著超越強基線。</li>
+</ol>
+
+<h3 id="p1-app">應用場景</h3>
+<ul>
+  <li><strong>加速擴散取樣</strong>：在固定 NFE 預算下提升生成質量，或以更少 NFE 達到目標質量——直接適用於 DDPM、flow matching 的推理加速。</li>
+  <li><strong>流匹配訓練排程優化</strong>：以 model-aware 排程替換標準排程進行 flow matching 訓練，提升訓練效率與生成質量。</li>
+  <li><strong>大規模條件生成</strong>：條件潛在擴散模型（如 Stable Diffusion 級）的排程優化——frozen template 使部署無需逐模型擬合。</li>
+  <li><strong>Rectified flow / 2-RF 加速</strong>：2-RF 模型的風險一致性驗證表明框架適用於多階段 rectified flow 流程。</li>
+  <li><strong>通用排程模板部署</strong>：frozen analytic template 可作為「即插即用」的排程改進，適用於新模型而無需額外風險估計。</li>
+  <li><strong>預測目標選擇指引</strong>：fiberwise risk 框架可量化不同預測目標的誤差特性，為選擇最佳預測目標提供理論指引。</li>
+</ul>
+
+<div class="callout purple">
+  <strong>未來展望：</strong>經驗普適性的發現暗示可能存在更深層的理論解釋——為何不同模型/設定的風險曲線會對齊？理解此普適性的理論根源可能揭示擴散模型預測誤差的普適結構。此外，frozen template 的推廣可至更多模態（音訊、影片擴散）與更大規模模型。纖維結構的幾何視角也可能啟發擴散模型的其他改進方向（如取樣器設計、蒸餾）。
+</div>
+
+<h3 id="p1-res">代碼/資源</h3>
+<table class="info">
+  <tr><td>arXiv</td><td><a href="https://arxiv.org/abs/2609.11842" target="_blank" rel="noopener">https://arxiv.org/abs/2609.11842</a></td></tr>
+  <tr><td>PDF</td><td><a href="https://arxiv.org/pdf/2609.11842" target="_blank" rel="noopener">https://arxiv.org/pdf/2609.11842</a></td></tr>
+  <tr><td>HTML</td><td><a href="https://arxiv.org/html/2609.11842v1" target="_blank" rel="noopener">https://arxiv.org/html/2609.11842v1</a></td></tr>
+  <tr><td>DOI</td><td><a href="https://doi.org/10.48550/arXiv.2609.11842" target="_blank" rel="noopener">https://doi.org/10.48550/arXiv.2609.11842</a></td></tr>
+  <tr><td>類別</td><td>cs.LG · cs.AI</td></tr>
+  <tr><td>作者</td><td>Luyi Jia, Boyan Zhang, Yilun Liu, Steffen Rulands</td></tr>
+  <tr><td>提交日期</td><td>2026-09-10</td></tr>
+  <tr><td>GitHub</td><td>論文未提供 GitHub 連結（截至 arXiv 頁面）</td></tr>
+  <tr><td>可重現性</td><td>閉式時間分配可從論文公式直接實現；風險曲線可從早期 checkpoint 估計；frozen template 無需模型特定擬合</td></tr>
+  <tr><td>相關概念</td><td>Diffusion models, flow matching, schedule optimization, fiberwise optimal transport, kinetic action, time reparameterization, empirical universality, DDPM, rectified flow, prediction targets, FID, CIFAR-10</td></tr>
+</table>
+</section>
+
+<!-- ============ REFS ============ -->
+<section id="refs">
+<h2><span class="num">2.</span> 參考資料</h2>
+<ul>
+  <li><strong>論文</strong>：<a href="https://arxiv.org/abs/2609.11842" target="_blank" rel="noopener">arXiv:2609.11842 — Model-Aware Schedules Improve Generation via Fiberwise Optimal Transport</a></li>
+  <li><strong>作者</strong>：Luyi Jia, Boyan Zhang, Yilun Liu, Steffen Rulands</li>
+  <li><strong>類別</strong>：cs.LG（Machine Learning）· cs.AI（Artificial Intelligence）</li>
+  <li><strong>提交日期</strong>：2026-09-10</li>
+  <li><strong>DOI</strong>：<a href="https://doi.org/10.48550/arXiv.2609.11842" target="_blank" rel="noopener">https://doi.org/10.48550/arXiv.2609.11842</a></li>
+  <li><strong>關鍵詞</strong>：Diffusion models; flow matching; schedule optimization; fiberwise optimal transport; time reparameterization; empirical universality</li>
+  <li><strong>相關方法</strong>：DDPM (Denoising Diffusion Probabilistic Models), Flow Matching / Conditional Flow Matching, Rectified Flow, Optimal Transport, Kinetic Action, VP/VE Schedules, prediction targets ($\epsilon$/$v$/$x$-prediction), time reparameterization, Wasserstein metric, FID evaluation</li>
+</ul>
+</section>
+
+<footer>
+  <p>報告生成日期：2026-09-11 ｜ 研究來源：arXiv 2609.11842（經驗證元資料）<br>
+  本報告基於公開論文摘要與 arXiv 頁面元資料整理，數學符號以 MathJax 渲染。數學推導部分基於論文摘要描述的概念（affine fiber、fiberwise prediction risk、closed-form time allocation、kinetic action）進行合理的形式化重建，具體符號選擇可能與論文原文有所不同。由 <code>research-daily</code> agent 自動生成（headless 模式）。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>
